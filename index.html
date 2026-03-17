@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello World - Modern Web</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050505;
+            --text-color: #ffffff;
+            --primary-accent: #00f0ff;
+            --secondary-accent: #ff003c;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Animated Background Gradient */
+        .bg-gradient {
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at center, rgba(0, 240, 255, 0.1) 0%, rgba(255, 0, 60, 0.05) 30%, transparent 60%);
+            animation: rotate 20s linear infinite;
+            z-index: 0;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Glassmorphism Container */
+        .glass-container {
+            position: relative;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            padding: 4rem 6rem;
+            text-align: center;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transform: translateY(0);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .glass-container:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 40px 80px rgba(0, 240, 255, 0.15),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        /* Stylish Title Text */
+        h1 {
+            font-size: 6rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #ffffff 0%, #888888 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        /* Subtitle */
+        p {
+            font-size: 1.2rem;
+            font-weight: 300;
+            color: #a0a0a0;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 2.5rem;
+        }
+
+        /* Interactive Button */
+        .interactive-btn {
+            background: transparent;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 500;
+            padding: 1rem 2.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .interactive-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-accent), var(--secondary-accent));
+            z-index: -1;
+            transition: opacity 0.3s ease;
+            opacity: 0;
+        }
+
+        .interactive-btn:hover {
+            border-color: transparent;
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0, 240, 255, 0.3);
+            letter-spacing: 1px;
+        }
+
+        .interactive-btn:hover::before {
+            opacity: 1;
+        }
+
+        /* Floating Particles Canvas */
+        #particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            h1 { font-size: 4rem; }
+            .glass-container { padding: 3rem 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient background -->
+    <div class="bg-gradient"></div>
+    
+    <!-- Canvas for interactive particles -->
+    <canvas id="particles"></canvas>
+
+    <!-- Main Content Panel -->
+    <div class="glass-container">
+        <h1 id="title">HELLO WORLD</h1>
+        <p>Welcome to the Future of the Web</p>
+        <button class="interactive-btn" onclick="triggerEffect()">Initialize</button>
+    </div>
+
+    <script>
+        // --- 1. Background Particle System ---
+        const canvas = document.getElementById('particles');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let particlesArray = [];
+        const numberOfParticles = 70;
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2;
+                this.speedX = (Math.random() * 1) - 0.5;
+                this.speedY = (Math.random() * 1) - 0.5;
+                // Randomly assign either primary or secondary accent colors
+                this.color = Math.random() > 0.5 ? '#00f0ff' : '#ff003c';
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                
+                // Wrap around edges
+                if (this.x > canvas.width) this.x = 0;
+                if (this.x < 0) this.x = canvas.width;
+                if (this.y > canvas.height) this.y = 0;
+                if (this.y < 0) this.y = canvas.height;
+            }
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.globalAlpha = 0.6;
+                ctx.fill();
+            }
+        }
+
+        function init() {
+            particlesArray = [];
+            for (let i = 0; i < numberOfParticles; i++) {
+                particlesArray.push(new Particle());
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < particlesArray.length; i++) {
+                particlesArray[i].update();
+                particlesArray[i].draw();
+            }
+            requestAnimationFrame(animate);
+        }
+
+        init();
+        animate();
+
+        // Handle Window Resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            init();
+        });
+
+        // --- 2. Button Interaction Effect ---
+        function triggerEffect() {
+            const title = document.getElementById('title');
+            
+            // Pop effect on title
+            title.style.transform = 'scale(1.1)';
+            title.style.textShadow = '0 0 30px rgba(0, 240, 255, 0.8), 0 0 60px rgba(255, 0, 60, 0.6)';
+            
+            setTimeout(() => {
+                title.style.transform = 'scale(1)';
+                title.style.textShadow = 'none';
+            }, 400);
+
+            // Add an explosive burst of particles originating from center
+            for(let i = 0; i < 30; i++) {
+                const p = new Particle();
+                p.x = window.innerWidth / 2;
+                p.y = window.innerHeight / 2;
+                p.speedX = (Math.random() * 15) - 7.5;
+                p.speedY = (Math.random() * 15) - 7.5;
+                p.size = Math.random() * 4 + 1;
+                particlesArray.push(p);
+            }
+
+            // Optional: Limit total particles array size back down slowly if it gets too large
+            if(particlesArray.length > 200) {
+                particlesArray.splice(0, particlesArray.length - 200);
+            }
+        }
+    </script>
+</body>
+</html>
