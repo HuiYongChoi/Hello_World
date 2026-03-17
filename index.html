@@ -60,32 +60,82 @@
             cursor: pointer;
         }
 
-        /* Simple overlay UI */
-        .overlay {
-            position: relative;
-            z-index: 10;
+        /* HUD Style UI */
+        .hud-element {
+            position: absolute;
+            z-index: 20;
+            padding: 1.5rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-family: 'Outfit', sans-serif;
             pointer-events: none;
-            text-align: center;
-        }
-
-        h1#title {
-            visibility: hidden; /* Hidden but keeps space */
-            font-size: 8rem;
-            margin-bottom: 1rem;
-        }
-
-        p {
-            font-size: 1.2rem;
-            font-weight: 300;
-            color: #a0a0a0;
-            letter-spacing: 2px;
             text-transform: uppercase;
-            opacity: 0.6;
+            letter-spacing: 2px;
+            animation: fadeIn 1s ease-out;
         }
 
-        /* Responsive Design */
+        #date-box {
+            top: 0;
+            left: 0;
+            font-size: 0.9rem;
+            border-left: 2px solid var(--primary-accent);
+            margin: 2rem;
+        }
+
+        #location-box {
+            top: 0;
+            right: 0;
+            font-size: 0.9rem;
+            text-align: right;
+            border-right: 2px solid var(--secondary-accent);
+            margin: 2rem;
+        }
+
+        #clock-box {
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        #current-time {
+            font-size: 4rem;
+            font-weight: 800;
+            display: block;
+            line-height: 1;
+            background: linear-gradient(180deg, #fff 0%, rgba(255, 255, 255, 0.2) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        #interaction-hint {
+            font-size: 0.7rem;
+            opacity: 0.5;
+            letter-spacing: 4px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Particles Canvas */
+        #particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            cursor: pointer;
+        }
+
+        /* Responsive */
         @media (max-width: 768px) {
-            h1#title { font-size: 4rem; }
+            #current-time { font-size: 2.5rem; }
+            .hud-element { margin: 1rem; padding: 1rem; }
         }
     </style>
 </head>
@@ -94,12 +144,53 @@
     <div class="bg-gradient"></div>
     <canvas id="particles"></canvas>
 
-    <div class="overlay">
-        <h1 id="title">HELLO WORLD</h1>
-        <p>Click anywhere to interact</p>
+    <!-- HUD Elements -->
+    <div id="date-box" class="hud-element">
+        <div id="current-date"></div>
+        <div style="font-size: 0.6rem; opacity: 0.5; margin-top: 5px;">System Status: Active</div>
+    </div>
+
+    <div id="location-box" class="hud-element">
+        <div id="city">Searching...</div>
+        <div style="font-size: 0.6rem; opacity: 0.5; margin-top: 5px;">Node Location</div>
+    </div>
+
+    <div id="clock-box" class="hud-element">
+        <span id="current-time"></span>
+        <div id="interaction-hint">INTERACT TO DISPERSE</div>
     </div>
 
     <script>
+        // Update Date and Time
+        function updateDateTime() {
+            const now = new Date();
+            const dateOptions = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
+            const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            
+            document.getElementById('current-date').textContent = now.toLocaleDateString('ko-KR', dateOptions);
+            document.getElementById('current-time').textContent = now.toLocaleTimeString('ko-KR', timeOptions);
+        }
+        setInterval(updateDateTime, 1000);
+        updateDateTime();
+
+        // Get Location
+        async function getLocation() {
+            try {
+                // Using a fast, free IP-based geolocation API
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+                if (data.city && data.country_name) {
+                    document.getElementById('city').textContent = `${data.city}, ${data.country_name}`;
+                } else {
+                    document.getElementById('city').textContent = "Unknown Location";
+                }
+            } catch (error) {
+                console.error("Error fetching location:", error);
+                document.getElementById('city').textContent = "Location unavailable";
+            }
+        }
+        getLocation();
+
         const canvas = document.getElementById('particles');
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth;
@@ -178,17 +269,17 @@
             textCanvas.width = canvas.width;
             textCanvas.height = canvas.height;
             
-            let fontSize = canvas.width > 768 ? 130 : 70;
+            let fontSize = canvas.width > 768 ? 160 : 80;
             textCtx.fillStyle = 'white';
-            textCtx.font = `bold ${fontSize}px Outfit`;
+            textCtx.font = `900 ${fontSize}px Outfit`;
             textCtx.textAlign = 'center';
             textCtx.textBaseline = 'middle';
-            textCtx.fillText('HELLO WORLD', textCanvas.width / 2, textCanvas.height / 2);
+            textCtx.fillText('HELLO WORLD', textCanvas.width / 2, textCanvas.height / 2 - 50);
             
             const data = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height);
             
-            // Sample pixels (every 6th pixel for performance)
-            const gap = 6;
+            // Sample pixels (every 5th pixel for higher density/readability)
+            const gap = 5;
             for (let y = 0; y < textCanvas.height; y += gap) {
                 for (let x = 0; x < textCanvas.width; x += gap) {
                     if (data.data[(y * 4 * data.width) + (x * 4) + 3] > 128) {
