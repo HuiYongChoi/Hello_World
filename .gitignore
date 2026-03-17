@@ -1,3 +1,8 @@
+# Sensitive files
+AWS.txt
+*.pem
+*.key
+
 # OS generated files
 node_modules/
 .DS_Store
