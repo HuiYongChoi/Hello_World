@@ -329,7 +329,8 @@ function CategoryRadar({ property }: { property: Property }) {
           <RadarChart data={data} outerRadius="72%">
             <PolarGrid stroke="#1e293b" />
             <PolarAngleAxis dataKey="category" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-            <PolarRadiusAxis domain={[0, 100]} tick={{ fill: '#475569', fontSize: 9 }} />
+            {/* 눈금 숫자는 도형 위에 겹쳐 읽기를 방해합니다. 격자만 남기고 값은 툴팁으로 봅니다. */}
+            <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
             <Radar dataKey="score" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.28} />
             <Tooltip
               contentStyle={{
