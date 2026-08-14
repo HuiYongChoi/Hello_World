@@ -1,0 +1,63 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Outfit', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic',
+    sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: #070a12;
+  color: #e6ecf5;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 숫자 입력의 스피너 제거 — 금액 입력에서 방해됨 */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #26314a;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #36456a;
+}
+
+@media print {
+  body {
+    background: #fff;
+    color: #111;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-plain {
+    background: #fff !important;
+    color: #111 !important;
+    border-color: #ccc !important;
+  }
+}
