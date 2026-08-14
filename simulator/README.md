@@ -27,6 +27,19 @@ npm test         # 계산 엔진 단위 테스트
 
 입력값은 브라우저 localStorage에 자동 저장됩니다. 서버로 전송되는 데이터는 없습니다.
 
+## 배포
+
+CSS·JS를 문서 안에 전부 인라인해 **외부 요청이 0건인 단일 HTML**을 만듭니다. 오프라인에서도, 파일을 직접 열어도 그대로 동작합니다.
+
+```bash
+npm run standalone      # dist/standalone.html — 본문 조각 (호스트가 골격을 씌우는 환경용)
+npm run deploy:realty   # 완전한 HTML 문서 → 저장소 루트 realty/index.html
+```
+
+`deploy:realty`가 만든 파일이 GitHub Pages의 `/realty/` 경로로 서비스됩니다. 코드를 고친 뒤에는 이 명령을 다시 돌리고 커밋·푸시하면 반영됩니다.
+
+저장소 루트의 `.nojekyll`은 Pages가 Jekyll 처리를 건너뛰게 합니다.
+
 ## 화면 구성
 
 | 단계 | 화면 | 역할 |
