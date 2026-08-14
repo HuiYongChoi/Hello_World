@@ -16,6 +16,7 @@ export const baseProfile: Profile = {
   includeSpouseCashBeforeMarriage: false,
   termYears: 30,
   purchaseDate: '2026-11-01',
+  priceGrowthRate: 0.03,
   rateAdjust: 0,
   movingAndRepair: 3000000,
 };

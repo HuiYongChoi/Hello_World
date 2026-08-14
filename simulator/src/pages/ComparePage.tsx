@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Badge, Button, Card, Empty, SegmentedControl, Stat } from '../components/ui';
 import { money, percent, won } from '../engine/format';
 import { CONSTRAINT_LABELS, OBJECTIVE_LABELS, constraintAdvice } from '../engine/loan';
+import { leverageView } from '../engine/leverage';
 import { cellKey } from '../engine/matrix';
 import { useStore } from '../state/store';
 import type { CellResult, DerivedScenario, LoanResult, Objective, Property } from '../engine/types';
@@ -41,6 +42,8 @@ export function ComparePage() {
           />
         }
       >
+        <LeverageControl />
+
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-separate border-spacing-1">
             <thead>
@@ -166,6 +169,75 @@ export function ComparePage() {
   );
 }
 
+/**
+ * 가격상승률 가정 조절. 이 값 하나가 레버리지의 방향을 뒤집기 때문에
+ * 매트릭스 바로 위에 두어 조절하면서 셀 변화를 보게 합니다.
+ */
+function LeverageControl() {
+  const { profile, setProfile, matrix } = useStore();
+
+  const rates = Object.values(matrix.cells)
+    .map((c) => c.best?.rate)
+    .filter((r): r is number => typeof r === 'number');
+  const minRate = rates.length > 0 ? Math.min(...rates) : 0;
+  const maxRate = rates.length > 0 ? Math.max(...rates) : 0;
+  const growth = profile.priceGrowthRate;
+
+  const allBelow = rates.length > 0 && growth < minRate;
+  const allAbove = rates.length > 0 && growth > maxRate;
+
+  return (
+    <div className="mb-4 rounded-xl border border-slate-800 bg-slate-950/40 p-4 print-plain">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-xs font-semibold text-slate-200">연 가격상승률 가정</div>
+          <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-slate-500">
+            자기자본 수익률 ≈ 가격상승률 + 부채비율 × (가격상승률 − 금리). 배율은 곱셈,
+            금리는 스프레드 안의 한 항입니다. 그래서 <b>스프레드의 부호</b>가 먼저입니다.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min={-3}
+            max={12}
+            step={0.5}
+            value={Number((growth * 100).toFixed(1))}
+            onChange={(e) => setProfile({ priceGrowthRate: Number(e.target.value) / 100 })}
+            className="w-48 accent-sky-500"
+            aria-label="연 가격상승률 가정"
+          />
+          <span className="w-16 text-right text-lg font-semibold tabular-nums text-slate-100">
+            {(growth * 100).toFixed(1)}%
+          </span>
+        </div>
+      </div>
+
+      {rates.length > 0 && (
+        <p className="mt-3 text-[11px] leading-relaxed">
+          {allBelow ? (
+            <span className="text-rose-300">
+              가정한 상승률이 모든 상품 금리({(minRate * 100).toFixed(2)}% 이상)를 밑돕니다 —
+              이 구간에서는 <b>LTV가 높을수록 손실이 커집니다.</b> 비수도권 80% 우대가 오히려
+              불리하게 작동합니다.
+            </span>
+          ) : allAbove ? (
+            <span className="text-emerald-300">
+              가정한 상승률이 모든 상품 금리({(maxRate * 100).toFixed(2)}% 이하)를 웃돕니다 —
+              레버리지가 수익을 증폭하므로 LTV가 높을수록 유리합니다.
+            </span>
+          ) : (
+            <span className="text-amber-300">
+              손익분기 구간입니다 — 상품에 따라 레버리지 방향이 갈립니다 (금리{' '}
+              {(minRate * 100).toFixed(2)}~{(maxRate * 100).toFixed(2)}%).
+            </span>
+          )}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function MatrixCell({
   cell,
   property,
@@ -234,8 +306,37 @@ function MatrixCell({
           {CONSTRAINT_LABELS[r.bindingConstraint]}
         </Badge>
         <Badge tone="neutral">부담 {percent(r.dtiRatio, 0)}</Badge>
+        <LeverageBadge result={r} property={property} />
       </div>
     </button>
+  );
+}
+
+function LeverageBadge({ result, property }: { result: LoanResult; property: Property }) {
+  const { profile } = useStore();
+  const view = leverageView(result, property, profile.priceGrowthRate);
+  if (!view) return null;
+
+  return view.amplifying ? (
+    <Badge
+      tone="neutral"
+      title={`가격상승률 ${percent(view.unleveredReturn, 1)} > 금리 ${percent(
+        view.breakEvenGrowth,
+        2
+      )} — 레버리지가 수익을 증폭합니다 (배율 ${view.debtToEquity.toFixed(1)}배)`}
+    >
+      레버 {view.debtToEquity.toFixed(1)}배
+    </Badge>
+  ) : (
+    <Badge
+      tone="bad"
+      title={`가격상승률 ${percent(view.unleveredReturn, 1)} < 금리 ${percent(
+        view.breakEvenGrowth,
+        2
+      )} — 배율 ${view.debtToEquity.toFixed(1)}배가 손실을 키웁니다`}
+    >
+      레버리지 역효과
+    </Badge>
   );
 }
 
@@ -360,6 +461,8 @@ function ProductDetail({ result: r, property }: { result: LoanResult; property: 
         </p>
       </div>
 
+      <LeverageBlock result={r} property={property} />
+
       <div className="mt-4">
         <div className="mb-1.5 text-[11px] font-medium text-slate-400">부대비용</div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-400 sm:grid-cols-3">
@@ -390,6 +493,66 @@ function ProductDetail({ result: r, property }: { result: LoanResult; property: 
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+function LeverageBlock({ result, property }: { result: LoanResult; property: Property }) {
+  const { profile } = useStore();
+  const view = leverageView(result, property, profile.priceGrowthRate);
+  if (!view) return null;
+
+  const tone = view.amplifying ? 'text-emerald-300' : 'text-rose-300';
+
+  return (
+    <div className="mt-4">
+      <div className="mb-1.5 flex items-center gap-2">
+        <span className="text-[11px] font-medium text-slate-400">레버리지 방향</span>
+        {view.amplifying ? (
+          <Badge tone="good">수익 증폭</Badge>
+        ) : (
+          <Badge tone="bad">손실 증폭</Badge>
+        )}
+      </div>
+
+      <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2.5">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs tabular-nums">
+          <span className="text-slate-500">가격상승 {percent(view.unleveredReturn, 1)}</span>
+          <span className="text-slate-600">−</span>
+          <span className="text-slate-500">금리 {percent(view.breakEvenGrowth, 2)}</span>
+          <span className="text-slate-600">=</span>
+          <span className={tone}>스프레드 {percent(view.spread, 2)}</span>
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs tabular-nums">
+          <span className="text-slate-500">
+            자기자본 {money(view.equity)} · 배율 {view.debtToEquity.toFixed(2)}배
+          </span>
+          <span className="text-slate-600">→</span>
+          <span className={`font-semibold ${tone}`}>
+            자기자본 수익률 ≈ {percent(view.equityReturn, 1)}/년
+          </span>
+          <span className="text-slate-600">
+            (무차입 {percent(view.unleveredReturn, 1)})
+          </span>
+        </div>
+
+        <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+          {view.amplifying
+            ? `스프레드가 양수라 배율 ${view.debtToEquity.toFixed(
+                2
+              )}배가 수익을 키웁니다. 같은 조건이면 LTV가 높을수록 유리합니다.`
+            : `스프레드가 음수라 배율 ${view.debtToEquity.toFixed(
+                2
+              )}배가 손실을 키웁니다. 이 구간에서는 LTV가 높을수록 불리하며, 비수도권 80% 우대가 오히려 독이 됩니다.`}
+        </p>
+
+        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
+          방향을 보기 위한 1차 근사입니다. 원금상환·보유세·거래비용·양도세를 제외했으므로
+          수익률 예측치가 아닙니다. 실제 수익률은 부대비용 {money(result.costs.total)}만큼 더
+          낮고, 보유기간이 짧을수록 격차가 벌어집니다.
+        </p>
+      </div>
     </div>
   );
 }

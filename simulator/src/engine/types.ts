@@ -27,6 +27,8 @@ export interface Profile {
   termYears: number;
   /** 매수 예정일 — 시행 예정 제도의 적용 여부 판정 */
   purchaseDate: string;
+  /** 연 가격상승률 가정 — 레버리지 스프레드 판정용 */
+  priceGrowthRate: number;
   /** 민감도 분석용 금리 가산 (%p, 소수) */
   rateAdjust: number;
   movingAndRepair: number;
