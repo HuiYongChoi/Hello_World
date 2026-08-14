@@ -1,0 +1,209 @@
+{
+  "version": "2026-08",
+  "effectiveFrom": "2026-08-14",
+  "sunset": null,
+  "label": "2026년 8월 기준 (6·27 대책 반영, 8·13 대책 10월 시행분 포함)",
+  "disclaimer": "본 계산은 공개된 정책 정보를 전제로 한 추정치입니다. 실제 승인 한도·금리는 금융기관 심사 결과에 따릅니다. 규정 수치는 주택도시기금·한국주택금융공사·금융위원회 공고로 재확인이 필요합니다.",
+
+  "regions": [
+    {
+      "id": "gyeonggi",
+      "label": "경기권",
+      "isCapitalArea": true,
+      "note": "수도권 — 생애최초 LTV 우대(80%)가 적용되지 않고 70%로 제한됩니다. 은행 주담대는 6억원 절대 상한에 걸립니다.",
+      "checklist": [
+        "규제지역(투기과열·조정대상) 지정 여부 — LTV 50%로 급락",
+        "GTX 노선·개통 시기 (착공 전 호재는 할인 평가)",
+        "광역버스 배차 간격 및 서울 환승 횟수",
+        "은행 주담대 6억 상한 저촉 여부"
+      ]
+    },
+    {
+      "id": "changwon",
+      "label": "창원",
+      "isCapitalArea": false,
+      "note": "비수도권 — 생애최초 LTV 80% 우대가 유효합니다.",
+      "checklist": [
+        "창원국가산단 접근성 (성산·의창 우위)",
+        "진해구 생활권 분리 리스크",
+        "마산 원도심 대비 상남·용호 학군 격차",
+        "인구 유출 추세 — 미래가치 가중치 상향 필요"
+      ]
+    },
+    {
+      "id": "busan",
+      "label": "부산",
+      "isCapitalArea": false,
+      "note": "비수도권 — 생애최초 LTV 80% 우대가 유효합니다.",
+      "checklist": [
+        "도시철도 노선별 가치 차이 (2호선 서면축 프리미엄)",
+        "해운대·수영 프리미엄 대비 실입주 부담",
+        "산복도로 경사 및 단지 노후도",
+        "동부산 vs 서부산 인프라 격차"
+      ]
+    }
+  ],
+
+  "regulatedSigungu": [
+    "서울 전역",
+    "과천시",
+    "성남시 분당구",
+    "하남시",
+    "광명시",
+    "안양시 동안구",
+    "수원시 영통구",
+    "용인시 수지구"
+  ],
+
+  "products": [
+    {
+      "id": "didimdol_first",
+      "name": "내집마련 디딤돌 (생애최초)",
+      "type": "policy",
+      "shortName": "디딤돌",
+      "eligibility": {
+        "income_max": 70000000,
+        "networth_max": 511000000,
+        "house_price_max": 500000000,
+        "house_price_max_single": 300000000,
+        "area_max_sqm": 85,
+        "area_max_sqm_single": 60,
+        "requires_first_time": true,
+        "requires_no_house_household": true,
+        "min_age_if_single_household": 30
+      },
+      "limits": {
+        "cap": 240000000,
+        "cap_single_household": 200000000,
+        "ltv_non_capital": 0.8,
+        "ltv_capital": 0.7,
+        "dti": 0.6,
+        "dsr_exempt": true
+      },
+      "rate": {
+        "min": 0.0285,
+        "max": 0.0415,
+        "first_time_discount": 0.002
+      },
+      "obligations": { "move_in_months": 1, "residency_years": 2 },
+      "features": { "fixed_rate": true, "early_repayment_fee": true }
+    },
+    {
+      "id": "sinsaenga_special",
+      "name": "신생아 특례 디딤돌",
+      "type": "policy",
+      "shortName": "신생아특례",
+      "eligibility": {
+        "income_max": 200000000,
+        "networth_max": 511000000,
+        "house_price_max": 900000000,
+        "area_max_sqm": 85,
+        "requires_newborn_within_2y": true,
+        "requires_no_house_household": true
+      },
+      "limits": {
+        "cap": 500000000,
+        "ltv_non_capital": 0.8,
+        "ltv_capital": 0.7,
+        "dti": 0.6,
+        "dsr_exempt": true
+      },
+      "rate": { "min": 0.016, "max": 0.033, "first_time_discount": 0.001 },
+      "obligations": { "move_in_months": 1, "residency_years": 2 },
+      "features": { "fixed_rate": true, "early_repayment_fee": true }
+    },
+    {
+      "id": "bogeumjari_first",
+      "name": "보금자리론 (생애최초)",
+      "type": "policy",
+      "shortName": "보금자리론",
+      "eligibility": {
+        "income_max_single": 70000000,
+        "income_max_newlywed": 85000000,
+        "newlywed_single_earner_rule": true,
+        "newlywed_single_earner_max": 70000000,
+        "newlywed_income_effective_from": "2026-10-01",
+        "house_price_max": 600000000,
+        "requires_no_house_household": true
+      },
+      "limits": {
+        "cap": 420000000,
+        "ltv_non_capital": 0.8,
+        "ltv_capital": 0.7,
+        "dti": 0.6,
+        "dsr_exempt": true
+      },
+      "rate": {
+        "min": 0.046,
+        "max": 0.05,
+        "online_discount": 0.001,
+        "preferential_max": 0.01
+      },
+      "obligations": { "move_in_months": 1, "residency_years": 0 },
+      "features": {
+        "fixed_rate": true,
+        "early_repayment_fee": false,
+        "graduated_payment": true,
+        "graduated_age_max": 40
+      }
+    },
+    {
+      "id": "bank_mortgage",
+      "name": "은행 주택담보대출",
+      "type": "bank",
+      "shortName": "은행 주담대",
+      "eligibility": {},
+      "limits": {
+        "ltv_first_time_non_capital": 0.7,
+        "ltv_non_capital": 0.7,
+        "ltv_capital": 0.7,
+        "ltv_regulated": 0.5,
+        "absolute_cap_capital": 600000000,
+        "dsr": 0.4,
+        "stress_rate_add": 0.015,
+        "dsr_exempt": false
+      },
+      "rate": { "min": 0.041, "max": 0.048 },
+      "obligations": { "move_in_months": 6, "residency_years": 0 },
+      "features": { "fixed_rate": false, "early_repayment_fee": true }
+    }
+  ],
+
+  "costs": {
+    "acquisitionTax": {
+      "note": "주택 유상취득 1주택 기준. 6~9억 구간은 (가액×2/3억−3)/100 누진식.",
+      "brackets": [
+        { "maxPrice": 600000000, "kind": "flat", "rate": 0.01 },
+        { "maxPrice": 900000000, "kind": "linear_6_9" },
+        { "maxPrice": null, "kind": "flat", "rate": 0.03 }
+      ],
+      "localEducationTaxRatio": 0.1,
+      "ruralTaxRate": 0.002,
+      "ruralTaxAreaThresholdSqm": 85,
+      "firstTimeReliefMax": 2000000,
+      "firstTimeReliefPriceMax": 1200000000
+    },
+    "brokerage": {
+      "note": "매매 상한요율. 실제는 협의로 낮아질 수 있습니다.",
+      "brackets": [
+        { "maxPrice": 50000000, "rate": 0.006, "cap": 250000 },
+        { "maxPrice": 200000000, "rate": 0.005, "cap": 800000 },
+        { "maxPrice": 900000000, "rate": 0.004, "cap": null },
+        { "maxPrice": 1200000000, "rate": 0.005, "cap": null },
+        { "maxPrice": 1500000000, "rate": 0.006, "cap": null },
+        { "maxPrice": null, "rate": 0.007, "cap": null }
+      ],
+      "vatRatio": 0.1
+    },
+    "legalAndBondDefault": 1000000,
+    "movingAndRepairDefault": 3000000
+  },
+
+  "defaults": {
+    "termYears": 30,
+    "minEquityRatio": 0,
+    "dtiSafeLine": 0.35,
+    "dtiWarnLine": 0.4,
+    "cashTightRatio": 0.9
+  }
+}

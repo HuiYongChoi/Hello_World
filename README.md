@@ -1,3 +1,7 @@
+> **📊 [주택 매수 의사결정 시뮬레이터](./simulator/)** — 대출 시나리오 계산과 물건 입지 평가를 한 화면에서 결합한 도구가 `simulator/` 디렉터리에 있습니다. 실행 방법은 [simulator/README.md](./simulator/README.md)를 참고하세요.
+
+---
+
 # Hello-u: 현대적 텍스트 파티클 대시보드
 
 미래지향적 스타일의 HUD(Head-Up Display)와 상호작용하는 텍스트 파티클 시스템이 결합된 웹 페이지입니다.
