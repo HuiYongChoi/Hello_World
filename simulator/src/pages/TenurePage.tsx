@@ -10,6 +10,7 @@ import {
   type TenureKind,
   type TenureLeg,
 } from '../engine/tenure';
+import { propertyThesis } from '../engine/thesis';
 import { useStore } from '../state/store';
 
 /** 소수로 든 비율을 %로 보여주고 받는 입력 */
@@ -284,6 +285,17 @@ export function TenurePage() {
           />
         </div>
       </Card>
+
+      {property && propertyThesis(property).preferTenure && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+          <div className="text-xs font-medium text-amber-200">
+            애매 구간 물건입니다 — 이 화면이 그래서 중요합니다
+          </div>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+            {propertyThesis(property).reason} {propertyThesis(property).advice}
+          </p>
+        </div>
+      )}
 
       {!loan || !result ? (
         <Empty>

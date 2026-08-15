@@ -48,6 +48,20 @@ export interface Ruleset {
     legalAndBondDefault: number;
     movingAndRepairDefault: number;
   };
+  appraisal: {
+    note: string;
+    newBuildMaxAge: number;
+    newBuildMinPrice: Record<RegionId, number>;
+    newBuildMinPriceNote: string;
+    redevelopmentMinAge: number;
+    redevelopmentStageThreshold: number;
+    farThreshold: number;
+    redevelopmentNote: string;
+    districtTierReference: {
+      note: string;
+      changwon: { name: string; tier: number; note: string }[];
+    };
+  };
   tenure: {
     note: string;
     leaseBrokerage: {

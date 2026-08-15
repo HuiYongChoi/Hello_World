@@ -4,6 +4,7 @@ import { money, percent, won } from '../engine/format';
 import { CONSTRAINT_LABELS, OBJECTIVE_LABELS, constraintAdvice } from '../engine/loan';
 import { leverageView } from '../engine/leverage';
 import { cellKey } from '../engine/matrix';
+import { propertyThesis } from '../engine/thesis';
 import { useStore } from '../state/store';
 import type {
   CellResult,
@@ -86,7 +87,7 @@ export function ComparePage() {
                     <div className="mt-1 text-[11px] tabular-nums text-slate-400">
                       {money(p.price)} · 전용 {p.areaSqm}㎡
                     </div>
-                    <div className="mt-1.5">
+                    <div className="mt-1.5 flex flex-wrap gap-1">
                       <Badge
                         tone={
                           matrix.cells[cellKey(p.id, matrix.scenarios[0]?.id ?? '')]?.grade === 'D'
@@ -101,6 +102,7 @@ export function ComparePage() {
                         ).toFixed(0)}
                         점
                       </Badge>
+                      <ThesisBadge property={p} />
                     </div>
                   </th>
                   {matrix.scenarios.map((s) => (
@@ -369,6 +371,20 @@ function HiddenProductBadges({ summary }: { summary: CellSummary }) {
         </Badge>
       )}
     </div>
+  );
+}
+
+/**
+ * 물건 성격 배지. 입지 점수와 **합치지 않고** 나란히 둡니다 —
+ * 좋은 동네의 어중간한 구축이 가장 사기 쉬운 실수라, 두 축이 엇갈리는 걸 보여야 합니다.
+ */
+function ThesisBadge({ property }: { property: Property }) {
+  const t = propertyThesis(property);
+  const tone = t.kind === 'ambiguous' ? 'warn' : t.kind === 'stable' ? 'neutral' : 'good';
+  return (
+    <Badge tone={tone} title={`${t.reason}\n${t.advice}`}>
+      {t.label}
+    </Badge>
   );
 }
 

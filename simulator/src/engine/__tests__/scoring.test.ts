@@ -23,8 +23,11 @@ describe('지역별 가중치 프리셋', () => {
   it('창원은 지하철 가중치가 0이고 BRT·고용중심지가 높다', () => {
     const w = defaultWeights('changwon');
     expect(w.subwayWalk).toBe(0);
-    expect(w.brt).toBe(12);
     expect(w.jobCenter).toBe(18);
+    // BRT 축 위에 있느냐가 창원의 갈림길이라, 교통 지표 중 가장 무겁습니다.
+    expect(w.brt).toBe(16);
+    expect(w.brt).toBeGreaterThan(w.arterialRoad);
+    expect(w.brt).toBeGreaterThan(defaultWeights('busan').brt);
   });
 
   it('경기권은 GTX와 서울 통근이 살아있고 창원·부산은 0이다', () => {

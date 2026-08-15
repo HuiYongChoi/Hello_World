@@ -8,7 +8,8 @@ export type IndicatorKind =
   | 'households'
   | 'year'
   | 'parking'
-  | 'supply';
+  | 'supply'
+  | 'far';
 
 export interface Indicator {
   id: string;
@@ -69,10 +70,10 @@ export const INDICATORS: Indicator[] = [
     id: 'brt',
     category: 'transit',
     label: 'BRT·간선버스 접근',
-    hint: '분 — 지하철 부재 지역의 대체 축',
+    hint: '분 — 창원은 BRT 축 위에 있느냐가 갈림길입니다',
     kind: 'minutes',
-    range: [3, 20],
-    weights: { gyeonggi: 3, changwon: 12, busan: 5 },
+    range: [3, 15],
+    weights: { gyeonggi: 3, changwon: 16, busan: 5 },
   },
   {
     id: 'arterialRoad',
@@ -247,6 +248,30 @@ export const INDICATORS: Indicator[] = [
     kind: 'scale5',
     weights: { gyeonggi: 4, changwon: 4, busan: 4 },
   },
+  {
+    id: 'redevelopmentStage',
+    category: 'future',
+    label: '재건축·재개발 단계',
+    hint: '1=소식 없음 / 2=논의 / 3=추진위 / 4=조합설립 / 5=사업시행인가 이상',
+    kind: 'scale5',
+    weights: { gyeonggi: 4, changwon: 12, busan: 8 },
+  },
+  {
+    id: 'floorAreaRatio',
+    category: 'future',
+    label: '용적률',
+    hint: '% — 낮을수록 재건축 사업성이 납니다 (150% 만점 · 300% 0점)',
+    kind: 'far',
+    weights: { gyeonggi: 2, changwon: 8, busan: 5 },
+  },
+  {
+    id: 'districtTier',
+    category: 'future',
+    label: '생활권 티어',
+    hint: '1~5단계 — 합의된 주관 판단입니다. 창원 참고: 용호동 5 / 가음정 4 / 마산·진해 2',
+    kind: 'scale5',
+    weights: { gyeonggi: 5, changwon: 12, busan: 8 },
+  },
 ];
 
 export const PENALTIES: { id: string; label: string; points: number }[] = [
@@ -286,6 +311,9 @@ export function normalize(indicator: Indicator, raw: number): number {
     case 'supply':
       // 3년 공급 0세대 100점 → 10,000세대 0점
       return clamp(100 * (1 - raw / 10000), 0, 100);
+    case 'far':
+      // 용적률 150% 이하 100점 → 300% 이상 0점. 낮아야 재건축 사업성이 납니다.
+      return clamp(100 * (1 - (raw - 150) / 150), 0, 100);
   }
 }
 
@@ -368,6 +396,8 @@ export function defaultRaw(ind: Indicator): number {
       return 1;
     case 'supply':
       return 3000;
+    case 'far':
+      return 220;
   }
 }
 

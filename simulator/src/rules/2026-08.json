@@ -199,6 +199,34 @@
     "movingAndRepairDefault": 3000000
   },
 
+  "appraisal": {
+    "note": "물건 성격 판정용 가정값. 정책 수치가 아니라 시장 판단이므로 실측·합의로 갱신해야 합니다.",
+
+    "newBuildMaxAge": 7,
+    "newBuildMinPrice": {
+      "gyeonggi": 600000000,
+      "changwon": 450000000,
+      "busan": 500000000
+    },
+    "newBuildMinPriceNote": "이 가격 아래에서는 해당 지역에 신축 매물이 사실상 없다고 보는 선. 창원 4.5억은 실거래 확인 전 자리표시자입니다.",
+
+    "redevelopmentMinAge": 30,
+    "redevelopmentStageThreshold": 3,
+    "farThreshold": 200,
+    "redevelopmentNote": "연식만으로는 재건축 가치가 생기지 않습니다. 용적률이 낮아야 사업성이 납니다.",
+
+    "districtTierReference": {
+      "note": "생활권 티어 참고표. 객관적 지표가 아니라 합의된 주관 판단이며, 물건별로 직접 조정하세요.",
+      "changwon": [
+        { "name": "용호동", "tier": 5, "note": "이미 크게 오른 선도 생활권 — 추가 상승 여력은 그만큼 얇습니다" },
+        { "name": "가음정사거리 일대", "tier": 4, "note": "다음 차례로 지목된 축" },
+        { "name": "상남·중앙동", "tier": 4, "note": "상권·학원가 중심" },
+        { "name": "그 외 성산·의창", "tier": 3, "note": "기본값" },
+        { "name": "마산·진해 생활권", "tier": 2, "note": "생활권 분리 리스크" }
+      ]
+    }
+  },
+
   "tenure": {
     "note": "3-way 거주형태 비교용. 세율·상한은 제도값이고, assumptionDefaults 만 시장 가정값 자리표시자입니다.",
 

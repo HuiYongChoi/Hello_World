@@ -1,0 +1,101 @@
+import { describe, expect, it } from 'vitest';
+import { normalize, scoreProperty, INDICATORS } from '../scoring';
+import { hasRedevelopmentCase, propertyThesis } from '../thesis';
+import { makeProperty } from './fixtures';
+
+const thisYear = new Date().getFullYear();
+const indicator = (id: string) => INDICATORS.find((i) => i.id === id)!;
+
+describe('물건 성격 판정', () => {
+  it('7년 이내는 신축으로 본다', () => {
+    const t = propertyThesis(makeProperty({ builtYear: thisYear - 3 }));
+    expect(t.kind).toBe('newBuild');
+    expect(t.preferTenure).toBe(false);
+  });
+
+  it('재건축 단계가 추진위 이상이면 연식·용적률과 무관하게 재건축 기대로 본다', () => {
+    const t = propertyThesis(
+      makeProperty({ builtYear: thisYear - 20, scores: { redevelopmentStage: 4 } })
+    );
+    expect(t.kind).toBe('redevelopment');
+  });
+
+  it('연식만 오래됐고 용적률이 높으면 재건축 기대가 아니다', () => {
+    // 사업성이 안 나는 고용적률 구축 — 가장 흔한 함정
+    expect(
+      hasRedevelopmentCase(
+        makeProperty({ builtYear: thisYear - 35, scores: { floorAreaRatio: 280 } })
+      )
+    ).toBe(false);
+  });
+
+  it('오래됐고 용적률이 낮으면 단계가 없어도 재건축 기대로 본다', () => {
+    const t = propertyThesis(
+      makeProperty({ builtYear: thisYear - 35, scores: { floorAreaRatio: 180 } })
+    );
+    expect(t.kind).toBe('redevelopment');
+  });
+
+  it('신축도 재건축도 아닌 저가 구축은 애매 구간으로 잡고 임차 비교로 보낸다', () => {
+    // 창원 3.8억 · 2003년 준공 · 재건축 소식 없음 — 논의에서 나온 바로 그 조합
+    const t = propertyThesis(
+      makeProperty({ price: 380000000, builtYear: 2003, scores: { floorAreaRatio: 250 } })
+    );
+    expect(t.kind).toBe('ambiguous');
+    expect(t.preferTenure).toBe(true);
+    expect(t.advice).toContain('임차');
+  });
+
+  it('신축 하한 위 가격대면 애매 구간이 아니다', () => {
+    const t = propertyThesis(
+      makeProperty({ price: 520000000, builtYear: 2003, scores: { floorAreaRatio: 250 } })
+    );
+    expect(t.kind).toBe('stable');
+    expect(t.preferTenure).toBe(false);
+  });
+
+  it('입지 점수와 성격 판정은 서로 독립이다 — 좋은 동네의 어중간한 구축이 존재한다', () => {
+    const property = makeProperty({
+      price: 380000000,
+      builtYear: 2003,
+      scores: { floorAreaRatio: 250, districtTier: 5, brt: 3, commuteSelf: 15, jobCenter: 12 },
+    });
+    expect(scoreProperty(property).total).toBeGreaterThan(60);
+    expect(propertyThesis(property).kind).toBe('ambiguous');
+  });
+});
+
+describe('재건축·생활권 지표', () => {
+  it('용적률은 낮을수록 높은 점수를 받는다', () => {
+    const far = indicator('floorAreaRatio');
+    expect(normalize(far, 150)).toBeCloseTo(100, 6);
+    expect(normalize(far, 300)).toBeCloseTo(0, 6);
+    expect(normalize(far, 220)).toBeGreaterThan(normalize(far, 260));
+  });
+
+  it('창원은 BRT·재건축·생활권 가중치가 수도권보다 높다', () => {
+    for (const id of ['brt', 'redevelopmentStage', 'districtTier', 'floorAreaRatio']) {
+      const w = indicator(id).weights;
+      expect(w.changwon).toBeGreaterThan(w.gyeonggi);
+    }
+  });
+
+  it('재건축 단계가 오르면 총점이 오른다 — 연식 감점을 상쇄할 통로가 생겼다', () => {
+    const old = makeProperty({ builtYear: 1990 });
+    const noCase = scoreProperty({ ...old, scores: { redevelopmentStage: 1, floorAreaRatio: 280 } });
+    const withCase = scoreProperty({
+      ...old,
+      scores: { redevelopmentStage: 5, floorAreaRatio: 170 },
+    });
+    expect(withCase.total).toBeGreaterThan(noCase.total);
+  });
+});
+
+describe('표기', () => {
+  it('신축 하한을 반올림해 버리지 않는다 — 4.5억이 5억으로 보이면 안 됩니다', () => {
+    const t = propertyThesis(
+      makeProperty({ price: 380000000, builtYear: 2003, scores: { floorAreaRatio: 250 } })
+    );
+    expect(t.reason).toContain('4.50억');
+  });
+});
