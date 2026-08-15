@@ -52,18 +52,73 @@ const TONE: Record<TenureKind, { bar: string; text: string; ring: string }> = {
   },
 };
 
-function Row({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Row({
+  label,
+  value,
+  hint,
+  tone,
+  strong,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: string;
+  strong?: boolean;
+}) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-1">
-      <span className="text-[11px] text-slate-500">{label}</span>
-      <span className={`text-xs tabular-nums ${tone ?? 'text-slate-300'}`}>{value}</span>
+      <span className={`text-[11px] ${strong ? 'text-slate-300' : 'text-slate-500'}`}>
+        {label}
+        {hint && <span className="ml-1 text-slate-600">{hint}</span>}
+      </span>
+      <span
+        className={`tabular-nums ${strong ? 'text-sm font-semibold' : 'text-xs'} ${
+          tone ?? 'text-slate-300'
+        }`}
+      >
+        {value}
+      </span>
     </div>
   );
 }
 
-function LegCard({ leg, best, max }: { leg: TenureLeg; best: boolean; max: number }) {
+/** 단계 머리표 — ① 시작 ② 사는 동안 ③ 끝 */
+function Stage({ n, title }: { n: string; title: string }) {
+  return (
+    <div className="mt-3 mb-1 flex items-center gap-1.5 border-t border-slate-800/70 pt-2.5">
+      <span className="flex h-4 w-4 items-center justify-center rounded bg-slate-800 text-[9px] text-slate-400">
+        {n}
+      </span>
+      <span className="text-[11px] font-medium text-slate-400">{title}</span>
+    </div>
+  );
+}
+
+/**
+ * 한 갈래의 자금 흐름을 시간 순서로 세웁니다.
+ *
+ * 예전 카드는 "초기 투입"과 "주식 초기 투입"을 나란히 뒀는데, 둘 다 *투입*이라는
+ * 말을 쓰면서 실제로는 **같은 목돈이 갈라지는 두 갈래**였습니다. 그래서 전세처럼
+ * 보증금이 목돈을 다 먹은 경우 "투자 0원인데 적립 7천만"이 모순처럼 보였습니다.
+ * 목돈(①)과 매달(②)을 시간축으로 분리하면 그 모순이 사라집니다.
+ */
+function LegCard({
+  leg,
+  best,
+  max,
+  equity,
+  years,
+}: {
+  leg: TenureLeg;
+  best: boolean;
+  max: number;
+  equity: number;
+  years: number;
+}) {
   const tone = TONE[leg.kind];
   const width = max > 0 ? Math.max(2, (leg.terminalWealth / max) * 100) : 0;
+  const monthlyHousing = leg.housingCashOut / (years * 12);
+  const monthlySaving = leg.netContribution / (years * 12);
 
   return (
     <div
@@ -73,37 +128,67 @@ function LegCard({ leg, best, max }: { leg: TenureLeg; best: boolean; max: numbe
     >
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-100">{leg.label}</h3>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap justify-end gap-1">
           {best && <Badge tone="info">종료자산 최대</Badge>}
           {!leg.feasible && <Badge tone="bad">자금 부족</Badge>}
           {leg.feasible && leg.liquidityRisk && <Badge tone="warn">중간에 잔고 소진</Badge>}
         </div>
       </div>
 
-      <div className={`mt-2 text-2xl font-semibold tabular-nums ${tone.text}`}>
-        {money(leg.terminalWealth)}
+      <div className="mt-2 flex items-baseline gap-2">
+        <span className={`text-2xl font-semibold tabular-nums ${tone.text}`}>
+          {money(leg.terminalWealth)}
+        </span>
+        <span className="text-[11px] text-slate-500">
+          연환산 {percent(leg.annualizedReturn, 1)}
+        </span>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800">
         <div className={`h-full ${tone.bar}`} style={{ width: `${width}%` }} />
       </div>
 
-      <div className="mt-3 divide-y divide-slate-800/70 border-t border-slate-800/70">
-        <Row label="초기 투입" value={money(leg.initialOutlay)} />
-        <Row label="주식 초기 투입" value={money(leg.initialStock)} />
-        <Row label="기간 중 주거비" value={money(leg.housingCashOut)} />
-        <Row
-          label="적립투자 누계"
-          value={money(leg.netContribution)}
-          tone={leg.netContribution > 0 ? 'text-emerald-300' : 'text-slate-300'}
-        />
-        <Row label="종료 주식잔고" value={money(leg.stockEnd)} />
-        <Row
-          label={leg.kind === 'buy' ? '매도 순수취' : '보증금 회수'}
-          value={money(leg.terminalNonStock)}
-        />
-        {!leg.feasible && (
-          <Row label="부족액" value={money(leg.shortfall)} tone="text-rose-300" />
-        )}
+      <Stage n="①" title={`목돈 ${money(equity)}을 어디에 두나`} />
+      <Row
+        label="주거에 묶임"
+        hint={leg.kind === 'buy' ? '(자기부담금+취득비용)' : '(보증금+중개보수)'}
+        value={money(leg.initialOutlay)}
+      />
+      <Row
+        label="투자에 남김"
+        hint="(주식·채권 등)"
+        value={money(leg.initialInvestment)}
+        tone={leg.initialInvestment > 0 ? 'text-emerald-300' : 'text-slate-500'}
+      />
+      {!leg.feasible && (
+        <Row label="모자란 돈" value={money(leg.shortfall)} tone="text-rose-300" />
+      )}
+
+      <Stage n="②" title={`${years}년 동안 매달`} />
+      <Row
+        label="주거비로 나감"
+        hint={`(월 ${money(monthlyHousing)})`}
+        value={money(leg.housingCashOut)}
+      />
+      <Row
+        label="투자에 추가 적립"
+        hint={`(월 ${money(monthlySaving)})`}
+        value={money(leg.netContribution)}
+        tone={leg.netContribution > 0 ? 'text-emerald-300' : 'text-slate-500'}
+      />
+
+      <Stage n="③" title={`${years}년 뒤 손에 남는 것`} />
+      <Row
+        label={leg.kind === 'buy' ? '집 팔고 받는 돈' : '보증금 돌려받음'}
+        hint={leg.kind === 'buy' ? '(대출·세금·수수료 뺀 뒤)' : undefined}
+        value={money(leg.recovered)}
+      />
+      <Row
+        label="투자 잔고"
+        hint={`(원금 ${money(leg.investedPrincipal)} + 수익 ${money(leg.investmentGain)})`}
+        value={money(leg.investmentEnd)}
+      />
+      <div className="mt-1 border-t border-slate-800/70 pt-1">
+        <Row label="종료자산" value={money(leg.terminalWealth)} tone={tone.text} strong />
       </div>
 
       {leg.notes.length > 0 && (
@@ -234,7 +319,9 @@ export function TenurePage() {
               <Stat
                 label="가장 큰 종료자산"
                 value={result.legs.find((l) => l.kind === result.best)?.label ?? '—'}
-                hint={`${result.years}년 뒤 기준`}
+                hint={result.legs
+                  .map((l) => `${l.label} ${percent(l.annualizedReturn, 1)}`)
+                  .join(' · ')}
               />
             </div>
             {result.breakEvenPriceGrowth !== null && (
@@ -248,16 +335,30 @@ export function TenurePage() {
             )}
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            {result.legs.map((leg) => (
-              <LegCard
-                key={leg.kind}
-                leg={leg}
-                best={leg.kind === result.best}
-                max={Math.max(...result.legs.map((l) => l.terminalWealth))}
-              />
-            ))}
-          </div>
+          <Card
+            title="자금 흐름 — 같은 목돈을 어디에 두느냐의 차이"
+            subtitle={`세 갈래 모두 자기자본 ${money(
+              result.equity
+            )}에서 출발합니다. 주거에 묶는 만큼 투자에 남길 돈이 줄고, 매달 주거비를 덜 쓰는 만큼 투자에 더 넣습니다. 매수자가 갚는 원금은 소비가 아니라 저축이므로, 임차 쪽에도 그 차액만큼 투자시켜야 비교가 성립합니다.`}
+          >
+            <div className="grid gap-4 lg:grid-cols-3">
+              {result.legs.map((leg) => (
+                <LegCard
+                  key={leg.kind}
+                  leg={leg}
+                  best={leg.kind === result.best}
+                  max={Math.max(...result.legs.map((l) => l.terminalWealth))}
+                  equity={result.equity}
+                  years={result.years}
+                />
+              ))}
+            </div>
+            <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
+              ① + ②의 적립액이 투자 원금이 되고, 여기에 수익이 붙어 ③의 투자 잔고가 됩니다.
+              전세처럼 보증금이 목돈을 다 가져가면 ①의 투자액은 0원이지만, ②에서 매달 쌓이기
+              때문에 ③의 잔고는 0이 아닙니다.
+            </p>
+          </Card>
 
           <Card
             title="가정값"
@@ -266,10 +367,10 @@ export function TenurePage() {
           >
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <RateField
-                label="주식 기대수익률"
-                hint="배당 포함 명목"
-                value={result.assumptions.stockReturnRate}
-                onChange={(v) => patch({ stockReturnRate: v })}
+                label="대체투자 기대수익률"
+                hint="주식·채권 등, 배당 포함 명목"
+                value={result.assumptions.investmentReturnRate}
+                onChange={(v) => patch({ investmentReturnRate: v })}
               />
               <RateField
                 label="전세가율"

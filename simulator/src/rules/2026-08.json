@@ -281,7 +281,7 @@
     "assumptionDefaults": {
       "note": "시장 가정값 자리표시자. 로드맵 2단계의 data/market-YYYY-MM.json 으로 대체될 예정입니다.",
       "years": 10,
-      "stockReturnRate": 0.06,
+      "investmentReturnRate": 0.06,
       "depositGrowthRate": 0.02,
       "maintenanceRate": 0.005,
       "byRegion": {

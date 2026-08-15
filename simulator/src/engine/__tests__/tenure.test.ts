@@ -54,10 +54,10 @@ describe('대출잔액', () => {
 
 describe('회계 항등식 — 돈이 새지 않는다', () => {
   it('수익률 0이면 종료자산 = 회수액 + (자기자본 − 초기투입) + 순적립', () => {
-    const c = compare({ stockReturnRate: 0 });
+    const c = compare({ investmentReturnRate: 0 });
     for (const l of c.legs) {
       expect(l.terminalWealth).toBeCloseTo(
-        l.terminalNonStock + EQUITY - l.initialOutlay + l.netContribution,
+        l.recovered + EQUITY - l.initialOutlay + l.netContribution,
         0
       );
     }
@@ -66,8 +66,41 @@ describe('회계 항등식 — 돈이 새지 않는다', () => {
   it('세 갈래 모두 같은 자기자본에서 출발한다', () => {
     const c = compare();
     for (const l of c.legs) {
-      expect(l.initialStock).toBeCloseTo(EQUITY - l.initialOutlay, 6);
+      expect(l.initialInvestment).toBeCloseTo(EQUITY - l.initialOutlay, 6);
     }
+  });
+});
+
+describe('자금 흐름 — 목돈과 매달이 갈라진다', () => {
+  it('투자 원금은 남긴 목돈 + 매달 적립액이다', () => {
+    for (const l of compare().legs) {
+      expect(l.investedPrincipal).toBeCloseTo(l.initialInvestment + l.netContribution, 6);
+      expect(l.investmentGain).toBeCloseTo(l.investmentEnd - l.investedPrincipal, 6);
+    }
+  });
+
+  it('전세는 목돈을 보증금이 다 가져가도 매달 적립이 쌓여 잔고가 0이 아니다', () => {
+    const j = leg(compare({}, 30, 273000000), 'jeonse');
+    expect(j.initialInvestment).toBeCloseTo(0, -4); // 목돈은 거의 안 남는다
+    expect(j.netContribution).toBeGreaterThan(0); // 그래도 매달 쌓인다
+    expect(j.investmentEnd).toBeGreaterThan(j.netContribution); // 수익까지 붙는다
+  });
+
+  it('연환산 수익률은 종료자산을 자기자본 기준으로 환산한 값이다', () => {
+    const c = compare();
+    for (const l of c.legs) {
+      expect(EQUITY * Math.pow(1 + l.annualizedReturn, c.years)).toBeCloseTo(
+        l.terminalWealth,
+        0
+      );
+    }
+  });
+
+  it('종료자산 순위와 연환산 수익률 순위가 일치한다', () => {
+    const c = compare();
+    const byWealth = [...c.legs].sort((a, b) => b.terminalWealth - a.terminalWealth);
+    const byReturn = [...c.legs].sort((a, b) => b.annualizedReturn - a.annualizedReturn);
+    expect(byReturn.map((l) => l.kind)).toEqual(byWealth.map((l) => l.kind));
   });
 });
 
@@ -85,7 +118,7 @@ describe('원금상환 대칭 — 가장 빠뜨리기 쉬운 항목', () => {
     const a = c.assumptions;
     for (const kind of ['jeonse', 'wolse'] as const) {
       const l = leg(c, kind);
-      const 대칭없음 = l.terminalNonStock + l.initialStock * Math.pow(1 + a.stockReturnRate, a.years);
+      const 대칭없음 = l.recovered + l.initialInvestment * Math.pow(1 + a.investmentReturnRate, a.years);
       expect(l.terminalWealth).toBeGreaterThan(대칭없음);
     }
   });
@@ -107,7 +140,7 @@ describe('전세 — 보증금이 묶이는 구조', () => {
     const j = leg(c, 'jeonse');
     const w = leg(c, 'wolse');
     expect(j.initialOutlay).toBeGreaterThan(w.initialOutlay);
-    expect(j.initialStock).toBeLessThan(w.initialStock);
+    expect(j.initialInvestment).toBeLessThan(w.initialInvestment);
   });
 
   it('자기자본이 보증금에 못 미치면 전세자금대출이 잡히고 이자가 나간다', () => {
@@ -116,6 +149,13 @@ describe('전세 — 보증금이 묶이는 구조', () => {
     expect(j.detail.jeonseLoan).toBeGreaterThan(0);
     expect(j.detail.monthlyInterest).toBeGreaterThan(0);
     expect(j.housingCashOut).toBeGreaterThan(0);
+  });
+
+  it('대출을 끼면 보증금을 어떻게 맞췄는지 카드에 적어 준다', () => {
+    // 목돈만 보면 "1.2억으로 어떻게 2.7억 보증금을?" 이 되므로 근거를 남깁니다.
+    const j = leg(compare({}, 30, 120000000), 'jeonse');
+    expect(j.detail.jeonseLoan).toBeGreaterThan(0);
+    expect(j.notes.some((n) => n.includes('전세자금대출'))).toBe(true);
   });
 
   it('자기자본이 넉넉하면 대출이 없어 월 주거비가 0이다', () => {
@@ -144,7 +184,7 @@ describe('전세 — 보증금이 묶이는 구조', () => {
   it('보증금은 종료 시 전세대출을 갚고 남은 만큼 회수된다', () => {
     const c = compare({}, 30, 100000000);
     const j = leg(c, 'jeonse');
-    expect(j.terminalNonStock).toBeCloseTo(j.detail.depositEnd - j.detail.jeonseLoan, 6);
+    expect(j.recovered).toBeCloseTo(j.detail.depositEnd - j.detail.jeonseLoan, 6);
   });
 });
 
@@ -197,11 +237,11 @@ describe('매수 — 가격상승률에만 노출된다', () => {
 
     expect(leg(high, 'buy').terminalWealth).toBeGreaterThan(leg(low, 'buy').terminalWealth);
     // 임차 갈래의 회수액은 집값과 무관하다
-    expect(leg(high, 'jeonse').terminalNonStock).toBeCloseTo(
-      leg(low, 'jeonse').terminalNonStock,
+    expect(leg(high, 'jeonse').recovered).toBeCloseTo(
+      leg(low, 'jeonse').recovered,
       6
     );
-    expect(leg(high, 'wolse').terminalNonStock).toBeCloseTo(leg(low, 'wolse').terminalNonStock, 6);
+    expect(leg(high, 'wolse').recovered).toBeCloseTo(leg(low, 'wolse').recovered, 6);
   });
 
   it('보유세와 수선비가 매수 쪽 월지출에 실린다', () => {
@@ -215,7 +255,7 @@ describe('매수 — 가격상승률에만 노출된다', () => {
     const c = compare();
     const b = leg(c, 'buy');
     expect(b.detail.sellingFee).toBeGreaterThan(0);
-    expect(b.terminalNonStock).toBeCloseTo(
+    expect(b.recovered).toBeCloseTo(
       b.detail.endPrice - b.detail.remainingLoan - b.detail.sellingFee - b.detail.capitalGainsTax,
       6
     );
@@ -255,7 +295,7 @@ describe('부정적 결과를 숨기지 않는다', () => {
     expect(b.feasible).toBe(false);
     expect(b.shortfall).toBeGreaterThan(0);
     expect(b.shortfall).toBeCloseTo(b.initialOutlay - 20000000, 6);
-    expect(b.initialStock).toBeLessThan(0);
+    expect(b.initialInvestment).toBeLessThan(0);
     expect(b.liquidityRisk).toBe(true);
   });
 

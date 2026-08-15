@@ -4,9 +4,9 @@
  * 세 갈래가 **같은 자기자본 E** 에서 출발해 N년 뒤 손에 남는 돈(종료자산)을 비교합니다.
  *
  * ```
- * 매수 종료자산 = P_end − 잔여대출 − 매도비용 − 양도세 + 주식잔고
- * 임차 종료자산 = 보증금 반환 − 임차대출 + 주식잔고
- *   주식잔고   = (E − 초기투입) 성장
+ * 매수 종료자산 = P_end − 잔여대출 − 매도비용 − 양도세 + 투자잔고
+ * 임차 종료자산 = 보증금 반환 − 임차대출 + 투자잔고
+ *   투자잔고   = (E − 초기투입) 성장
  *              + Σ(매수 월지출 − 내 월지출) 적립투자 성장   ← 원금상환 대칭
  * ```
  *
@@ -26,12 +26,13 @@
  *
  * ## 이 계산이 아닌 것
  *
- * 가격상승률·주식수익률·전세가율·전월세전환율은 전부 **가정값**입니다. 예측이 아니고,
+ * 가격상승률·투자수익률·전세가율·전월세전환율은 전부 **가정값**입니다. 예측이 아니고,
  * 매수 쪽만 가격상승률에 노출되므로 `breakEvenPriceGrowth`(손익분기 상승률)를 함께
  * 읽어야 합니다 — "얼마나 올라야 매수가 이기는가"가 실제 의사결정 질문입니다.
  */
 
 import { brokerageFee } from './costs';
+import { money } from './format';
 import { RULES } from './rules';
 import { capitalGainsTax, leaseBrokerageFee, propertyTax } from './tax';
 import type { LoanResult, Property, RegionId } from './types';
@@ -43,8 +44,8 @@ export interface TenureAssumptions {
   years: number;
   /** 주택 가격상승률 (연) — 매수 갈래만 여기에 노출됩니다 */
   priceGrowthRate: number;
-  /** 주식 기대수익률 (연, 배당 포함 명목) */
-  stockReturnRate: number;
+  /** 대체투자 기대수익률 (연, 명목). 주식·채권 등 주거 아닌 곳에 굴렸을 때. */
+  investmentReturnRate: number;
   /** 전세가율 — 매매가 대비 전세보증금 */
   jeonseRatio: number;
   /** 전월세전환율 (연) — 월세는 전세에서 파생됩니다 */
@@ -66,20 +67,32 @@ export interface TenureLeg {
   feasible: boolean;
   /** 초기 자금 부족액 (feasible이면 0) */
   shortfall: number;
-  /** 계약 시점 현금 유출 — 자기부담금+취득비용 / 보증금+중개보수 */
+  /** ① 계약 시점에 주거로 묶인 목돈 — 자기부담금+취득비용 / 보증금+중개보수 */
   initialOutlay: number;
-  /** 초기 투입 후 남아 주식으로 가는 자기자본 */
-  initialStock: number;
-  /** 기간 중 순 적립액 (음수면 인출) */
+  /** ① 주거에 묶고 남아 투자로 간 목돈 (자기자본 − initialOutlay) */
+  initialInvestment: number;
+  /** ② 기간 중 순 적립액 (음수면 인출) */
   netContribution: number;
-  /** 종료 주식잔고 */
-  stockEnd: number;
-  /** 주거에 실제로 나간 현금 총액 (원금상환·보증금 제외) */
+  /** ② 주거에 실제로 나간 현금 총액 (원금상환·보증금 제외) */
   housingCashOut: number;
-  /** 종료 시 주식 외 회수액 — 매도 순수취 / 보증금 반환 */
-  terminalNonStock: number;
+  /** ③ 종료 시 투자 외로 회수한 목돈 — 매도 순수취 / 보증금 반환 */
+  recovered: number;
+  /** ③ 종료 투자잔고 (원금 + 수익) */
+  investmentEnd: number;
+  /** 투자에 넣은 원금 총액 = initialInvestment + netContribution */
+  investedPrincipal: number;
+  /** 투자에서 번 돈 = investmentEnd − investedPrincipal */
+  investmentGain: number;
   terminalWealth: number;
-  /** 기간 중 주식잔고가 음수로 내려간 적이 있는가 */
+  /**
+   * 자기자본 기준 연환산 수익률.
+   *
+   * 같은 집에 같은 기간 살면서 자기자본이 연 몇 %로 불었는지입니다. 세 갈래가
+   * 같은 주거 서비스를 소비하므로 서로 비교하면 "매수 대신 다른 데 굴렸으면"에
+   * 답이 됩니다. 다만 주거비 소비가 빠진 뒤의 값이라 순수 투자수익률은 아닙니다.
+   */
+  annualizedReturn: number;
+  /** 기간 중 투자잔고가 음수로 내려간 적이 있는가 */
   liquidityRisk: boolean;
   detail: Record<string, number>;
   notes: string[];
@@ -112,7 +125,7 @@ export function defaultAssumptions(
   return {
     years: d.years,
     priceGrowthRate: 0.03,
-    stockReturnRate: d.stockReturnRate,
+    investmentReturnRate: d.investmentReturnRate,
     jeonseRatio: r.jeonseRatio,
     conversionRate: r.conversionRate,
     wolseDepositRatio: r.wolseDepositRatio,
@@ -156,7 +169,7 @@ interface LegPlan {
   outflow: number[];
   /** 월별 일시 지출 — 갱신 증액 보증금 등 */
   lumps: number[];
-  terminalNonStock: number;
+  recovered: number;
   detail: Record<string, number>;
   notes: string[];
 }
@@ -209,7 +222,7 @@ function buyPlan(
     initialOutlay: property.price - principal + acquisitionCost,
     outflow,
     lumps: new Array(months).fill(0),
-    terminalNonStock: endPrice - remainingLoan - sellingFee - cgt.total,
+    recovered: endPrice - remainingLoan - sellingFee - cgt.total,
     detail: {
       loanPrincipal: principal,
       acquisitionCost,
@@ -244,15 +257,22 @@ function jeonsePlan(property: Property, a: TenureAssumptions, equity: number): L
   let renewals = 0;
   for (let m = lease.renewalYears * 12; m < months; m += lease.renewalYears * 12) {
     const raise = deposit * renewalRaise(a, renewals);
-    lumps[m - 1] += raise; // 갱신 증액분은 주식에서 빼서 넣습니다
+    lumps[m - 1] += raise; // 갱신 증액분은 투자에서 빼서 넣습니다
     deposit += raise;
     renewals++;
   }
 
   const notes = [
-    '갱신 증액 보증금은 주식을 헐어 충당한다고 봅니다 (대출 증액 아님).',
+    '갱신 증액 보증금은 투자자산을 헐어 충당한다고 봅니다 (대출 증액 아님).',
     '계약갱신청구권으로 계속 거주해 중개보수는 최초 1회만 계산합니다.',
   ];
+  // 목돈만 보면 "이 돈으로 어떻게 저 보증금을?" 이 됩니다. 대출을 끼웠다는 사실과
+  // 월 주거비의 정체(그 이자)를 같이 적어 둡니다.
+  if (jeonseLoan > 0) {
+    notes.unshift(
+      `보증금 ${money(deposit0)} 중 ${money(jeonseLoan)}은 전세자금대출입니다. 월 주거비는 그 이자이고, 원금은 종료 시 보증금에서 갚습니다.`
+    );
+  }
   if (need > jeonseLoan) {
     notes.push('전세대출 한도로도 보증금을 못 채웁니다 — 전세가 성립하지 않는 구간입니다.');
   }
@@ -262,7 +282,7 @@ function jeonsePlan(property: Property, a: TenureAssumptions, equity: number): L
     initialOutlay,
     outflow,
     lumps,
-    terminalNonStock: deposit - jeonseLoan,
+    recovered: deposit - jeonseLoan,
     detail: {
       deposit0,
       depositEnd: deposit,
@@ -306,7 +326,7 @@ function wolsePlan(property: Property, a: TenureAssumptions): LegPlan {
     initialOutlay: deposit0 + leaseBrokerageFee(deposit0, rent0),
     outflow,
     lumps,
-    terminalNonStock: deposit,
+    recovered: deposit,
     detail: {
       deposit0,
       depositEnd: deposit,
@@ -320,14 +340,14 @@ function wolsePlan(property: Property, a: TenureAssumptions): LegPlan {
   };
 }
 
-/** 계획을 공통 기준예산에 태워 주식잔고와 종료자산을 계산합니다. */
+/** 계획을 공통 기준예산에 태워 투자잔고와 종료자산을 계산합니다. */
 function runLegs(plans: LegPlan[], equity: number, a: TenureAssumptions): TenureLeg[] {
   const months = Math.round(a.years * 12);
-  const monthlyReturn = Math.pow(1 + a.stockReturnRate, 1 / 12) - 1;
+  const monthlyReturn = Math.pow(1 + a.investmentReturnRate, 1 / 12) - 1;
 
   return plans.map((plan) => {
-    const initialStock = equity - plan.initialOutlay;
-    let balance = initialStock;
+    const initialInvestment = equity - plan.initialOutlay;
+    let balance = initialInvestment;
     let netContribution = 0;
     let housingCashOut = 0;
     let liquidityRisk = balance < 0;
@@ -342,6 +362,8 @@ function runLegs(plans: LegPlan[], equity: number, a: TenureAssumptions): Tenure
     }
 
     const shortfall = Math.max(0, plan.initialOutlay - equity);
+    const investedPrincipal = initialInvestment + netContribution;
+    const terminalWealth = plan.recovered + balance;
 
     return {
       kind: plan.kind,
@@ -349,12 +371,18 @@ function runLegs(plans: LegPlan[], equity: number, a: TenureAssumptions): Tenure
       feasible: shortfall === 0,
       shortfall,
       initialOutlay: plan.initialOutlay,
-      initialStock,
+      initialInvestment,
       netContribution,
-      stockEnd: balance,
       housingCashOut,
-      terminalNonStock: plan.terminalNonStock,
-      terminalWealth: plan.terminalNonStock + balance,
+      recovered: plan.recovered,
+      investmentEnd: balance,
+      investedPrincipal,
+      investmentGain: balance - investedPrincipal,
+      terminalWealth,
+      annualizedReturn:
+        equity > 0 && terminalWealth > 0
+          ? Math.pow(terminalWealth / equity, 1 / a.years) - 1
+          : 0,
       liquidityRisk,
       detail: plan.detail,
       notes: plan.notes,
@@ -421,8 +449,9 @@ function findBreakEven(input: TenureInput): number | null {
 const CAVEATS = [
   '세 갈래 모두 같은 자기자본에서 출발해 같은 기간 뒤 남는 돈을 비교합니다.',
   '임차 쪽 적립액은 매수의 원리금 상환과 대칭입니다 — 이걸 빼면 임차가 부당하게 불리해집니다.',
-  '가격상승률·주식수익률·전세가율·전월세전환율은 가정값입니다. 예측치가 아닙니다.',
+  '가격상승률·투자수익률·전세가율·전월세전환율은 가정값입니다. 예측치가 아닙니다.',
   '매수만 가격상승률에 노출됩니다. 손익분기 상승률을 함께 보세요.',
+  '연환산 수익률은 주거비를 쓰고 남은 자기자본 기준입니다 — 순수 투자수익률이 아니라 “같은 집에 살면서 자본이 얼마나 불었나”입니다.',
   '거주 만족도·이사 비용·직장 이동 같은 비금전 요소는 들어 있지 않습니다.',
 ];
 

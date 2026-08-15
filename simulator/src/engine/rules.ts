@@ -90,7 +90,7 @@ export interface Ruleset {
     assumptionDefaults: {
       note: string;
       years: number;
-      stockReturnRate: number;
+      investmentReturnRate: number;
       depositGrowthRate: number;
       maintenanceRate: number;
       byRegion: Record<
