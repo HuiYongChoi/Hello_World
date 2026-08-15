@@ -1,7 +1,14 @@
-# Sensitive files
+# Sensitive files — 절대 커밋 금지
 AWS.txt
 *.pem
 *.key
+*.ppk
+.env
+.env.*
+!.env.*.example
+*credential*
+*secret*
+id_rsa*
 
 # OS generated files
 node_modules/

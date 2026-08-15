@@ -40,6 +40,19 @@ npm run deploy:realty   # 완전한 HTML 문서 → 저장소 루트 realty/inde
 
 저장소 루트의 `.nojekyll`은 Pages가 Jekyll 처리를 건너뛰게 합니다.
 
+### 자체 서버(AWS/Bitnami)로 배포
+
+```bash
+cp .env.deploy.example .env.deploy   # 서버 주소·SSH 키 경로 채우기
+./scripts/deploy-aws.sh
+```
+
+빌드 후 `realty/index.html`을 서버 웹 루트 하위 경로로 올립니다. 단일 파일에 외부 요청이 없어서 **어떤 경로에 두어도 그대로 동작**합니다 — 재빌드 없이 `/hyrealty/`든 `/realty/`든 같은 파일을 씁니다.
+
+접속 정보는 스크립트에 넣지 않고 `.env.deploy`로 분리했습니다. 이 저장소는 공개라 서버 주소와 키 경로가 커밋되면 그대로 노출됩니다.
+
+> **API 키는 이 사이트에 넣을 수 없습니다.** 정적 단일 HTML이라 문서에 담긴 값은 누구나 읽습니다. 외부 데이터가 필요해지면 빌드 타임에 받아 JSON으로 굽거나(권장), 서버 측 프록시를 두어야 합니다.
+
 ## 화면 구성
 
 | 단계 | 화면 | 역할 |
