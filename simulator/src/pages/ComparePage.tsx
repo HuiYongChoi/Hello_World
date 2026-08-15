@@ -13,6 +13,7 @@ import type {
   Objective,
   Property,
 } from '../engine/types';
+import { AffordabilityCard } from './AffordabilityCard';
 import { BubbleView } from './BubbleView';
 
 export function ComparePage() {
@@ -161,6 +162,8 @@ export function ComparePage() {
           </div>
         </Card>
       )}
+
+      <AffordabilityCard />
 
       <BubbleView />
 

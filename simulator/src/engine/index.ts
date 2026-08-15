@@ -6,6 +6,7 @@ export * from './scenario';
 export * from './loan';
 export * from './scoring';
 export * from './leverage';
+export * from './affordability';
 export * from './tax';
 export * from './tenure';
 export * from './matrix';
