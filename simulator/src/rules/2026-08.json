@@ -199,6 +199,99 @@
     "movingAndRepairDefault": 3000000
   },
 
+  "tenure": {
+    "note": "3-way 거주형태 비교용. 세율·상한은 제도값이고, assumptionDefaults 만 시장 가정값 자리표시자입니다.",
+
+    "leaseBrokerage": {
+      "note": "임대차 상한요율. 거래금액 = 보증금 + 월세×100 (환산보증금 5천만 미만이면 월세×70).",
+      "brackets": [
+        { "maxPrice": 50000000, "rate": 0.005, "cap": 200000 },
+        { "maxPrice": 100000000, "rate": 0.004, "cap": 300000 },
+        { "maxPrice": 600000000, "rate": 0.003, "cap": null },
+        { "maxPrice": 1200000000, "rate": 0.004, "cap": null },
+        { "maxPrice": 1500000000, "rate": 0.005, "cap": null },
+        { "maxPrice": null, "rate": 0.006, "cap": null }
+      ],
+      "vatRatio": 0.1,
+      "standardMultiplier": 100,
+      "lowDepositMultiplier": 70,
+      "lowDepositThreshold": 50000000
+    },
+
+    "propertyTax": {
+      "note": "주택 재산세. 공시가격×공정시장가액비율이 과세표준. 1주택 특례세율은 공시 9억 이하에만.",
+      "publishedPriceRatio": 0.69,
+      "fairMarketRatio": 0.45,
+      "specialRateMaxPublished": 900000000,
+      "standardBrackets": [
+        { "maxBase": 60000000, "base": 0, "rate": 0.001 },
+        { "maxBase": 150000000, "base": 60000, "rate": 0.0015 },
+        { "maxBase": 300000000, "base": 195000, "rate": 0.0025 },
+        { "maxBase": null, "base": 570000, "rate": 0.004 }
+      ],
+      "specialBrackets": [
+        { "maxBase": 60000000, "base": 0, "rate": 0.0005 },
+        { "maxBase": 150000000, "base": 30000, "rate": 0.001 },
+        { "maxBase": 300000000, "base": 120000, "rate": 0.002 },
+        { "maxBase": null, "base": 420000, "rate": 0.0035 }
+      ],
+      "urbanAreaRate": 0.0014,
+      "localEducationTaxRatio": 0.2
+    },
+
+    "capitalGainsTax": {
+      "note": "1세대1주택 기준. 12억 초과분만 과세하고 장기보유특별공제(보유+거주)를 적용합니다.",
+      "exemptionPrice": 1200000000,
+      "minHoldYears": 2,
+      "basicDeduction": 2500000,
+      "shortTermRates": [
+        { "maxYears": 1, "rate": 0.7 },
+        { "maxYears": 2, "rate": 0.6 }
+      ],
+      "longTermHold": { "ratePerYear": 0.04, "maxRate": 0.4, "minYears": 3 },
+      "longTermLive": { "ratePerYear": 0.04, "maxRate": 0.4, "minYears": 2 },
+      "brackets": [
+        { "maxBase": 14000000, "rate": 0.06, "deduction": 0 },
+        { "maxBase": 50000000, "rate": 0.15, "deduction": 1260000 },
+        { "maxBase": 88000000, "rate": 0.24, "deduction": 5760000 },
+        { "maxBase": 150000000, "rate": 0.35, "deduction": 15440000 },
+        { "maxBase": 300000000, "rate": 0.38, "deduction": 19940000 },
+        { "maxBase": 500000000, "rate": 0.4, "deduction": 25940000 },
+        { "maxBase": 1000000000, "rate": 0.42, "deduction": 35940000 },
+        { "maxBase": null, "rate": 0.45, "deduction": 65940000 }
+      ],
+      "localIncomeTaxRatio": 0.1
+    },
+
+    "jeonseLoan": {
+      "note": "전세자금대출. 보증금 대비 한도와 절대상한. 만기일시(이자만) 상환으로 봅니다.",
+      "ltvCap": 0.8,
+      "absoluteCap": 400000000,
+      "rate": 0.042
+    },
+
+    "lease": {
+      "note": "주택임대차보호법. 계약갱신청구권 1회, 그 갱신에만 증액 상한 5%.",
+      "renewalYears": 2,
+      "renewalCapRatio": 0.05,
+      "renewalCapUses": 1,
+      "conversionRateMax": 0.1
+    },
+
+    "assumptionDefaults": {
+      "note": "시장 가정값 자리표시자. 로드맵 2단계의 data/market-YYYY-MM.json 으로 대체될 예정입니다.",
+      "years": 10,
+      "stockReturnRate": 0.06,
+      "depositGrowthRate": 0.02,
+      "maintenanceRate": 0.005,
+      "byRegion": {
+        "gyeonggi": { "jeonseRatio": 0.62, "conversionRate": 0.055, "wolseDepositRatio": 0.25 },
+        "changwon": { "jeonseRatio": 0.72, "conversionRate": 0.062, "wolseDepositRatio": 0.25 },
+        "busan": { "jeonseRatio": 0.68, "conversionRate": 0.06, "wolseDepositRatio": 0.25 }
+      }
+    }
+  },
+
   "defaults": {
     "termYears": 30,
     "minEquityRatio": 0,

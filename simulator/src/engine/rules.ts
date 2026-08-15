@@ -48,6 +48,57 @@ export interface Ruleset {
     legalAndBondDefault: number;
     movingAndRepairDefault: number;
   };
+  tenure: {
+    note: string;
+    leaseBrokerage: {
+      note: string;
+      brackets: { maxPrice: number | null; rate: number; cap: number | null }[];
+      vatRatio: number;
+      standardMultiplier: number;
+      lowDepositMultiplier: number;
+      lowDepositThreshold: number;
+    };
+    propertyTax: {
+      note: string;
+      publishedPriceRatio: number;
+      fairMarketRatio: number;
+      specialRateMaxPublished: number;
+      standardBrackets: { maxBase: number | null; base: number; rate: number }[];
+      specialBrackets: { maxBase: number | null; base: number; rate: number }[];
+      urbanAreaRate: number;
+      localEducationTaxRatio: number;
+    };
+    capitalGainsTax: {
+      note: string;
+      exemptionPrice: number;
+      minHoldYears: number;
+      basicDeduction: number;
+      shortTermRates: { maxYears: number; rate: number }[];
+      longTermHold: { ratePerYear: number; maxRate: number; minYears: number };
+      longTermLive: { ratePerYear: number; maxRate: number; minYears: number };
+      brackets: { maxBase: number | null; rate: number; deduction: number }[];
+      localIncomeTaxRatio: number;
+    };
+    jeonseLoan: { note: string; ltvCap: number; absoluteCap: number; rate: number };
+    lease: {
+      note: string;
+      renewalYears: number;
+      renewalCapRatio: number;
+      renewalCapUses: number;
+      conversionRateMax: number;
+    };
+    assumptionDefaults: {
+      note: string;
+      years: number;
+      stockReturnRate: number;
+      depositGrowthRate: number;
+      maintenanceRate: number;
+      byRegion: Record<
+        RegionId,
+        { jeonseRatio: number; conversionRate: number; wolseDepositRatio: number }
+      >;
+    };
+  };
   defaults: {
     termYears: number;
     minEquityRatio: number;
