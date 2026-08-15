@@ -230,9 +230,12 @@ function jeonsePlan(property: Property, a: TenureAssumptions, equity: number): L
   const months = Math.round(a.years * 12);
 
   const deposit0 = property.price * a.jeonseRatio;
-  const need = Math.max(0, deposit0 - equity);
+  const brokerage = leaseBrokerageFee(deposit0, 0);
+  // 중개보수까지 포함해 모자란 만큼 빌립니다. 보증금에만 맞춰 빌리면 수수료 때문에
+  // 한도가 남아 있는데도 늘 자금 부족으로 잡힙니다.
+  const need = Math.max(0, deposit0 + brokerage - equity);
   const jeonseLoan = Math.min(need, deposit0 * cfg.ltvCap, cfg.absoluteCap);
-  const initialOutlay = deposit0 - jeonseLoan + leaseBrokerageFee(deposit0, 0);
+  const initialOutlay = deposit0 - jeonseLoan + brokerage;
 
   const outflow: number[] = new Array(months).fill((jeonseLoan * a.jeonseLoanRate) / 12);
   const lumps: number[] = new Array(months).fill(0);
@@ -265,7 +268,7 @@ function jeonsePlan(property: Property, a: TenureAssumptions, equity: number): L
       depositEnd: deposit,
       jeonseLoan,
       monthlyInterest: (jeonseLoan * a.jeonseLoanRate) / 12,
-      brokerage: leaseBrokerageFee(deposit0, 0),
+      brokerage,
       renewals,
     },
     notes,

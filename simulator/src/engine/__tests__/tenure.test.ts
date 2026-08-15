@@ -124,6 +124,23 @@ describe('전세 — 보증금이 묶이는 구조', () => {
     expect(leg(c, 'jeonse').housingCashOut).toBeCloseTo(0, 6);
   });
 
+  it('대출 한도가 남아 있으면 중개보수까지 빌려 자금 부족이 뜨지 않는다', () => {
+    const j = leg(compare({}, 30, 100000000), 'jeonse');
+    expect(j.feasible).toBe(true);
+    expect(j.detail.jeonseLoan).toBeLessThan(j.detail.deposit0 * RULES.tenure.jeonseLoan.ltvCap);
+    expect(j.initialOutlay).toBeCloseTo(100000000, 0);
+  });
+
+  it('대출 한도가 실제로 막히면 그때는 부족액을 드러낸다', () => {
+    const j = leg(compare({ jeonseRatio: 0.95 }, 30, 20000000), 'jeonse');
+    expect(j.detail.jeonseLoan).toBeCloseTo(
+      j.detail.deposit0 * RULES.tenure.jeonseLoan.ltvCap,
+      0
+    );
+    expect(j.feasible).toBe(false);
+    expect(j.shortfall).toBeGreaterThan(0);
+  });
+
   it('보증금은 종료 시 전세대출을 갚고 남은 만큼 회수된다', () => {
     const c = compare({}, 30, 100000000);
     const j = leg(c, 'jeonse');
