@@ -1,9 +1,12 @@
 import { rankProducts } from './loan';
+import { getProduct } from './rules';
 import { deriveScenario } from './scenario';
 import { scoreProperty } from './scoring';
 import type {
   CellResult,
+  CellSummary,
   DerivedScenario,
+  LoanResult,
   Objective,
   Profile,
   Property,
@@ -41,6 +44,7 @@ export function buildMatrix(
         all,
         localeScore: score.total,
         grade: score.grade,
+        summary: summarize(all, best),
       };
     }
   }
@@ -50,6 +54,47 @@ export function buildMatrix(
     feasibleCells.slice().sort((a, b) => rankCells(a, b, objective))[0] ?? null;
 
   return { scenarios, cells, recommendation };
+}
+
+/**
+ * 셀에 안 뜬 상품을 정리합니다.
+ *
+ * `passedOver` 는 **적격인데 목적함수에 밀린 정책상품** 중 한도가 가장 큰 것입니다.
+ * 월납·이자 최소화는 덜 빌리는 쪽을 유리하게 만들기 때문에, LTV 80%짜리 정책상품이
+ * LTV 70% 은행 상품에 지는 일이 정상적으로 일어납니다. 그 사실을 숨기면 사용자는
+ * 정책상품이 아예 반영되지 않았다고 오해합니다.
+ */
+export function summarize(all: LoanResult[], best: LoanResult | null): CellSummary {
+  const rejected = all
+    .filter((r) => !r.eligible)
+    .map((r) => ({ productName: r.productName, reason: r.rejectReason ?? '자격 미달' }));
+
+  const candidates = all.filter(
+    (r) =>
+      r.eligible &&
+      r.productId !== best?.productId &&
+      getProduct(r.productId).type === 'policy' &&
+      r.limit > 0
+  );
+  const top = candidates.slice().sort((a, b) => b.limit - a.limit)[0] ?? null;
+
+  return {
+    totalCount: all.length,
+    eligibleCount: all.filter((r) => r.eligible).length,
+    rejected,
+    passedOver:
+      top && best
+        ? {
+            productName: top.productName,
+            shortName: getProduct(top.productId).shortName,
+            limit: top.limit,
+            rate: top.rate,
+            monthlyPayment: top.monthlyPayment,
+            limitDelta: top.limit - best.limit,
+            monthlyDelta: top.monthlyPayment - best.monthlyPayment,
+          }
+        : null,
+  };
 }
 
 /**

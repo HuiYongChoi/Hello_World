@@ -5,7 +5,14 @@ import { CONSTRAINT_LABELS, OBJECTIVE_LABELS, constraintAdvice } from '../engine
 import { leverageView } from '../engine/leverage';
 import { cellKey } from '../engine/matrix';
 import { useStore } from '../state/store';
-import type { CellResult, DerivedScenario, LoanResult, Objective, Property } from '../engine/types';
+import type {
+  CellResult,
+  CellSummary,
+  DerivedScenario,
+  LoanResult,
+  Objective,
+  Property,
+} from '../engine/types';
 import { BubbleView } from './BubbleView';
 
 export function ComparePage() {
@@ -253,15 +260,24 @@ function MatrixCell({
   const r = cell.best;
 
   if (!r) {
-    const reason = cell.all.find((x) => x.rejectReason)?.rejectReason ?? '자격 미달';
+    // 사유를 하나만 보여주면 "왜 전부 안 되는지"를 알 수 없어 상품별로 전부 냅니다.
+    const reasons = cell.summary.rejected;
     return (
       <button
         type="button"
         onClick={onClick}
         className="h-full w-full rounded-lg border border-slate-800 bg-slate-950/30 px-3 py-2.5 text-left transition hover:border-slate-700"
       >
-        <div className="text-xs font-medium text-slate-500">✖ 이용 가능 상품 없음</div>
-        <div className="mt-1 text-[11px] leading-relaxed text-slate-600">{reason}</div>
+        <div className="text-xs font-medium text-slate-500">
+          ✖ 이용 가능 상품 없음 ({reasons.length}종 전부 부적격)
+        </div>
+        <ul className="mt-1 space-y-0.5">
+          {reasons.map((x) => (
+            <li key={x.productName} className="text-[11px] leading-relaxed text-slate-600">
+              {x.productName} — {x.reason}
+            </li>
+          ))}
+        </ul>
       </button>
     );
   }
@@ -308,7 +324,48 @@ function MatrixCell({
         <Badge tone="neutral">부담 {percent(r.dtiRatio, 0)}</Badge>
         <LeverageBadge result={r} property={property} />
       </div>
+      <HiddenProductBadges summary={cell.summary} />
     </button>
+  );
+}
+
+/**
+ * 셀에 안 뜬 상품을 드러냅니다.
+ *
+ * 승자만 보여주면 정책상품이 아예 계산되지 않았다고 오해하게 됩니다. 실제로는
+ * 자격에서 걸렸거나(→ 물건·시나리오를 바꿔야 함) 목적함수에 밀린 것(→ 목적함수만
+ * 바꾸면 됨)이고, 둘은 해야 할 행동이 다릅니다.
+ */
+function HiddenProductBadges({ summary }: { summary: CellSummary }) {
+  const { objective } = useStore();
+  const { passedOver, rejected } = summary;
+  if (!passedOver && rejected.length === 0) return null;
+
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {passedOver && (
+        <Badge
+          tone="info"
+          title={`${passedOver.productName} — 한도 ${money(passedOver.limit)} (${
+            passedOver.limitDelta >= 0 ? '+' : ''
+          }${money(passedOver.limitDelta)}) · 금리 ${percent(passedOver.rate)} · 월 ${money(
+            passedOver.monthlyPayment
+          )} (${passedOver.monthlyDelta >= 0 ? '+' : ''}${money(
+            passedOver.monthlyDelta
+          )}). 자격은 되지만 “${OBJECTIVE_LABELS[objective]}” 기준에서 밀렸습니다. 목적함수를 바꾸면 이 상품이 올라옵니다.`}
+        >
+          {passedOver.shortName} 밀림
+        </Badge>
+      )}
+      {rejected.length > 0 && (
+        <Badge
+          tone="neutral"
+          title={rejected.map((x) => `${x.productName} — ${x.reason}`).join('\n')}
+        >
+          {rejected.length}종 부적격
+        </Badge>
+      )}
+    </div>
   );
 }
 

@@ -111,6 +111,34 @@ export interface LoanResult {
   warnings: string[];
 }
 
+/**
+ * 셀에 뜨지 **않은** 상품들의 요약.
+ *
+ * 매트릭스 셀은 승자 하나만 보여주기 때문에, 정책상품이 안 보일 때
+ * "룰셋에 없는 것"인지 "자격이 안 되는 것"인지 "목적함수에 밀린 것"인지
+ * 구분이 안 됩니다. 이 셋은 사용자가 할 행동이 완전히 다릅니다 —
+ * 자격 미달이면 물건·시나리오를 바꿔야 하고, 밀린 것이면 목적함수만
+ * 바꾸면 됩니다. 그래서 셀에서 바로 드러냅니다.
+ */
+export interface CellSummary {
+  totalCount: number;
+  eligibleCount: number;
+  /** 부적격 상품과 그 사유 */
+  rejected: { productName: string; reason: string }[];
+  /** 적격인데 목적함수에 밀린 정책상품 대표 1건 (한도가 가장 큰 것) */
+  passedOver: {
+    productName: string;
+    shortName: string;
+    limit: number;
+    rate: number;
+    monthlyPayment: number;
+    /** 승자 대비 한도 차 — 양수면 더 많이 빌릴 수 있다는 뜻 */
+    limitDelta: number;
+    /** 승자 대비 월납 차 — 양수면 더 비싸다는 뜻 */
+    monthlyDelta: number;
+  } | null;
+}
+
 export interface CellResult {
   propertyId: string;
   scenarioId: string;
@@ -118,4 +146,5 @@ export interface CellResult {
   all: LoanResult[];
   localeScore: number;
   grade: string;
+  summary: CellSummary;
 }
