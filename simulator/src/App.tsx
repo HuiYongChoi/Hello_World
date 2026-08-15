@@ -6,10 +6,18 @@ import { ProfilePage } from './pages/ProfilePage';
 import { PropertiesPage } from './pages/PropertiesPage';
 import { ReportPage } from './pages/ReportPage';
 import { ScenarioPage } from './pages/ScenarioPage';
+import { MarketPage } from './pages/MarketPage';
 import { TenurePage } from './pages/TenurePage';
 import { useStore } from './state/store';
 
-type TabId = 'profile' | 'scenarios' | 'properties' | 'compare' | 'tenure' | 'report';
+type TabId =
+  | 'profile'
+  | 'scenarios'
+  | 'properties'
+  | 'compare'
+  | 'tenure'
+  | 'market'
+  | 'report';
 
 const TABS: { id: TabId; label: string; step: string }[] = [
   { id: 'profile', label: '가구 프로필', step: '1' },
@@ -17,7 +25,8 @@ const TABS: { id: TabId; label: string; step: string }[] = [
   { id: 'properties', label: '물건 · 입지', step: '3' },
   { id: 'compare', label: '비교 매트릭스', step: '4' },
   { id: 'tenure', label: '매수 · 전세 · 월세', step: '5' },
-  { id: 'report', label: '리포트', step: '6' },
+  { id: 'market', label: '실거래 수익률', step: '6' },
+  { id: 'report', label: '리포트', step: '7' },
 ];
 
 export function App() {
@@ -91,6 +100,7 @@ export function App() {
         {tab === 'properties' && <PropertiesPage />}
         {tab === 'compare' && <ComparePage />}
         {tab === 'tenure' && <TenurePage />}
+        {tab === 'market' && <MarketPage />}
         {tab === 'report' && <ReportPage />}
       </main>
 

@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit",
     "standalone": "npm run build && node scripts/build-standalone.mjs",
-    "deploy:realty": "npm run build && node scripts/build-standalone.mjs --full && mkdir -p ../realty && cp dist/realty.html ../realty/index.html"
+    "deploy:realty": "npm run build && node scripts/build-standalone.mjs --full && mkdir -p ../realty && cp dist/realty.html ../realty/index.html",
+    "fetch:market": "node ../scripts/fetch-market.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
