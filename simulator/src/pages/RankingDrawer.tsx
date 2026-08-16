@@ -4,6 +4,8 @@ import { money, percent } from '../engine/format';
 import { MARKET, quarterLabel } from '../engine/market';
 import {
   rankPerformers,
+  rankingInsightReport,
+  rankingInsights,
   rankingReport,
   type RankingMode,
   type TraitGroup,
@@ -27,6 +29,47 @@ const SCOPES = [
     id: 'all',
     label: '창원 + 부산 전체',
     codes: ['48121', '48123', '48125', '48127', '48129', '26350', '26500', '26260', '26290', '26470'],
+  },
+];
+
+type SortKey = 'name' | 'buildYear' | 'startPrice' | 'cagr' | 'excess';
+
+/**
+ * 표 머리글. `hint` 는 마우스를 올렸을 때 뜨는 설명입니다.
+ * 특히 "초과"는 이름만 봐서는 무엇 대비 초과인지 알 수 없어 반드시 필요합니다.
+ */
+const COLUMNS: {
+  key: SortKey;
+  label: string;
+  align?: 'right';
+  hint: string;
+}[] = [
+  { key: 'name', label: '단지 · 법정동', hint: '이름순으로 정렬합니다' },
+  {
+    key: 'buildYear',
+    label: '준공/전용',
+    hint: '준공연도 기준으로 정렬합니다. 재건축 기대가 붙는 연식대인지 보세요',
+  },
+  {
+    key: 'startPrice',
+    label: '진입 → 현재',
+    align: 'right',
+    hint: '진입 시점의 분기 중위가 기준으로 정렬합니다',
+  },
+  {
+    key: 'cagr',
+    label: '연복리',
+    align: 'right',
+    hint: '진입 시점부터 지금까지의 복리 연환산 수익률입니다. 시장 전체가 오른 효과가 포함돼 있습니다',
+  },
+  {
+    key: 'excess',
+    label: '초과',
+    align: 'right',
+    hint:
+      '초과수익률 = 이 단지의 연복리 − 같은 시군구 단지들의 중위 연복리.\n' +
+      '동네가 통째로 오른 효과를 빼고 남은 부분이라, "이 단지가 왜 더 올랐나"에 답합니다.\n' +
+      '양수면 같은 동네 평균보다 더 올랐다는 뜻이고, 음수면 덜 올랐다는 뜻입니다.',
   },
 ];
 
@@ -85,6 +128,8 @@ export function RankingDrawer() {
   const [years, setYears] = useState(5);
   const [mode, setMode] = useState<RankingMode>('excess');
   const [copied, setCopied] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>('excess');
+  const [sortDesc, setSortDesc] = useState(true);
 
   const scope = SCOPES.find((s) => s.id === scopeId) ?? SCOPES[0];
 
@@ -93,22 +138,60 @@ export function RankingDrawer() {
     [scope, years, mode]
   );
 
-  const download = () => {
-    const md = rankingReport(result, scope.label);
+  /**
+   * 정렬은 **보여주는 순서만** 바꿉니다. 어떤 단지가 상위권에 드는지는 위의
+   * 모드(절대/초과)가 정하고, 여기서 열을 눌러도 그 선정은 달라지지 않습니다.
+   */
+  const sorted = useMemo(() => {
+    const by = (e: (typeof result.entries)[number]) => {
+      switch (sortKey) {
+        case 'name':
+          return e.name;
+        case 'buildYear':
+          return e.buildYear;
+        case 'startPrice':
+          return e.startPrice;
+        case 'excess':
+          return e.excess;
+        default:
+          return e.cagr;
+      }
+    };
+    return [...result.entries].sort((a, b) => {
+      const x = by(a);
+      const y = by(b);
+      const cmp = typeof x === 'string' ? x.localeCompare(y as string, 'ko') : (x as number) - (y as number);
+      return sortDesc ? -cmp : cmp;
+    });
+  }, [result.entries, sortKey, sortDesc]);
+
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDesc((d) => !d);
+    } else {
+      setSortKey(key);
+      // 이름은 가나다순, 숫자는 큰 값부터가 자연스럽습니다.
+      setSortDesc(key !== 'name');
+    }
+  };
+
+  const save = (md: string, suffix: string) => {
     const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `수익률-공통점-${scope.id}-${years}년-${MARKET.asOf}.md`;
+    a.download = `${suffix}-${scope.id}-${years}년-${MARKET.asOf}.md`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const copy = async () => {
-    await navigator.clipboard.writeText(rankingReport(result, scope.label));
+  const copy = async (md: string) => {
+    await navigator.clipboard.writeText(md);
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
+
+  const insights = useMemo(() => rankingInsights(result), [result]);
 
   if (!open) {
     return (
@@ -197,6 +280,40 @@ export function RankingDrawer() {
             </p>
           ) : (
             <>
+              <h3 className="mt-5 mb-2 text-xs font-semibold text-slate-300">인사이트</h3>
+              {insights.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-slate-700 px-3 py-3 text-[11px] leading-relaxed text-slate-500">
+                  임계 배수를 넘는 공통점이 없습니다. <span className="text-slate-400">공통점이
+                  없다는 것도 결과입니다</span> — 이 구간에서는 속성으로 고르는 대신 개별 물건을
+                  봐야 합니다.
+                </p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {insights.slice(0, 6).map((i) => (
+                    <li
+                      key={i.headline}
+                      className={`rounded-lg border px-3 py-2 ${
+                        i.strength === 'strong'
+                          ? 'border-emerald-500/25 bg-emerald-500/5'
+                          : 'border-slate-800 bg-slate-950/40'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-[11px] leading-relaxed text-slate-200">
+                          {i.headline}
+                        </span>
+                        {i.strength === 'weak' && (
+                          <span className="shrink-0 text-[9px] text-amber-400/80">표본 얇음</span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 text-[10px] tabular-nums text-slate-500">
+                        {i.evidence}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
               <h3 className="mt-5 mb-2 text-xs font-semibold text-slate-300">공통점</h3>
               <div className="grid gap-2 sm:grid-cols-2">
                 {result.traits.map((g) => (
@@ -204,20 +321,40 @@ export function RankingDrawer() {
                 ))}
               </div>
 
-              <h3 className="mt-5 mb-2 text-xs font-semibold text-slate-300">상위 단지</h3>
+              <div className="mt-5 mb-2 flex items-baseline justify-between gap-2">
+                <h3 className="text-xs font-semibold text-slate-300">상위 단지</h3>
+                <span className="text-[10px] text-slate-600">
+                  머리글을 누르면 정렬 · 상위 선정 기준은 그대로입니다
+                </span>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[520px] text-left">
                   <thead>
                     <tr className="border-b border-slate-800 text-[10px] text-slate-500">
-                      <th className="pb-1.5">단지 · 법정동</th>
-                      <th className="pb-1.5">준공/전용</th>
-                      <th className="pb-1.5 text-right">진입 → 현재</th>
-                      <th className="pb-1.5 text-right">연복리</th>
-                      <th className="pb-1.5 text-right">초과</th>
+                      {COLUMNS.map((c) => (
+                        <th
+                          key={c.key}
+                          className={`pb-1.5 ${c.align === 'right' ? 'text-right' : ''}`}
+                        >
+                          <button
+                            type="button"
+                            title={c.hint}
+                            onClick={() => toggleSort(c.key)}
+                            className={`inline-flex items-center gap-0.5 transition hover:text-slate-200 ${
+                              sortKey === c.key ? 'text-sky-300' : ''
+                            }`}
+                          >
+                            {c.label}
+                            <span className="text-[9px]">
+                              {sortKey === c.key ? (sortDesc ? '▼' : '▲') : '⇅'}
+                            </span>
+                          </button>
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {result.entries.slice(0, 25).map((e) => (
+                    {sorted.slice(0, 25).map((e) => (
                       <tr key={e.id} className="border-b border-slate-800/50">
                         <td className="py-1.5">
                           <div className="text-[11px] font-medium text-slate-200">{e.name}</div>
@@ -238,7 +375,13 @@ export function RankingDrawer() {
                         <td className="py-1.5 text-right text-[11px] font-semibold tabular-nums text-emerald-300">
                           {percent(e.cagr, 1)}
                         </td>
-                        <td className="py-1.5 text-right text-[11px] tabular-nums text-sky-300">
+                        <td
+                          className="py-1.5 text-right text-[11px] tabular-nums text-sky-300"
+                          title={`같은 시군구 중위 ${percent(
+                            e.cagr - e.excess,
+                            2
+                          )} 대비 ${percent(e.excess, 2)}p`}
+                        >
                           {percent(e.excess, 1)}
                         </td>
                       </tr>
@@ -274,18 +417,34 @@ export function RankingDrawer() {
           )}
         </div>
 
-        <footer className="flex items-center justify-between gap-2 border-t border-slate-800 px-5 py-3">
-          <span className="text-[10px] text-slate-600">
-            {MARKET.source.name} · {MARKET.asOf}
-          </span>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={copy}>
-              {copied ? '복사됨' : '리포트 복사'}
-            </Button>
-            <Button size="sm" variant="primary" onClick={download}>
-              리포트 내려받기
-            </Button>
+        <footer className="border-t border-slate-800 px-5 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[10px] text-slate-600">
+              {MARKET.source.name} · {MARKET.asOf}
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={() => copy(rankingInsightReport(result, scope.label))}>
+                {copied ? '복사됨' : '인사이트 복사'}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => save(rankingInsightReport(result, scope.label), '인사이트')}
+              >
+                인사이트 리포트
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => save(rankingReport(result, scope.label), '수익률-공통점')}
+              >
+                전체 데이터 리포트
+              </Button>
+            </div>
           </div>
+          <p className="mt-1.5 text-[10px] leading-relaxed text-slate-600">
+            인사이트 리포트는 해석과 한계를 문장으로, 전체 데이터 리포트는 공통점 표·상위 40개
+            단지·시군구 중위 수익률을 표로 담습니다.
+          </p>
         </footer>
       </aside>
     </>

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { rankPerformers, rankingReport } from '../ranking';
+import { subjectParticle, topicParticle } from '../format';
+import {
+  rankPerformers,
+  rankingInsightReport,
+  rankingInsights,
+  rankingReport,
+} from '../ranking';
 
 const CHANGWON = ['48121', '48123', '48125', '48127', '48129'];
 const BUSAN = ['26350', '26500', '26260', '26290', '26470'];
@@ -127,5 +133,99 @@ describe('리포트', () => {
     const md = rankingReport(r, '창원 전체');
     expect(md).toContain(r.entries[0].name);
     expect(md.split('\n').length).toBeGreaterThan(30);
+  });
+});
+
+describe('인사이트', () => {
+  it('임계 배수를 넘는 것만 문장으로 만든다', () => {
+    const r = rankPerformers({ ...base, mode: 'excess' });
+    const ins = rankingInsights(r);
+    for (const i of ins) {
+      expect(i.headline.length).toBeGreaterThan(0);
+      expect(i.evidence).toMatch(/상위 \d+건/);
+    }
+  });
+
+  it('표본 3건 미만은 인사이트로 만들지 않는다', () => {
+    const r = rankPerformers({ ...base, mode: 'excess' });
+    const ins = rankingInsights(r);
+    for (const i of ins) {
+      const n = Number(i.evidence.match(/상위 (\d+)건/)![1]);
+      expect(n).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('표본 5건 이상이면 strong, 3~4건이면 weak 이고 strong 이 먼저 온다', () => {
+    const r = rankPerformers({ ...base, mode: 'excess' });
+    const ins = rankingInsights(r);
+    for (const i of ins) {
+      const n = Number(i.evidence.match(/상위 (\d+)건/)![1]);
+      expect(i.strength).toBe(n >= 5 ? 'strong' : 'weak');
+    }
+    const firstWeak = ins.findIndex((i) => i.strength === 'weak');
+    if (firstWeak >= 0) {
+      expect(ins.slice(firstWeak).every((i) => i.strength === 'weak')).toBe(true);
+    }
+  });
+
+  it('절대 수익률 모드에서는 시군구를 인사이트로 만들지 않는다 — 동어반복입니다', () => {
+    const r = rankPerformers({ ...base, mode: 'absolute' });
+    for (const i of rankingInsights(r)) {
+      expect(i.headline.startsWith('시군구:')).toBe(false);
+    }
+  });
+
+  it('인사이트 리포트는 해석과 한계를 같이 담는다', () => {
+    const r = rankPerformers({ ...base, mode: 'excess' });
+    const md = rankingInsightReport(r, '창원 전체');
+    expect(md).toContain('# 인사이트 — 창원 전체');
+    expect(md).toContain('## 이 해석의 한계');
+    expect(md).toContain('## 대표 사례');
+    expect(md).toContain('국토교통부');
+    expect(md).toContain('속성');
+  });
+
+  it('공통점이 없으면 없다고 적는다 — 그것도 결과입니다', () => {
+    const r = rankPerformers({ ...base, mode: 'excess' });
+    const empty = { ...r, traits: [] };
+    const md = rankingInsightReport(empty, '테스트');
+    expect(md).toContain('뚜렷한 공통점이 없습니다');
+  });
+});
+
+describe('조사 처리', () => {
+  it('받침 유무에 따라 은/는, 이/가를 가려 붙인다', () => {
+    expect(topicParticle('1990년대')).toBe('1990년대는');
+    expect(topicParticle('1980년대 이전')).toBe('1980년대 이전은');
+    expect(subjectParticle('반림동')).toBe('반림동이');
+    expect(subjectParticle('트리비아')).toBe('트리비아가');
+  });
+
+  it('괄호·숫자로 끝나도 마지막 한글 음절로 판정한다', () => {
+    // 실제 값: "중형 (60~85㎡)" 처럼 한글이 앞에만 있는 경우
+    expect(subjectParticle('중형 (60~85㎡)')).toBe('중형 (60~85㎡)이');
+    expect(subjectParticle('2~3억')).toBe('2~3억이');
+  });
+
+  it('한글이 없으면 받침 없는 것으로 본다', () => {
+    expect(topicParticle('ABC')).toBe('ABC는');
+  });
+
+  it('인사이트 문장의 조사가 앞 글자 받침과 맞는다', () => {
+    // 헬퍼를 그대로 부르면 동어반복이므로, 받침 판정을 테스트 안에서 따로 구현합니다.
+    const hasJong = (ch: string) => (ch.charCodeAt(0) - 0xac00) % 28 !== 0;
+    const r = rankPerformers({ ...base, mode: 'excess' });
+    const checked: string[] = [];
+
+    for (const i of rankingInsights(r)) {
+      const m = i.headline.match(/([가-힣])([은는이가]) (?:상위권에|오히려)/);
+      if (!m) continue;
+      const [, prev, particle] = m;
+      const expected =
+        particle === '은' || particle === '는' ? (hasJong(prev) ? '은' : '는') : hasJong(prev) ? '이' : '가';
+      expect(`${i.headline} → ${particle}`).toBe(`${i.headline} → ${expected}`);
+      checked.push(i.headline);
+    }
+    expect(checked.length).toBeGreaterThan(0);
   });
 });

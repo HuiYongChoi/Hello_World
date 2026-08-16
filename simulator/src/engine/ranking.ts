@@ -20,6 +20,7 @@
  * 그리고 여기서 나온 공통점은 **과거에 그랬다**일 뿐, 앞으로도 그렇다는 뜻이 아닙니다.
  */
 
+import { subjectParticle, topicParticle } from './format';
 import { MARKET, quarterLabel, type MarketComplex, type MarketPoint } from './market';
 import { DISTRICTS } from './regions';
 
@@ -277,6 +278,137 @@ export function rankPerformers(input: RankingInput): RankingResult {
       .sort((a, b) => b.median - a.median),
     caveats,
   };
+}
+
+/** 이 배수 이상이면 상위권에 유의미하게 몰렸다고 봅니다. */
+const LIFT_STRONG = 1.3;
+/** 이 배수 이하면 상위권에서 오히려 빠졌다고 봅니다. */
+const LIFT_WEAK = 0.7;
+/** 표본이 이보다 적으면 배수가 커도 이야기로 만들지 않습니다. */
+const MIN_BUCKET = 3;
+
+export interface Insight {
+  /** 한 줄 결론 */
+  headline: string;
+  /** 근거가 되는 수치 */
+  evidence: string;
+  strength: 'strong' | 'weak';
+}
+
+/**
+ * 공통점을 문장으로 옮깁니다.
+ *
+ * 배수 표를 그대로 주면 "1.07배가 의미 있는 건가"에서 막힙니다. 임계값을 코드에
+ * 박아 두고 넘는 것만 문장으로 만들되, **표본 수를 문장 안에 같이** 넣습니다.
+ * 배수만 크고 표본이 한 자리인 것은 아예 만들지 않습니다.
+ */
+export function rankingInsights(result: RankingResult): Insight[] {
+  const out: Insight[] = [];
+  const pct = (v: number) => `${(v * 100).toFixed(0)}%`;
+
+  for (const g of result.traits) {
+    // 시군구는 절대 모드에서 동어반복이라 인사이트로 만들지 않습니다.
+    if (g.id === 'district' && result.mode === 'absolute') continue;
+
+    for (const b of g.buckets) {
+      if (b.topCount < MIN_BUCKET) continue;
+
+      if (b.lift >= LIFT_STRONG) {
+        out.push({
+          headline: `${g.label}: ${subjectParticle(b.key)} 상위권에 몰렸습니다`,
+          evidence: `상위 ${b.topCount}건 (${pct(b.topShare)}) · 전체 ${pct(b.allShare)} · ${b.lift.toFixed(2)}배`,
+          strength: b.topCount >= 5 ? 'strong' : 'weak',
+        });
+      } else if (b.lift <= LIFT_WEAK) {
+        out.push({
+          headline: `${g.label}: ${topicParticle(b.key)} 오히려 상위권에서 빠졌습니다`,
+          evidence: `상위 ${b.topCount}건 (${pct(b.topShare)}) · 전체 ${pct(b.allShare)} · ${b.lift.toFixed(2)}배`,
+          strength: b.topCount >= 5 ? 'strong' : 'weak',
+        });
+      }
+    }
+  }
+
+  return out.sort((a, b) => (a.strength === b.strength ? 0 : a.strength === 'strong' ? -1 : 1));
+}
+
+/**
+ * 인사이트 리포트 — 표가 아니라 해석입니다.
+ *
+ * 숫자 표는 이미 리포트에 있습니다. 이건 "그래서 무엇을 하면 되는가"까지 적어
+ * 논의 자리에 그대로 올릴 수 있게 만든 문서입니다. 결론을 단정하지 않고,
+ * 근거와 한계를 같은 문장 안에 둡니다.
+ */
+export function rankingInsightReport(result: RankingResult, scopeLabel: string): string {
+  const insights = rankingInsights(result);
+  const strong = insights.filter((i) => i.strength === 'strong');
+  const weak = insights.filter((i) => i.strength === 'weak');
+  const pct = (v: number, d = 1) => `${(v * 100).toFixed(d)}%`;
+
+  const lines: string[] = [];
+  lines.push(`# 인사이트 — ${scopeLabel}`);
+  lines.push('');
+  lines.push(
+    `${quarterLabel(result.entries[0]?.fromQ ?? 0)} → ${quarterLabel(result.entries[0]?.toQ ?? 0)} · ` +
+      `${result.mode === 'excess' ? '지역 초과수익' : '절대 수익률'} 상위 ${result.topPercent}% ` +
+      `(단지·평형 ${result.universe.toLocaleString('ko-KR')}건 중 ${result.topCount}건)`
+  );
+  lines.push('');
+
+  if (strong.length === 0 && weak.length === 0) {
+    lines.push('## 결론');
+    lines.push('');
+    lines.push(
+      '이 조건에서는 **상위권을 가르는 뚜렷한 공통점이 없습니다.** 어떤 속성도 임계 배수를 넘지 못했습니다.'
+    );
+    lines.push('공통점이 없다는 것도 결과입니다 — 이 구간에서는 속성으로 고르는 대신 개별 물건을 봐야 합니다.');
+  } else {
+    lines.push('## 뚜렷한 것');
+    lines.push('');
+    if (strong.length === 0) {
+      lines.push('표본 5건 이상으로 뒷받침되는 공통점은 없습니다.');
+    } else {
+      for (const i of strong) {
+        lines.push(`- **${i.headline}**`);
+        lines.push(`  - ${i.evidence}`);
+      }
+    }
+
+    if (weak.length > 0) {
+      lines.push('');
+      lines.push('## 약한 신호 (표본 3~4건)');
+      lines.push('');
+      lines.push('배수는 크지만 표본이 얇습니다. 방향만 참고하고 근거로 쓰지 마세요.');
+      lines.push('');
+      for (const i of weak) lines.push(`- ${i.headline} — ${i.evidence}`);
+    }
+  }
+
+  const top = result.entries[0];
+  if (top) {
+    lines.push('');
+    lines.push('## 대표 사례');
+    lines.push('');
+    lines.push(
+      `${top.name} (${top.umd} · ${top.districtLabel}) ${top.buildYear || '—'}년 준공 · 전용 ${top.area}㎡`
+    );
+    lines.push(
+      `- ${quarterLabel(top.fromQ)} ${(top.startPrice / 1e8).toFixed(2)}억 → ` +
+        `${quarterLabel(top.toQ)} ${(top.endPrice / 1e8).toFixed(2)}억`
+    );
+    lines.push(`- 연복리 ${pct(top.cagr, 2)} · 같은 시군구 중위 대비 ${pct(top.excess, 2)}p`);
+  }
+
+  lines.push('');
+  lines.push('## 이 해석의 한계');
+  for (const c of result.caveats) lines.push(`- ${c}`);
+  lines.push(
+    `- 속성 ${result.traits.length}개를 동시에 봤습니다. 우연히 한둘은 임계값을 넘습니다.`
+  );
+  lines.push('');
+  lines.push(`출처 ${MARKET.source.name} · 기준일 ${MARKET.asOf}`);
+
+  return lines.join('\n');
 }
 
 /** 리포트용 마크다운. 화면 밖으로 들고 나갈 수 있어야 논의에 쓸 수 있습니다. */
