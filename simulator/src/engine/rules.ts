@@ -21,6 +21,20 @@ export interface RegionRule {
   checklist: string[];
 }
 
+/**
+ * 신축 하한 통계.
+ *
+ * 판정에는 `p25` 를 씁니다 — 최저가는 외곽 나홀로 단지 한 건에 흔들립니다.
+ * 다만 `lowest` 도 같이 담아 화면에 병기합니다. 둘의 간격이 곧 그 지역 신축
+ * 가격대의 폭이고, 간격이 크면 `p25` 도 그만큼 덜 단단합니다.
+ */
+export interface NewBuildFloorStat {
+  p25: number;
+  lowest: number;
+  median: number;
+  n: number;
+}
+
 export interface Ruleset {
   version: string;
   effectiveFrom: string;
@@ -51,9 +65,9 @@ export interface Ruleset {
   appraisal: {
     note: string;
     newBuildMaxAge: number;
-    newBuildMinPrice: Record<RegionId, number>;
-    /** 법정동코드 → 하한가. 권역 평균은 성산구와 마산을 상쇄시키므로 시군구가 우선입니다. */
-    newBuildMinPriceByDistrict: Record<string, number>;
+    newBuildMinPrice: Record<RegionId, NewBuildFloorStat>;
+    /** 법정동코드 → 하한 통계. 권역 평균은 성산구와 마산을 상쇄시키므로 시군구가 우선입니다. */
+    newBuildMinPriceByDistrict: Record<string, NewBuildFloorStat>;
     newBuildMinPriceNote: string;
     newBuildMinPriceAsOf: string;
     redevelopmentMinAge: number;

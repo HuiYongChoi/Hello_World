@@ -83,6 +83,11 @@ function main() {
   }
 
   const label = new Map(market.regions.map((r) => [r.code, r.label]));
+  /**
+   * 판정에는 하위 25%를 쓰지만 최저가도 같이 남깁니다.
+   * 둘의 간격이 곧 그 지역 신축 가격대의 폭이고, 간격이 크면 하위 25%도
+   * 그만큼 덜 단단하다는 뜻이라 화면에서 함께 읽어야 합니다.
+   */
   const districtOut = {};
   console.log(
     `신축 = ${NEW_BUILD_SINCE_YEAR}년 이후 준공 · 전용 ${AREA_MIN}~${AREA_MAX}㎡ · 최근 ${RECENT_QUARTERS}분기\n`
@@ -93,21 +98,35 @@ function main() {
       console.log(`${(label.get(code) ?? code).padEnd(18)} ${String(xs.length).padStart(4)}  표본 부족 — 권역값을 씁니다`);
       continue;
     }
-    const p25 = Math.round(quantile(xs, 0.25) / 1e6) * 1e6;
-    districtOut[code] = p25;
+    const round = (v) => Math.round(v / 1e6) * 1e6;
+    const entry = {
+      p25: round(quantile(xs, 0.25)),
+      lowest: round(minOf(xs)),
+      median: round(quantile(xs, 0.5)),
+      n: xs.length,
+    };
+    districtOut[code] = entry;
     console.log(
       `${(label.get(code) ?? code).padEnd(18)} ${String(xs.length).padStart(4)}  ` +
-        `${eok(quantile(xs, 0.1)).padStart(7)}  ${eok(p25).padStart(7)}  ` +
-        `${eok(quantile(xs, 0.5)).padStart(7)}  ${eok(minOf(xs)).padStart(7)}`
+        `${eok(quantile(xs, 0.1)).padStart(7)}  ${eok(entry.p25).padStart(7)}  ` +
+        `${eok(entry.median).padStart(7)}  ${eok(entry.lowest).padStart(7)}`
     );
   }
 
   const regionOut = {};
-  console.log('\n권역               표본   하위25%');
+  console.log('\n권역               표본   하위25%      최저');
   for (const [region, xs] of byRegion) {
-    const p25 = Math.round(quantile(xs, 0.25) / 1e6) * 1e6;
-    regionOut[region] = p25;
-    console.log(`${region.padEnd(18)} ${String(xs.length).padStart(4)}  ${eok(p25).padStart(7)}`);
+    const round = (v) => Math.round(v / 1e6) * 1e6;
+    regionOut[region] = {
+      p25: round(quantile(xs, 0.25)),
+      lowest: round(minOf(xs)),
+      median: round(quantile(xs, 0.5)),
+      n: xs.length,
+    };
+    console.log(
+      `${region.padEnd(18)} ${String(xs.length).padStart(4)}  ` +
+        `${eok(regionOut[region].p25).padStart(7)}  ${eok(regionOut[region].lowest).padStart(7)}`
+    );
   }
 
   if (!process.argv.includes('--write')) {
@@ -118,8 +137,10 @@ function main() {
   rules.appraisal.newBuildMinPrice = regionOut;
   rules.appraisal.newBuildMinPriceByDistrict = districtOut;
   rules.appraisal.newBuildMinPriceNote =
-    `실거래 하위 25% 로 계산했습니다 (${NEW_BUILD_SINCE_YEAR}년 이후 준공 · 전용 ${AREA_MIN}~${AREA_MAX}㎡ · 최근 ${RECENT_QUARTERS}분기). ` +
-    '최저가는 외곽 나홀로 단지 한 건에 흔들려 쓰지 않습니다. 시군구 값이 있으면 그것을, 없으면 권역값을 씁니다.';
+    `${NEW_BUILD_SINCE_YEAR}년 이후 준공 · 전용 ${AREA_MIN}~${AREA_MAX}㎡ · 최근 ${RECENT_QUARTERS}분기 실거래. ` +
+    '판정에는 하위 25%(p25)를 씁니다 — 최저가는 외곽 나홀로 단지 한 건에 흔들립니다. ' +
+    '다만 최저가(lowest)도 같이 담아 화면에 병기합니다. p25 와 lowest 의 간격이 크면 그 지역 신축 가격대가 넓다는 뜻이고, p25 도 그만큼 덜 단단합니다. ' +
+    '시군구 값이 있으면 그것을, 없으면 권역값을 씁니다.';
   rules.appraisal.newBuildMinPriceAsOf = new Date().toISOString().slice(0, 10);
 
   writeFileSync(RULES, JSON.stringify(rules, null, 2) + '\n');

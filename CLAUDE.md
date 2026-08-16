@@ -36,6 +36,7 @@ src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상
   market.ts      실거래 스냅샷 로더 + CAGR + 진입시점 분포
   rent.ts        전세가율·전월세전환율 실측치 (자리표시자 대체)
   regions.ts     시군구 목록·후보군 + 시군구명 → 법정동코드 조회
+  ranking.ts     수익률 상위권 추출 + 공통점(lift) + 리포트 생성
   scoring.ts     입지 지표 정규화 + 지역별 가중치 프리셋
   matrix.ts      매트릭스 조립 + 3축 산점도 데이터
 src/state/store.tsx      React 상태 + localStorage
@@ -84,7 +85,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 166건)
+npm test                 # 엔진 단위 테스트 (현재 180건)
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
 npm run standalone       # dist/standalone.html — 골격 없는 조각 (아티팩트 호스트용)

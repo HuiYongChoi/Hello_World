@@ -7,6 +7,7 @@ import { PropertiesPage } from './pages/PropertiesPage';
 import { ReportPage } from './pages/ReportPage';
 import { ScenarioPage } from './pages/ScenarioPage';
 import { MarketPage } from './pages/MarketPage';
+import { RankingDrawer } from './pages/RankingDrawer';
 import { TenurePage } from './pages/TenurePage';
 import { useStore } from './state/store';
 
@@ -103,6 +104,8 @@ export function App() {
         {tab === 'market' && <MarketPage />}
         {tab === 'report' && <ReportPage />}
       </main>
+
+      <RankingDrawer />
 
       <footer className="mx-auto max-w-7xl px-5 pb-10">
         <div className="rounded-xl border border-slate-800 bg-slate-900/30 px-4 py-3 print-plain">

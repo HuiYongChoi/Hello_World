@@ -55,13 +55,30 @@ export function hasRedevelopmentCase(property: Property): boolean {
  * 상쇄돼 어느 쪽 현실도 아닌 값이 나옵니다. 시군구 값이 있으면 그것을 쓰고,
  * 수집하지 않은 지역이면 권역값으로 물러섭니다.
  */
-export function newBuildFloorFor(property: Property): { price: number; scope: string } {
+export interface NewBuildFloor {
+  /** 판정 기준값 (하위 25%) */
+  price: number;
+  /** 같은 표본의 최저가 — 판정엔 안 쓰지만 폭을 보려면 같이 읽어야 합니다 */
+  lowest: number;
+  median: number;
+  /** 표본 수. 적으면 값이 흔들립니다 (성산구는 신축 자체가 드뭅니다) */
+  n: number;
+  scope: string;
+}
+
+export function newBuildFloorFor(property: Property): NewBuildFloor {
   const cfg = RULES.appraisal;
   const district = findDistrict(property.sigungu);
-  const byDistrict = district ? cfg.newBuildMinPriceByDistrict[district.code] : undefined;
-  return byDistrict
-    ? { price: byDistrict, scope: district!.label }
-    : { price: cfg.newBuildMinPrice[property.region], scope: '권역 평균' };
+  const stat = district ? cfg.newBuildMinPriceByDistrict[district.code] : undefined;
+  return stat
+    ? { price: stat.p25, lowest: stat.lowest, median: stat.median, n: stat.n, scope: district!.label }
+    : {
+        price: cfg.newBuildMinPrice[property.region].p25,
+        lowest: cfg.newBuildMinPrice[property.region].lowest,
+        median: cfg.newBuildMinPrice[property.region].median,
+        n: cfg.newBuildMinPrice[property.region].n,
+        scope: '권역 평균',
+      };
 }
 
 export function propertyThesis(property: Property): PropertyThesis {
@@ -103,7 +120,9 @@ export function propertyThesis(property: Property): PropertyThesis {
       label: '애매 구간',
       reason: `${age}년차 구축인데 재건축 기대가 없고, ${floor.scope} 신축 하한(${money(
         newBuildFloor
-      )}) 아래 가격대입니다. 하한은 실거래 하위 25% 입니다.`,
+      )}) 아래 가격대입니다. 하한은 실거래 하위 25%이고, 같은 표본의 최저가는 ${money(
+        floor.lowest
+      )}입니다 (표본 ${floor.n}건).`,
       advice:
         '신축도 재건축도 아니면 오를 이유가 약합니다. 매수 대신 임차로 묶고 남은 돈을 굴리는 쪽을 먼저 비교해 보세요.',
       preferTenure: true,
