@@ -33,6 +33,7 @@
 
 import { brokerageFee } from './costs';
 import { money } from './format';
+import { measuredConversionRate, measuredJeonseRatio } from './rent';
 import { RULES } from './rules';
 import { capitalGainsTax, leaseBrokerageFee, propertyTax } from './tax';
 import type { LoanResult, Property, RegionId } from './types';
@@ -115,7 +116,13 @@ const LABEL: Record<TenureKind, string> = {
   wolse: '월세',
 };
 
-/** 지역별 시장 가정값 기본치. 실측 데이터가 아니라 자리표시자입니다. */
+/**
+ * 지역별 시장 가정값 기본치.
+ *
+ * 전세가율·전월세전환율은 **실측 스냅샷이 있으면 그것을 씁니다** (`rent.ts`).
+ * 룰셋의 값은 스냅샷이 비었을 때만 쓰이는 자리표시자입니다. 나머지(투자수익률·
+ * 상승률·수선유지비)는 아직 전부 자리표시자입니다.
+ */
 export function defaultAssumptions(
   region: RegionId,
   over: Partial<TenureAssumptions> = {}
@@ -126,8 +133,8 @@ export function defaultAssumptions(
     years: d.years,
     priceGrowthRate: 0.03,
     investmentReturnRate: d.investmentReturnRate,
-    jeonseRatio: r.jeonseRatio,
-    conversionRate: r.conversionRate,
+    jeonseRatio: measuredJeonseRatio(region) ?? r.jeonseRatio,
+    conversionRate: measuredConversionRate(region) ?? r.conversionRate,
     wolseDepositRatio: r.wolseDepositRatio,
     depositGrowthRate: d.depositGrowthRate,
     maintenanceRate: d.maintenanceRate,
@@ -361,7 +368,11 @@ function runLegs(plans: LegPlan[], equity: number, a: TenureAssumptions): Tenure
       if (balance < 0) liquidityRisk = true;
     }
 
-    const shortfall = Math.max(0, plan.initialOutlay - equity);
+    // 전세대출은 모자란 만큼 정확히 빌리도록 잡혀 있어 초기투입이 자기자본과 같아집니다.
+    // 그때 부동소수점 먼지(1e-8원)가 남아 "자금 부족"으로 뒤집히는 일이 실제로 있었습니다.
+    // 1원 미만 차이는 0으로 봅니다.
+    const rawShortfall = plan.initialOutlay - equity;
+    const shortfall = rawShortfall > 1 ? rawShortfall : 0;
     const investedPrincipal = initialInvestment + netContribution;
     const terminalWealth = plan.recovered + balance;
 

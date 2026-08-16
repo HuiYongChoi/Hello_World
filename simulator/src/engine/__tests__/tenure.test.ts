@@ -171,6 +171,18 @@ describe('전세 — 보증금이 묶이는 구조', () => {
     expect(j.initialOutlay).toBeCloseTo(100000000, 0);
   });
 
+  it('초기투입이 자기자본과 정확히 같아도 부동소수점 때문에 부족으로 뒤집히지 않는다', () => {
+    // 전세대출은 모자란 만큼 정확히 빌리므로 initialOutlay == equity 가 됩니다.
+    // 1e-8원 단위 먼지로 "자금 부족" 배지가 뜬 적이 있어 고정해 둡니다.
+    for (const equity of [80000000, 100000000, 123456789, 150000000]) {
+      const j = leg(compare({}, 30, equity), 'jeonse');
+      if (j.detail.jeonseLoan > 0 && j.detail.jeonseLoan < j.detail.deposit0 * 0.8) {
+        expect(j.feasible).toBe(true);
+        expect(j.shortfall).toBe(0);
+      }
+    }
+  });
+
   it('대출 한도가 실제로 막히면 그때는 부족액을 드러낸다', () => {
     const j = leg(compare({ jeonseRatio: 0.95 }, 30, 20000000), 'jeonse');
     expect(j.detail.jeonseLoan).toBeCloseTo(

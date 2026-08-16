@@ -9,6 +9,8 @@ export * from './leverage';
 export * from './thesis';
 export * from './affordability';
 export * from './tax';
+export * from './rent';
+export * from './market';
 export * from './tenure';
 export * from './matrix';
 export * from './format';

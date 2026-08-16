@@ -1,0 +1,238 @@
+{
+ "version": "2026-08",
+ "asOf": "2026-08-16",
+ "source": {
+  "name": "국토교통부 아파트 전월세 실거래가 자료",
+  "endpoint": "apis.data.go.kr/1613000/RTMSDataSvcAptRent",
+  "license": "공공누리 제1유형",
+  "note": "같은 단지·평형·분기끼리 짝지어 비율을 냈습니다. 짝이 없는 거래는 제외했습니다."
+ },
+ "range": {
+  "from": "202308",
+  "to": "202608"
+ },
+ "stats": {
+  "deals": 183401,
+  "failedRequests": 0
+ },
+ "method": {
+  "jeonseRatio": "전세보증금 ÷ 같은 단지·평형·분기의 매매 중위가 (0.2~1.1 밖은 제외)",
+  "conversionRate": "(월세×12) ÷ (같은 칸 전세보증금 중위 − 월세보증금), 1~20% 밖은 제외"
+ },
+ "byRegion": {
+  "changwon": {
+   "jeonseRatio": {
+    "n": 21338,
+    "median": 0.7916,
+    "p25": 0.6944,
+    "p75": 0.8722
+   },
+   "conversionRate": {
+    "n": 12532,
+    "median": 0.0503,
+    "p25": 0.0444,
+    "p75": 0.06
+   }
+  },
+  "busan": {
+   "jeonseRatio": {
+    "n": 16836,
+    "median": 0.5639,
+    "p25": 0.4908,
+    "p75": 0.644
+   },
+   "conversionRate": {
+    "n": 11827,
+    "median": 0.0507,
+    "p25": 0.0452,
+    "p75": 0.0565
+   }
+  },
+  "gyeonggi": {
+   "jeonseRatio": {
+    "n": 31996,
+    "median": 0.6154,
+    "p25": 0.531,
+    "p75": 0.7179
+   },
+   "conversionRate": {
+    "n": 23619,
+    "median": 0.0557,
+    "p25": 0.0496,
+    "p75": 0.0637
+   }
+  }
+ },
+ "byRegionCode": {
+  "26260": {
+   "label": "부산 수영구",
+   "region": "busan",
+   "deals": 14504,
+   "jeonseRatio": {
+    "n": 6301,
+    "median": 0.5866,
+    "p25": 0.5172,
+    "p75": 0.6742
+   },
+   "conversionRate": {
+    "n": 3161,
+    "median": 0.0488,
+    "p25": 0.0434,
+    "p75": 0.056
+   }
+  },
+  "26350": {
+   "label": "부산 해운대구",
+   "region": "busan",
+   "deals": 25430,
+   "jeonseRatio": {
+    "n": 10535,
+    "median": 0.5507,
+    "p25": 0.4748,
+    "p75": 0.625
+   },
+   "conversionRate": {
+    "n": 8666,
+    "median": 0.0514,
+    "p25": 0.0462,
+    "p75": 0.0565
+   }
+  },
+  "41220": {
+   "label": "평택시",
+   "region": "gyeonggi",
+   "deals": 36142,
+   "jeonseRatio": {
+    "n": 10892,
+    "median": 0.6884,
+    "p25": 0.576,
+    "p75": 0.7968
+   },
+   "conversionRate": {
+    "n": 12648,
+    "median": 0.06,
+    "p25": 0.0533,
+    "p75": 0.0702
+   }
+  },
+  "41595": {
+   "label": "화성시 병점구",
+   "region": "gyeonggi",
+   "deals": 15800,
+   "jeonseRatio": {
+    "n": 7447,
+    "median": 0.6769,
+    "p25": 0.5872,
+    "p75": 0.762
+   },
+   "conversionRate": {
+    "n": 3254,
+    "median": 0.0541,
+    "p25": 0.0492,
+    "p75": 0.06
+   }
+  },
+  "41597": {
+   "label": "화성시 동탄구",
+   "region": "gyeonggi",
+   "deals": 36499,
+   "jeonseRatio": {
+    "n": 13657,
+    "median": 0.5612,
+    "p25": 0.4902,
+    "p75": 0.6205
+   },
+   "conversionRate": {
+    "n": 7717,
+    "median": 0.0504,
+    "p25": 0.042,
+    "p75": 0.0565
+   }
+  },
+  "48121": {
+   "label": "창원시 의창구",
+   "region": "changwon",
+   "deals": 7998,
+   "jeonseRatio": {
+    "n": 3544,
+    "median": 0.7718,
+    "p25": 0.6384,
+    "p75": 0.8439
+   },
+   "conversionRate": {
+    "n": 1926,
+    "median": 0.0486,
+    "p25": 0.0436,
+    "p75": 0.0554
+   }
+  },
+  "48123": {
+   "label": "창원시 성산구",
+   "region": "changwon",
+   "deals": 17536,
+   "jeonseRatio": {
+    "n": 9978,
+    "median": 0.8,
+    "p25": 0.6627,
+    "p75": 0.8929
+   },
+   "conversionRate": {
+    "n": 4454,
+    "median": 0.0495,
+    "p25": 0.0426,
+    "p75": 0.0569
+   }
+  },
+  "48125": {
+   "label": "창원시 마산합포구",
+   "region": "changwon",
+   "deals": 8945,
+   "jeonseRatio": {
+    "n": 3080,
+    "median": 0.7871,
+    "p25": 0.7202,
+    "p75": 0.8622
+   },
+   "conversionRate": {
+    "n": 1423,
+    "median": 0.0516,
+    "p25": 0.0468,
+    "p75": 0.06
+   }
+  },
+  "48127": {
+   "label": "창원시 마산회원구",
+   "region": "changwon",
+   "deals": 5269,
+   "jeonseRatio": {
+    "n": 1939,
+    "median": 0.7937,
+    "p25": 0.7279,
+    "p75": 0.8628
+   },
+   "conversionRate": {
+    "n": 1462,
+    "median": 0.0458,
+    "p25": 0.0177,
+    "p75": 0.06
+   }
+  },
+  "48129": {
+   "label": "창원시 진해구",
+   "region": "changwon",
+   "deals": 15278,
+   "jeonseRatio": {
+    "n": 2797,
+    "median": 0.8,
+    "p25": 0.7368,
+    "p75": 0.8614
+   },
+   "conversionRate": {
+    "n": 3267,
+    "median": 0.0545,
+    "p25": 0.0488,
+    "p75": 0.0646
+   }
+  }
+ }
+}

@@ -10,6 +10,7 @@ import {
   type TenureKind,
   type TenureLeg,
 } from '../engine/tenure';
+import { RENT, isMeasured } from '../engine/rent';
 import { propertyThesis } from '../engine/thesis';
 import { useStore } from '../state/store';
 
@@ -241,6 +242,11 @@ export function TenurePage() {
 
   const patch = (p: Partial<TenureAssumptions>) => setOver((o) => ({ ...o, ...p }));
 
+  // 전세가율·전월세전환율만 실측으로 바뀌었습니다. 어느 값이 실측인지 구분해 보여줍니다.
+  const measured = property ? isMeasured(property.region) : false;
+  const jeonseStat = property ? RENT.byRegion[property.region]?.jeonseRatio : null;
+  const conversionStat = property ? RENT.byRegion[property.region]?.conversionRate : null;
+
   if (properties.length === 0) {
     return <Empty>물건을 먼저 등록하세요. 3단계 “물건 · 입지”에서 추가할 수 있습니다.</Empty>;
   }
@@ -374,25 +380,37 @@ export function TenurePage() {
 
           <Card
             title="가정값"
-            subtitle={RULES.tenure.assumptionDefaults.note}
-            action={<Badge tone="warn">실측 아님</Badge>}
+            subtitle={
+              measured
+                ? `전세가율·전월세전환율은 국토부 전월세 실거래 ${RENT.stats.deals.toLocaleString('ko-KR')}건에서 잰 값입니다 (${RENT.range.from.slice(0, 4)}년~, 같은 단지·평형·분기끼리 짝지음). 나머지는 아직 자리표시자입니다.`
+                : RULES.tenure.assumptionDefaults.note
+            }
+            action={measured ? <Badge tone="good">일부 실측</Badge> : <Badge tone="warn">실측 아님</Badge>}
           >
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <RateField
                 label="대체투자 기대수익률"
-                hint="주식·채권 등, 배당 포함 명목"
+                hint="주식·채권 등, 배당 포함 명목 — 자리표시자"
                 value={result.assumptions.investmentReturnRate}
                 onChange={(v) => patch({ investmentReturnRate: v })}
               />
               <RateField
                 label="전세가율"
-                hint="매매가 대비 전세보증금"
+                hint={
+                  jeonseStat
+                    ? `실측 중위 ${percent(jeonseStat.median, 1)} · 사분위 ${percent(jeonseStat.p25, 1)}~${percent(jeonseStat.p75, 1)} (표본 ${jeonseStat.n.toLocaleString('ko-KR')})`
+                    : '매매가 대비 전세보증금'
+                }
                 value={result.assumptions.jeonseRatio}
                 onChange={(v) => patch({ jeonseRatio: v })}
               />
               <RateField
                 label="전월세전환율"
-                hint={`법정 상한 ${percent(RULES.tenure.lease.conversionRateMax, 0)}`}
+                hint={
+                  conversionStat
+                    ? `실측 중위 ${percent(conversionStat.median, 2)} · 사분위 ${percent(conversionStat.p25, 2)}~${percent(conversionStat.p75, 2)} (표본 ${conversionStat.n.toLocaleString('ko-KR')})`
+                    : `법정 상한 ${percent(RULES.tenure.lease.conversionRateMax, 0)}`
+                }
                 value={result.assumptions.conversionRate}
                 onChange={(v) => patch({ conversionRate: v })}
               />

@@ -19,7 +19,8 @@
 
 ```
 src/rules/2026-08.json   ← 모든 정책 수치. 코드엔 로직만.
-src/data/market-YYYY-MM.json ← 실거래 스냅샷 (빌드 타임 수집, 손대지 말 것)
+src/data/market-YYYY-MM.json ← 매매 실거래 스냅샷 (빌드 타임 수집, 손대지 말 것)
+src/data/rent-YYYY-MM.json   ← 전월세에서 잰 전세가율·전환율
 src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상.
   rules.ts       룰셋 로더, 지역·규제지역 판정
   finance.ts     원리금균등 (PMT / PV)
@@ -32,6 +33,7 @@ src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상
   affordability.ts  상품별 최대 감당가격 역산 ("얼마까지 되나")
   thesis.ts      물건 성격 판정 (신축 / 재건축 기대 / 애매 구간)
   market.ts      실거래 스냅샷 로더 + CAGR + 진입시점 분포
+  rent.ts        전세가율·전월세전환율 실측치 (자리표시자 대체)
   scoring.ts     입지 지표 정규화 + 지역별 가중치 프리셋
   matrix.ts      매트릭스 조립 + 3축 산점도 데이터
 src/state/store.tsx      React 상태 + localStorage
@@ -80,10 +82,12 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 101건)
+npm test                 # 엔진 단위 테스트 (현재 164건)
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
 npm run standalone       # dist/standalone.html — 골격 없는 조각 (아티팩트 호스트용)
+npm run fetch:market     # 국토부 매매 실거래가 → src/data/market-*.json
+npm run fetch:rent       # 국토부 전월세 실거래가 → src/data/rent-*.json
 ```
 
 엔진을 고쳤으면 **반드시 `npm test`** 를 돌리세요. 도메인 규칙이 테스트에 박혀 있습니다.
@@ -130,9 +134,8 @@ npm run standalone       # dist/standalone.html — 골격 없는 조각 (아티
    보여줍니다. 목돈과 매달을 시간축으로 분리하지 않으면 "투자 0원인데 적립 7천만"이
    모순처럼 읽힙니다.
 
-   남은 것: `assumptionDefaults`(전세가율·전월세전환율·투자수익률·상승률)가 전부
-   **자리표시자**입니다. 2단계의 전월세 실거래가로 갈아끼워야 절대 금액에 의미가 생깁니다.
-   그전까지 읽을 값은 `breakEvenPriceGrowth` 뿐입니다.
+   전세가율·전월세전환율은 2단계에서 **실측으로 교체됐습니다**. 남은 자리표시자는
+   투자수익률·상승률·수선유지비입니다.
 
 2. **데이터 파이프라인** — 국토부 매매 실거래가는 **완료**. `scripts/fetch-market.mjs` 가
    빌드 타임에 받아 `src/data/market-YYYY-MM.json` 으로 굽고, 화면은 스냅샷만 읽습니다.
@@ -147,8 +150,22 @@ npm run standalone       # dist/standalone.html — 골격 없는 조각 (아티
    바이트가 곧 로딩 시간입니다 — 분기 중위가로 접고, 분기를 정수 인덱스로 저장합니다.
    해제(`cdealType=O`)된 거래는 제외합니다. 체결되지 않은 신고가 섞이면 고점이 왜곡됩니다.
 
+   **전월세도 완료** — `scripts/fetch-rent.mjs` → `src/data/rent-YYYY-MM.json`.
+   전월세 자료에는 매매와 **같은 `aptSeq`** 가 있어, 시장 평균끼리 나누지 않고
+   **같은 단지·평형·분기**끼리 짝지어 비율을 냅니다. 시장 평균으로 나누면 전세가
+   활발한 단지와 매매가 활발한 단지가 뒤섞여 실제로 없는 비율이 나옵니다.
+
+   ```
+   전세가율     = 전세보증금 ÷ 같은 칸 매매 중위가
+   전월세전환율 = (월세×12) ÷ (같은 칸 전세보증금 중위 − 월세보증금)
+   ```
+
+   `defaultAssumptions` 가 실측치를 우선 쓰고 룰셋 값은 폴백으로만 남습니다.
+   실측 결과 **부산 전세가율이 자리표시자 68%가 아니라 56.4%** 였고, 이 하나로
+   부산의 3-way 결론이 매수 → 월세로 뒤집혔습니다. 자리표시자가 답을 만들고
+   있었다는 뜻입니다.
+
    남은 소스:
-   - 국토부 **전월세** 실거래가 — `tenure` 의 전세가율·전월세전환율 자리표시자를 대체
    - 국토부 **분양권전매** 실거래가 — 청약 축에 필요
    - 한국은행 ECOS (주담대 금리·기준금리·CPI) — 키는 `.env.local` 에 있음
    - KRX 코스피 **총수익지수(TR)** — 배당 포함. 일반 지수 쓰면 대체투자가 부당하게 불리해집니다.
