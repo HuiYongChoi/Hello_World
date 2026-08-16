@@ -4,7 +4,6 @@
   "sunset": null,
   "label": "2026년 8월 기준 (6·27 대책 반영, 8·13 대책 10월 시행분 포함)",
   "disclaimer": "본 계산은 공개된 정책 정보를 전제로 한 추정치입니다. 실제 승인 한도·금리는 금융기관 심사 결과에 따릅니다. 규정 수치는 주택도시기금·한국주택금융공사·금융위원회 공고로 재확인이 필요합니다.",
-
   "regions": [
     {
       "id": "gyeonggi",
@@ -43,7 +42,6 @@
       ]
     }
   ],
-
   "regulatedSigungu": [
     "서울 전역",
     "과천시",
@@ -54,7 +52,6 @@
     "수원시 영통구",
     "용인시 수지구"
   ],
-
   "products": [
     {
       "id": "didimdol_first",
@@ -85,8 +82,14 @@
         "max": 0.0415,
         "first_time_discount": 0.002
       },
-      "obligations": { "move_in_months": 1, "residency_years": 2 },
-      "features": { "fixed_rate": true, "early_repayment_fee": true }
+      "obligations": {
+        "move_in_months": 1,
+        "residency_years": 2
+      },
+      "features": {
+        "fixed_rate": true,
+        "early_repayment_fee": true
+      }
     },
     {
       "id": "sinsaenga_special",
@@ -108,9 +111,19 @@
         "dti": 0.6,
         "dsr_exempt": true
       },
-      "rate": { "min": 0.016, "max": 0.033, "first_time_discount": 0.001 },
-      "obligations": { "move_in_months": 1, "residency_years": 2 },
-      "features": { "fixed_rate": true, "early_repayment_fee": true }
+      "rate": {
+        "min": 0.016,
+        "max": 0.033,
+        "first_time_discount": 0.001
+      },
+      "obligations": {
+        "move_in_months": 1,
+        "residency_years": 2
+      },
+      "features": {
+        "fixed_rate": true,
+        "early_repayment_fee": true
+      }
     },
     {
       "id": "bogeumjari_first",
@@ -139,7 +152,10 @@
         "online_discount": 0.001,
         "preferential_max": 0.01
       },
-      "obligations": { "move_in_months": 1, "residency_years": 0 },
+      "obligations": {
+        "move_in_months": 1,
+        "residency_years": 0
+      },
       "features": {
         "fixed_rate": true,
         "early_repayment_fee": false,
@@ -163,19 +179,38 @@
         "stress_rate_add": 0.015,
         "dsr_exempt": false
       },
-      "rate": { "min": 0.041, "max": 0.048 },
-      "obligations": { "move_in_months": 6, "residency_years": 0 },
-      "features": { "fixed_rate": false, "early_repayment_fee": true }
+      "rate": {
+        "min": 0.041,
+        "max": 0.048
+      },
+      "obligations": {
+        "move_in_months": 6,
+        "residency_years": 0
+      },
+      "features": {
+        "fixed_rate": false,
+        "early_repayment_fee": true
+      }
     }
   ],
-
   "costs": {
     "acquisitionTax": {
       "note": "주택 유상취득 1주택 기준. 6~9억 구간은 (가액×2/3억−3)/100 누진식.",
       "brackets": [
-        { "maxPrice": 600000000, "kind": "flat", "rate": 0.01 },
-        { "maxPrice": 900000000, "kind": "linear_6_9" },
-        { "maxPrice": null, "kind": "flat", "rate": 0.03 }
+        {
+          "maxPrice": 600000000,
+          "kind": "flat",
+          "rate": 0.01
+        },
+        {
+          "maxPrice": 900000000,
+          "kind": "linear_6_9"
+        },
+        {
+          "maxPrice": null,
+          "kind": "flat",
+          "rate": 0.03
+        }
       ],
       "localEducationTaxRatio": 0.1,
       "ruralTaxRate": 0.002,
@@ -186,118 +221,272 @@
     "brokerage": {
       "note": "매매 상한요율. 실제는 협의로 낮아질 수 있습니다.",
       "brackets": [
-        { "maxPrice": 50000000, "rate": 0.006, "cap": 250000 },
-        { "maxPrice": 200000000, "rate": 0.005, "cap": 800000 },
-        { "maxPrice": 900000000, "rate": 0.004, "cap": null },
-        { "maxPrice": 1200000000, "rate": 0.005, "cap": null },
-        { "maxPrice": 1500000000, "rate": 0.006, "cap": null },
-        { "maxPrice": null, "rate": 0.007, "cap": null }
+        {
+          "maxPrice": 50000000,
+          "rate": 0.006,
+          "cap": 250000
+        },
+        {
+          "maxPrice": 200000000,
+          "rate": 0.005,
+          "cap": 800000
+        },
+        {
+          "maxPrice": 900000000,
+          "rate": 0.004,
+          "cap": null
+        },
+        {
+          "maxPrice": 1200000000,
+          "rate": 0.005,
+          "cap": null
+        },
+        {
+          "maxPrice": 1500000000,
+          "rate": 0.006,
+          "cap": null
+        },
+        {
+          "maxPrice": null,
+          "rate": 0.007,
+          "cap": null
+        }
       ],
       "vatRatio": 0.1
     },
     "legalAndBondDefault": 1000000,
     "movingAndRepairDefault": 3000000
   },
-
   "appraisal": {
     "note": "물건 성격 판정용 가정값. 정책 수치가 아니라 시장 판단이므로 실측·합의로 갱신해야 합니다.",
-
     "newBuildMaxAge": 7,
     "newBuildMinPrice": {
-      "gyeonggi": 600000000,
-      "changwon": 450000000,
-      "busan": 500000000
+      "changwon": 363000000,
+      "busan": 522000000,
+      "gyeonggi": 433000000
     },
-    "newBuildMinPriceNote": "이 가격 아래에서는 해당 지역에 신축 매물이 사실상 없다고 보는 선. 창원 4.5억은 실거래 확인 전 자리표시자입니다.",
-
+    "newBuildMinPriceNote": "실거래 하위 25% 로 계산했습니다 (2019년 이후 준공 · 전용 70~100㎡ · 최근 8분기). 최저가는 외곽 나홀로 단지 한 건에 흔들려 쓰지 않습니다. 시군구 값이 있으면 그것을, 없으면 권역값을 씁니다.",
     "redevelopmentMinAge": 30,
     "redevelopmentStageThreshold": 3,
     "farThreshold": 200,
     "redevelopmentNote": "연식만으로는 재건축 가치가 생기지 않습니다. 용적률이 낮아야 사업성이 납니다.",
-
     "districtTierReference": {
       "note": "생활권 티어 참고표. 객관적 지표가 아니라 합의된 주관 판단이며, 물건별로 직접 조정하세요.",
       "changwon": [
-        { "name": "용호동", "tier": 5, "note": "이미 크게 오른 선도 생활권 — 추가 상승 여력은 그만큼 얇습니다" },
-        { "name": "가음정사거리 일대", "tier": 4, "note": "다음 차례로 지목된 축" },
-        { "name": "상남·중앙동", "tier": 4, "note": "상권·학원가 중심" },
-        { "name": "그 외 성산·의창", "tier": 3, "note": "기본값" },
-        { "name": "마산·진해 생활권", "tier": 2, "note": "생활권 분리 리스크" }
+        {
+          "name": "용호동",
+          "tier": 5,
+          "note": "이미 크게 오른 선도 생활권 — 추가 상승 여력은 그만큼 얇습니다"
+        },
+        {
+          "name": "가음정사거리 일대",
+          "tier": 4,
+          "note": "다음 차례로 지목된 축"
+        },
+        {
+          "name": "상남·중앙동",
+          "tier": 4,
+          "note": "상권·학원가 중심"
+        },
+        {
+          "name": "그 외 성산·의창",
+          "tier": 3,
+          "note": "기본값"
+        },
+        {
+          "name": "마산·진해 생활권",
+          "tier": 2,
+          "note": "생활권 분리 리스크"
+        }
       ]
-    }
+    },
+    "newBuildMinPriceByDistrict": {
+      "26260": 494000000,
+      "26290": 425000000,
+      "26350": 499000000,
+      "26470": 560000000,
+      "26500": 644000000,
+      "41220": 380000000,
+      "41591": 428000000,
+      "41593": 440000000,
+      "41595": 681000000,
+      "41597": 640000000,
+      "48121": 546000000,
+      "48123": 538000000,
+      "48125": 323000000,
+      "48127": 460000000,
+      "48129": 185000000
+    },
+    "newBuildMinPriceAsOf": "2026-08-16"
   },
-
   "tenure": {
     "note": "3-way 거주형태 비교용. 세율·상한은 제도값이고, assumptionDefaults 만 시장 가정값 자리표시자입니다.",
-
     "leaseBrokerage": {
       "note": "임대차 상한요율. 거래금액 = 보증금 + 월세×100 (환산보증금 5천만 미만이면 월세×70).",
       "brackets": [
-        { "maxPrice": 50000000, "rate": 0.005, "cap": 200000 },
-        { "maxPrice": 100000000, "rate": 0.004, "cap": 300000 },
-        { "maxPrice": 600000000, "rate": 0.003, "cap": null },
-        { "maxPrice": 1200000000, "rate": 0.004, "cap": null },
-        { "maxPrice": 1500000000, "rate": 0.005, "cap": null },
-        { "maxPrice": null, "rate": 0.006, "cap": null }
+        {
+          "maxPrice": 50000000,
+          "rate": 0.005,
+          "cap": 200000
+        },
+        {
+          "maxPrice": 100000000,
+          "rate": 0.004,
+          "cap": 300000
+        },
+        {
+          "maxPrice": 600000000,
+          "rate": 0.003,
+          "cap": null
+        },
+        {
+          "maxPrice": 1200000000,
+          "rate": 0.004,
+          "cap": null
+        },
+        {
+          "maxPrice": 1500000000,
+          "rate": 0.005,
+          "cap": null
+        },
+        {
+          "maxPrice": null,
+          "rate": 0.006,
+          "cap": null
+        }
       ],
       "vatRatio": 0.1,
       "standardMultiplier": 100,
       "lowDepositMultiplier": 70,
       "lowDepositThreshold": 50000000
     },
-
     "propertyTax": {
       "note": "주택 재산세. 공시가격×공정시장가액비율이 과세표준. 1주택 특례세율은 공시 9억 이하에만.",
       "publishedPriceRatio": 0.69,
       "fairMarketRatio": 0.45,
       "specialRateMaxPublished": 900000000,
       "standardBrackets": [
-        { "maxBase": 60000000, "base": 0, "rate": 0.001 },
-        { "maxBase": 150000000, "base": 60000, "rate": 0.0015 },
-        { "maxBase": 300000000, "base": 195000, "rate": 0.0025 },
-        { "maxBase": null, "base": 570000, "rate": 0.004 }
+        {
+          "maxBase": 60000000,
+          "base": 0,
+          "rate": 0.001
+        },
+        {
+          "maxBase": 150000000,
+          "base": 60000,
+          "rate": 0.0015
+        },
+        {
+          "maxBase": 300000000,
+          "base": 195000,
+          "rate": 0.0025
+        },
+        {
+          "maxBase": null,
+          "base": 570000,
+          "rate": 0.004
+        }
       ],
       "specialBrackets": [
-        { "maxBase": 60000000, "base": 0, "rate": 0.0005 },
-        { "maxBase": 150000000, "base": 30000, "rate": 0.001 },
-        { "maxBase": 300000000, "base": 120000, "rate": 0.002 },
-        { "maxBase": null, "base": 420000, "rate": 0.0035 }
+        {
+          "maxBase": 60000000,
+          "base": 0,
+          "rate": 0.0005
+        },
+        {
+          "maxBase": 150000000,
+          "base": 30000,
+          "rate": 0.001
+        },
+        {
+          "maxBase": 300000000,
+          "base": 120000,
+          "rate": 0.002
+        },
+        {
+          "maxBase": null,
+          "base": 420000,
+          "rate": 0.0035
+        }
       ],
       "urbanAreaRate": 0.0014,
       "localEducationTaxRatio": 0.2
     },
-
     "capitalGainsTax": {
       "note": "1세대1주택 기준. 12억 초과분만 과세하고 장기보유특별공제(보유+거주)를 적용합니다.",
       "exemptionPrice": 1200000000,
       "minHoldYears": 2,
       "basicDeduction": 2500000,
       "shortTermRates": [
-        { "maxYears": 1, "rate": 0.7 },
-        { "maxYears": 2, "rate": 0.6 }
+        {
+          "maxYears": 1,
+          "rate": 0.7
+        },
+        {
+          "maxYears": 2,
+          "rate": 0.6
+        }
       ],
-      "longTermHold": { "ratePerYear": 0.04, "maxRate": 0.4, "minYears": 3 },
-      "longTermLive": { "ratePerYear": 0.04, "maxRate": 0.4, "minYears": 2 },
+      "longTermHold": {
+        "ratePerYear": 0.04,
+        "maxRate": 0.4,
+        "minYears": 3
+      },
+      "longTermLive": {
+        "ratePerYear": 0.04,
+        "maxRate": 0.4,
+        "minYears": 2
+      },
       "brackets": [
-        { "maxBase": 14000000, "rate": 0.06, "deduction": 0 },
-        { "maxBase": 50000000, "rate": 0.15, "deduction": 1260000 },
-        { "maxBase": 88000000, "rate": 0.24, "deduction": 5760000 },
-        { "maxBase": 150000000, "rate": 0.35, "deduction": 15440000 },
-        { "maxBase": 300000000, "rate": 0.38, "deduction": 19940000 },
-        { "maxBase": 500000000, "rate": 0.4, "deduction": 25940000 },
-        { "maxBase": 1000000000, "rate": 0.42, "deduction": 35940000 },
-        { "maxBase": null, "rate": 0.45, "deduction": 65940000 }
+        {
+          "maxBase": 14000000,
+          "rate": 0.06,
+          "deduction": 0
+        },
+        {
+          "maxBase": 50000000,
+          "rate": 0.15,
+          "deduction": 1260000
+        },
+        {
+          "maxBase": 88000000,
+          "rate": 0.24,
+          "deduction": 5760000
+        },
+        {
+          "maxBase": 150000000,
+          "rate": 0.35,
+          "deduction": 15440000
+        },
+        {
+          "maxBase": 300000000,
+          "rate": 0.38,
+          "deduction": 19940000
+        },
+        {
+          "maxBase": 500000000,
+          "rate": 0.4,
+          "deduction": 25940000
+        },
+        {
+          "maxBase": 1000000000,
+          "rate": 0.42,
+          "deduction": 35940000
+        },
+        {
+          "maxBase": null,
+          "rate": 0.45,
+          "deduction": 65940000
+        }
       ],
       "localIncomeTaxRatio": 0.1
     },
-
     "jeonseLoan": {
       "note": "전세자금대출. 보증금 대비 한도와 절대상한. 만기일시(이자만) 상환으로 봅니다.",
       "ltvCap": 0.8,
       "absoluteCap": 400000000,
       "rate": 0.042
     },
-
     "lease": {
       "note": "주택임대차보호법. 계약갱신청구권 1회, 그 갱신에만 증액 상한 5%.",
       "renewalYears": 2,
@@ -305,7 +494,6 @@
       "renewalCapUses": 1,
       "conversionRateMax": 0.1
     },
-
     "assumptionDefaults": {
       "note": "시장 가정값 자리표시자. 로드맵 2단계의 data/market-YYYY-MM.json 으로 대체될 예정입니다.",
       "years": 10,
@@ -313,13 +501,24 @@
       "depositGrowthRate": 0.02,
       "maintenanceRate": 0.005,
       "byRegion": {
-        "gyeonggi": { "jeonseRatio": 0.62, "conversionRate": 0.055, "wolseDepositRatio": 0.25 },
-        "changwon": { "jeonseRatio": 0.72, "conversionRate": 0.062, "wolseDepositRatio": 0.25 },
-        "busan": { "jeonseRatio": 0.68, "conversionRate": 0.06, "wolseDepositRatio": 0.25 }
+        "gyeonggi": {
+          "jeonseRatio": 0.62,
+          "conversionRate": 0.055,
+          "wolseDepositRatio": 0.25
+        },
+        "changwon": {
+          "jeonseRatio": 0.72,
+          "conversionRate": 0.062,
+          "wolseDepositRatio": 0.25
+        },
+        "busan": {
+          "jeonseRatio": 0.68,
+          "conversionRate": 0.06,
+          "wolseDepositRatio": 0.25
+        }
       }
     }
   },
-
   "defaults": {
     "termYears": 30,
     "minEquityRatio": 0,

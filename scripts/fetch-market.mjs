@@ -24,24 +24,19 @@ const ENDPOINT =
   'https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev';
 
 /**
- * 대상 지역. CLAUDE.md 원칙에 따라 창원·부산·경기 3개 권역 밖으로 넓히지 않습니다.
+ * 대상 지역은 `simulator/src/data/regions.json` 에서 옵니다 (`collect: true` 만).
+ * 후보군과 제외 사유도 같은 파일에 있어, 무엇을 왜 안 받는지가 코드가 아니라
+ * 데이터로 남습니다.
  *
  * 법정동코드는 **행정구역이 바뀌면 같이 바뀝니다.** 화성시는 구가 설치되면서
  * 41590 이 폐지되고 동탄·병점 등으로 갈렸습니다. 폐지된 코드는 오류가 아니라
  * `totalCount=0` 으로 조용히 돌아오므로, 수집 후 지역별 건수를 반드시 확인하세요.
+ * 라벨도 마찬가지입니다 — 26260 을 수영구로 적어 뒀다가 실제로는 동래구였던
+ * 적이 있습니다. API 의 `estateAgentSggNm` 로 대조하세요.
  */
-const REGIONS = [
-  { code: '48121', label: '창원시 의창구', region: 'changwon' },
-  { code: '48123', label: '창원시 성산구', region: 'changwon' },
-  { code: '48125', label: '창원시 마산합포구', region: 'changwon' },
-  { code: '48127', label: '창원시 마산회원구', region: 'changwon' },
-  { code: '48129', label: '창원시 진해구', region: 'changwon' },
-  { code: '26350', label: '부산 해운대구', region: 'busan' },
-  { code: '26260', label: '부산 수영구', region: 'busan' },
-  { code: '41220', label: '평택시', region: 'gyeonggi' },
-  { code: '41597', label: '화성시 동탄구', region: 'gyeonggi' },
-  { code: '41595', label: '화성시 병점구', region: 'gyeonggi' },
-];
+const REGIONS = JSON.parse(
+  readFileSync(resolve(ROOT, 'simulator/src/data/regions.json'), 'utf8')
+).regions.filter((r) => r.collect);
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);

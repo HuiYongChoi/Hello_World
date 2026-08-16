@@ -12,7 +12,7 @@
   "to": "202608"
  },
  "stats": {
-  "deals": 183401,
+  "deals": 260387,
   "failedRequests": 0
  },
  "method": {
@@ -36,36 +36,36 @@
   },
   "busan": {
    "jeonseRatio": {
-    "n": 16836,
-    "median": 0.5639,
-    "p25": 0.4908,
-    "p75": 0.644
+    "n": 30630,
+    "median": 0.5692,
+    "p25": 0.5,
+    "p75": 0.6522
    },
    "conversionRate": {
-    "n": 11827,
-    "median": 0.0507,
-    "p25": 0.0452,
-    "p75": 0.0565
+    "n": 21427,
+    "median": 0.051,
+    "p25": 0.0454,
+    "p75": 0.0577
    }
   },
   "gyeonggi": {
    "jeonseRatio": {
-    "n": 31996,
-    "median": 0.6154,
-    "p25": 0.531,
-    "p75": 0.7179
+    "n": 41203,
+    "median": 0.6281,
+    "p25": 0.5435,
+    "p75": 0.7225
    },
    "conversionRate": {
-    "n": 23619,
-    "median": 0.0557,
-    "p25": 0.0496,
-    "p75": 0.0637
+    "n": 30302,
+    "median": 0.0559,
+    "p25": 0.0497,
+    "p75": 0.064
    }
   }
  },
  "byRegionCode": {
   "26260": {
-   "label": "부산 수영구",
+   "label": "부산 동래구",
    "region": "busan",
    "deals": 14504,
    "jeonseRatio": {
@@ -79,6 +79,23 @@
     "median": 0.0488,
     "p25": 0.0434,
     "p75": 0.056
+   }
+  },
+  "26290": {
+   "label": "부산 남구",
+   "region": "busan",
+   "deals": 13245,
+   "jeonseRatio": {
+    "n": 5478,
+    "median": 0.5987,
+    "p25": 0.5292,
+    "p75": 0.6933
+   },
+   "conversionRate": {
+    "n": 3430,
+    "median": 0.0512,
+    "p25": 0.0455,
+    "p75": 0.0577
    }
   },
   "26350": {
@@ -98,8 +115,42 @@
     "p75": 0.0565
    }
   },
+  "26470": {
+   "label": "부산 연제구",
+   "region": "busan",
+   "deals": 13111,
+   "jeonseRatio": {
+    "n": 5108,
+    "median": 0.5784,
+    "p25": 0.515,
+    "p75": 0.6579
+   },
+   "conversionRate": {
+    "n": 3138,
+    "median": 0.0498,
+    "p25": 0.045,
+    "p75": 0.0554
+   }
+  },
+  "26500": {
+   "label": "부산 수영구",
+   "region": "busan",
+   "deals": 10859,
+   "jeonseRatio": {
+    "n": 3208,
+    "median": 0.5281,
+    "p25": 0.4605,
+    "p75": 0.613
+   },
+   "conversionRate": {
+    "n": 3032,
+    "median": 0.0554,
+    "p25": 0.0473,
+    "p75": 0.0667
+   }
+  },
   "41220": {
-   "label": "평택시",
+   "label": "경기 평택시",
    "region": "gyeonggi",
    "deals": 36142,
    "jeonseRatio": {
@@ -115,8 +166,42 @@
     "p75": 0.0702
    }
   },
+  "41591": {
+   "label": "경기 화성시 만세구",
+   "region": "gyeonggi",
+   "deals": 26300,
+   "jeonseRatio": {
+    "n": 5502,
+    "median": 0.6458,
+    "p25": 0.5681,
+    "p75": 0.7222
+   },
+   "conversionRate": {
+    "n": 3449,
+    "median": 0.0549,
+    "p25": 0.0494,
+    "p75": 0.0624
+   }
+  },
+  "41593": {
+   "label": "경기 화성시 효행구",
+   "region": "gyeonggi",
+   "deals": 13471,
+   "jeonseRatio": {
+    "n": 3705,
+    "median": 0.682,
+    "p25": 0.6228,
+    "p75": 0.7419
+   },
+   "conversionRate": {
+    "n": 3234,
+    "median": 0.0582,
+    "p25": 0.0514,
+    "p75": 0.0737
+   }
+  },
   "41595": {
-   "label": "화성시 병점구",
+   "label": "경기 화성시 병점구",
    "region": "gyeonggi",
    "deals": 15800,
    "jeonseRatio": {
@@ -133,7 +218,7 @@
    }
   },
   "41597": {
-   "label": "화성시 동탄구",
+   "label": "경기 화성시 동탄구",
    "region": "gyeonggi",
    "deals": 36499,
    "jeonseRatio": {

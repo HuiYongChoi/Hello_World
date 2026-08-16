@@ -52,7 +52,10 @@ export interface Ruleset {
     note: string;
     newBuildMaxAge: number;
     newBuildMinPrice: Record<RegionId, number>;
+    /** 법정동코드 → 하한가. 권역 평균은 성산구와 마산을 상쇄시키므로 시군구가 우선입니다. */
+    newBuildMinPriceByDistrict: Record<string, number>;
     newBuildMinPriceNote: string;
+    newBuildMinPriceAsOf: string;
     redevelopmentMinAge: number;
     redevelopmentStageThreshold: number;
     farThreshold: number;

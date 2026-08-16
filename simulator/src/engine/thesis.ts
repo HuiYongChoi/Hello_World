@@ -10,11 +10,14 @@
  * 있고, 그게 정확히 이 판정이 필요한 이유입니다 — 좋은 동네의 어중간한 구축이 가장
  * 사기 쉬운 실수입니다.
  *
- * 판정 기준값은 전부 `rules.appraisal` 에 있고, 특히 지역별 **신축 하한가는
- * 자리표시자**입니다. 실거래로 갱신하기 전까지는 방향만 믿으세요.
+ * 판정 기준값은 전부 `rules.appraisal` 에 있습니다. 신축 하한가는 **실거래 하위 25%**
+ * 로 계산해 넣습니다 (`scripts/calc-newbuild-floor.mjs`). 최저가를 쓰면 외곽 나홀로
+ * 단지 한 건이 판정을 흔듭니다 — 창원 최저는 1.29억(동읍 용잠리)인데 성산구 신축
+ * 하위 25%는 5.38억입니다.
  */
 
 import { money } from './format';
+import { findDistrict } from './regions';
 import { RULES } from './rules';
 import type { Property } from './types';
 
@@ -45,10 +48,27 @@ export function hasRedevelopmentCase(property: Property): boolean {
   return age >= cfg.redevelopmentMinAge && far <= cfg.farThreshold;
 }
 
+/**
+ * 이 물건이 속한 시군구의 신축 하한가.
+ *
+ * 권역 하나로 묶으면 성산구(신축 하위25% 5.38억)와 진해구(1.85억)가 평균으로
+ * 상쇄돼 어느 쪽 현실도 아닌 값이 나옵니다. 시군구 값이 있으면 그것을 쓰고,
+ * 수집하지 않은 지역이면 권역값으로 물러섭니다.
+ */
+export function newBuildFloorFor(property: Property): { price: number; scope: string } {
+  const cfg = RULES.appraisal;
+  const district = findDistrict(property.sigungu);
+  const byDistrict = district ? cfg.newBuildMinPriceByDistrict[district.code] : undefined;
+  return byDistrict
+    ? { price: byDistrict, scope: district!.label }
+    : { price: cfg.newBuildMinPrice[property.region], scope: '권역 평균' };
+}
+
 export function propertyThesis(property: Property): PropertyThesis {
   const cfg = RULES.appraisal;
   const age = currentYear() - property.builtYear;
-  const newBuildFloor = cfg.newBuildMinPrice[property.region];
+  const floor = newBuildFloorFor(property);
+  const newBuildFloor = floor.price;
 
   if (age <= cfg.newBuildMaxAge) {
     return {
@@ -81,9 +101,9 @@ export function propertyThesis(property: Property): PropertyThesis {
     return {
       kind: 'ambiguous',
       label: '애매 구간',
-      reason: `${age}년차 구축인데 재건축 기대가 없고, 이 지역 신축 하한(${money(
+      reason: `${age}년차 구축인데 재건축 기대가 없고, ${floor.scope} 신축 하한(${money(
         newBuildFloor
-      )}) 아래 가격대입니다.`,
+      )}) 아래 가격대입니다. 하한은 실거래 하위 25% 입니다.`,
       advice:
         '신축도 재건축도 아니면 오를 이유가 약합니다. 매수 대신 임차로 묶고 남은 돈을 굴리는 쪽을 먼저 비교해 보세요.',
       preferTenure: true,

@@ -19,6 +19,7 @@
 
 ```
 src/rules/2026-08.json   ← 모든 정책 수치. 코드엔 로직만.
+src/data/regions.json    ← 수집 대상·후보군과 그 이유 (수집 스크립트가 읽음)
 src/data/market-YYYY-MM.json ← 매매 실거래 스냅샷 (빌드 타임 수집, 손대지 말 것)
 src/data/rent-YYYY-MM.json   ← 전월세에서 잰 전세가율·전환율
 src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상.
@@ -34,6 +35,7 @@ src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상
   thesis.ts      물건 성격 판정 (신축 / 재건축 기대 / 애매 구간)
   market.ts      실거래 스냅샷 로더 + CAGR + 진입시점 분포
   rent.ts        전세가율·전월세전환율 실측치 (자리표시자 대체)
+  regions.ts     시군구 목록·후보군 + 시군구명 → 법정동코드 조회
   scoring.ts     입지 지표 정규화 + 지역별 가중치 프리셋
   matrix.ts      매트릭스 조립 + 3축 산점도 데이터
 src/state/store.tsx      React 상태 + localStorage
@@ -82,13 +84,21 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 164건)
+npm test                 # 엔진 단위 테스트 (현재 166건)
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
 npm run standalone       # dist/standalone.html — 골격 없는 조각 (아티팩트 호스트용)
 npm run fetch:market     # 국토부 매매 실거래가 → src/data/market-*.json
 npm run fetch:rent       # 국토부 전월세 실거래가 → src/data/rent-*.json
+node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 룰셋
 ```
+
+수집 대상은 `src/data/regions.json` 의 `collect: true` 뿐입니다. 후보군과 제외 사유도
+같은 파일에 있어, 무엇을 왜 안 받는지가 코드가 아니라 데이터로 남습니다.
+**법정동코드는 행정구역 개편으로 바뀝니다** — 화성시 41590 은 폐지돼 동탄·병점·만세·
+효행으로 갈렸고, 26260 을 수영구로 적어 뒀다가 실제로는 동래구였던 적도 있습니다.
+폐지된 코드는 오류가 아니라 `totalCount=0` 으로 조용히 돌아오니, 수집 후 지역별
+건수를 반드시 확인하고 라벨은 API 의 `estateAgentSggNm` 로 대조하세요.
 
 엔진을 고쳤으면 **반드시 `npm test`** 를 돌리세요. 도메인 규칙이 테스트에 박혀 있습니다.
 

@@ -132,8 +132,14 @@ describe('실거래 스냅샷', () => {
   });
 
   it('금액이 원 단위로 변환돼 있다 — 만원 정수를 그대로 쓰면 1만분의 1이 됩니다', () => {
-    const prices = MARKET.complexes.flatMap((c) => c.sizes.flatMap((s) => s.points.map((p) => p.price)));
-    expect(Math.min(...prices)).toBeGreaterThan(1000000);
+    // Math.min(...prices) 는 40만 개 배열에서 스택을 넘깁니다. 스냅샷이 그 규모입니다.
+    let min = Infinity;
+    for (const c of MARKET.complexes) {
+      for (const s of c.sizes) {
+        for (const p of s.points) if (p.price < min) min = p.price;
+      }
+    }
+    expect(min).toBeGreaterThan(1000000);
   });
 
   it('이름·법정동으로 검색된다', () => {

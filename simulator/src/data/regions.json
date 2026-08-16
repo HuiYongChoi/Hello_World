@@ -1,0 +1,295 @@
+{
+  "note": "수집 대상과 후보군. collect=true 인 곳만 실제로 받습니다. medianPrice 는 전용 70~100㎡ 최근 3개월(2026-03~05) 실거래 중위가이며, 후보 분류의 근거입니다.",
+  "asOf": "2026-08-16",
+  "priceNote": "medianPrice 단위는 원. 해제 거래는 제외했습니다.",
+  "affordability": {
+    "note": "분류 기준선. 합가 소득 1.00억·현금 1.60억 기준으로 역산한 값입니다.",
+    "comfortable": 500000000,
+    "comfortableNote": "은행 주담대만으로 감당 가능한 선",
+    "ceiling": 645000000,
+    "ceilingNote": "신생아 특례까지 써서 도달 가능한 최대. 이 위는 현금을 더 모아야 함"
+  },
+  "tiers": {
+    "core": "수집 대상. 실거래·전월세 스냅샷을 받습니다.",
+    "candidate": "예산 안에 있고 성격이 맞아 다음 수집 후보.",
+    "stretch": "감당 상한 근처. 현금을 더 모아야 닿습니다.",
+    "out-of-budget": "감당 상한을 크게 넘어 지금 조건으로는 검토 대상이 아님."
+  },
+  "regions": [
+    {
+      "code": "48121",
+      "label": "창원시 의창구",
+      "region": "changwon",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 305000000,
+      "reason": "용호동·중동이 속한 구. 용지호수 주변이 창원에서 가장 먼저 오른 생활권이라 이후 축을 가늠하는 기준점이 됩니다. 중위 3.05억으로 예산 안."
+    },
+    {
+      "code": "48123",
+      "label": "창원시 성산구",
+      "region": "changwon",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 420000000,
+      "reason": "가음정·상남동이 속한 창원 핵심. 거래량 최대이고 신축이 7억대에 몰려 있어 3억대 구축과 격차가 가장 큰 구입니다. 다음 상승축으로 지목된 가음정사거리가 여기 있습니다."
+    },
+    {
+      "code": "48125",
+      "label": "창원시 마산합포구",
+      "region": "changwon",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 330000000,
+      "reason": "마산 원도심. 성산·의창 대비 생활권이 분리돼 있어 같은 창원이라도 가격 형성이 다릅니다. 대조군으로 필요합니다."
+    },
+    {
+      "code": "48127",
+      "label": "창원시 마산회원구",
+      "region": "changwon",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 255000000,
+      "reason": "창원에서 가장 싼 구(중위 2.55억). 예산 하단이 어디까지 내려가는지 보는 바닥 기준."
+    },
+    {
+      "code": "48129",
+      "label": "창원시 진해구",
+      "region": "changwon",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 250000000,
+      "reason": "생활권 분리가 가장 뚜렷한 구. 창원 평균에 섞으면 안 되는 구간이라 따로 봅니다."
+    },
+
+    {
+      "code": "26350",
+      "label": "부산 해운대구",
+      "region": "busan",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 588000000,
+      "reason": "부산 대표 생활권. 중위 5.88억으로 감당 상한(6.45억) 바로 아래라 실제 선택지가 됩니다."
+    },
+    {
+      "code": "26500",
+      "label": "부산 수영구",
+      "region": "busan",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 747000000,
+      "reason": "부산 최고가 구간(중위 7.47억). 감당 상한을 넘지만 전세가율이 낮아 임차 비교 대상으로 의미가 있습니다."
+    },
+    {
+      "code": "26260",
+      "label": "부산 동래구",
+      "region": "busan",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 538000000,
+      "reason": "학군 수요가 받치는 구. 중위 5.38억으로 상한 안. 앞서 수영구로 잘못 라벨링했던 코드라 재수집이 필요합니다."
+    },
+    {
+      "code": "26290",
+      "label": "부산 남구",
+      "region": "busan",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 499000000,
+      "reason": "용호동·대연동. 부산 해수동남연 중 가장 싸고(중위 4.99억) 은행 주담대만으로 감당되는 유일한 구."
+    },
+    {
+      "code": "26470",
+      "label": "부산 연제구",
+      "region": "busan",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 554000000,
+      "reason": "시청·법조타운 배후. 거제동·연산동 중심으로 직주근접 수요가 안정적입니다."
+    },
+
+    {
+      "code": "41220",
+      "label": "경기 평택시",
+      "region": "gyeonggi",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 345000000,
+      "reason": "수도권에서 예산이 닿는 몇 안 되는 곳(중위 3.45억). 반도체 클러스터 고용이 배후이고, 수도권 LTV 70% 제약을 실제 가격대에서 확인할 수 있습니다."
+    },
+    {
+      "code": "41597",
+      "label": "경기 화성시 동탄구",
+      "region": "gyeonggi",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 738000000,
+      "reason": "경기 남부 거래량 최대(월 1,400건대). 중위 7.38억으로 상한을 넘지만, GTX-A 개통 효과가 가격에 어떻게 반영됐는지 보는 기준선입니다."
+    },
+    {
+      "code": "41595",
+      "label": "경기 화성시 병점구",
+      "region": "gyeonggi",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 445000000,
+      "reason": "동탄 인접 배후이면서 중위 4.45억으로 예산 안. 같은 화성시 안에서 3억 차이가 나는 구조를 보여줍니다."
+    },
+    {
+      "code": "41591",
+      "label": "경기 화성시 만세구",
+      "region": "gyeonggi",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 405000000,
+      "reason": "화성시 4개 구를 모두 덮어야 시 단위 비교가 성립합니다. 중위 4.05억."
+    },
+    {
+      "code": "41593",
+      "label": "경기 화성시 효행구",
+      "region": "gyeonggi",
+      "collect": true,
+      "tier": "core",
+      "medianPrice": 380000000,
+      "reason": "화성시 4개 구 완결용. 봉담 일대로 중위 3.80억."
+    },
+
+    {
+      "code": "41370",
+      "label": "경기 오산시",
+      "region": "gyeonggi",
+      "collect": false,
+      "tier": "candidate",
+      "medianPrice": 382000000,
+      "reason": "평택·병점과 같은 축이고 중위 3.82억으로 예산 안. 세 곳을 묶으면 경기 남부 저가대의 폭을 볼 수 있습니다."
+    },
+    {
+      "code": "26230",
+      "label": "부산 부산진구",
+      "region": "busan",
+      "collect": false,
+      "tier": "candidate",
+      "medianPrice": 383000000,
+      "reason": "서면 상권 배후이면서 중위 3.83억. 해수동남연이 전부 5억 위라, 부산에서 예산이 편하게 닿는 대안입니다."
+    },
+    {
+      "code": "26320",
+      "label": "부산 북구",
+      "region": "busan",
+      "collect": false,
+      "tier": "candidate",
+      "medianPrice": 335000000,
+      "reason": "화명·금곡 신도시권. 중위 3.35억으로 부산 저가대 기준점."
+    },
+    {
+      "code": "26710",
+      "label": "부산 기장군",
+      "region": "busan",
+      "collect": false,
+      "tier": "candidate",
+      "medianPrice": 312000000,
+      "reason": "정관·일광 신도시. 중위 3.12억으로 가장 싸지만 생활권이 분리돼 창원 진해구와 성격이 비슷합니다."
+    },
+    {
+      "code": "26410",
+      "label": "부산 금정구",
+      "region": "busan",
+      "collect": false,
+      "tier": "candidate",
+      "medianPrice": 442000000,
+      "reason": "구서·장전 학군 수요. 중위 4.42억으로 은행 주담대만으로 감당됩니다."
+    },
+
+    {
+      "code": "41390",
+      "label": "경기 시흥시",
+      "region": "gyeonggi",
+      "collect": false,
+      "tier": "stretch",
+      "medianPrice": 528000000,
+      "reason": "중위 5.28억으로 은행 주담대 상한(5.0억)을 막 넘습니다. 신생아 특례가 열려야 편해집니다."
+    },
+    {
+      "code": "41410",
+      "label": "경기 군포시",
+      "region": "gyeonggi",
+      "collect": false,
+      "tier": "stretch",
+      "medianPrice": 578000000,
+      "reason": "1기 신도시(산본) 재건축 대상지. 중위 5.78억으로 상한 안이지만 현금 여력이 빠듯합니다."
+    },
+    {
+      "code": "41463",
+      "label": "경기 용인시 기흥구",
+      "region": "gyeonggi",
+      "collect": false,
+      "tier": "stretch",
+      "medianPrice": 599000000,
+      "reason": "반도체 고용 배후. 중위 5.99억으로 감당 상한 6.45억에 거의 닿습니다."
+    },
+
+    {
+      "code": "41117",
+      "label": "경기 수원시 영통구",
+      "region": "gyeonggi",
+      "collect": false,
+      "tier": "out-of-budget",
+      "medianPrice": 754000000,
+      "reason": "중위 7.54억. 신생아 특례를 다 써도 현금이 1억 이상 더 필요합니다."
+    },
+    {
+      "code": "41430",
+      "label": "경기 의왕시",
+      "region": "gyeonggi",
+      "collect": false,
+      "tier": "out-of-budget",
+      "medianPrice": 785000000,
+      "reason": "중위 7.85억. 상한 초과."
+    },
+    {
+      "code": "41173",
+      "label": "경기 안양시 동안구",
+      "region": "gyeonggi",
+      "collect": false,
+      "tier": "out-of-budget",
+      "medianPrice": 875000000,
+      "reason": "평촌 학군. 중위 8.75억으로 크게 초과."
+    },
+    {
+      "code": "41210",
+      "label": "경기 광명시",
+      "region": "gyeonggi",
+      "collect": false,
+      "tier": "out-of-budget",
+      "medianPrice": 885000000,
+      "reason": "중위 8.85억. 규제지역이라 LTV 50%까지 떨어져 필요현금이 더 커집니다."
+    },
+    {
+      "code": "41465",
+      "label": "경기 용인시 수지구",
+      "region": "gyeonggi",
+      "collect": false,
+      "tier": "out-of-budget",
+      "medianPrice": 960000000,
+      "reason": "중위 9.60억. 규제지역이며 상한을 크게 초과."
+    },
+    {
+      "code": "41450",
+      "label": "경기 하남시",
+      "region": "gyeonggi",
+      "collect": false,
+      "tier": "out-of-budget",
+      "medianPrice": 1150000000,
+      "reason": "중위 11.50억. 규제지역이며 신생아 특례 주택가격 상한(9억)도 넘습니다."
+    },
+    {
+      "code": "41135",
+      "label": "경기 성남시 분당구",
+      "region": "gyeonggi",
+      "collect": false,
+      "tier": "out-of-budget",
+      "medianPrice": 1740000000,
+      "reason": "중위 17.40억. 1기 신도시 재건축 선도지구지만 예산과 두 배 이상 벌어집니다."
+    }
+  ]
+}
