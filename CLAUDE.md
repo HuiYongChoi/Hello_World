@@ -85,7 +85,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 180건)
+npm test                 # 엔진 단위 테스트 (현재 185건)
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
 npm run standalone       # dist/standalone.html — 골격 없는 조각 (아티팩트 호스트용)

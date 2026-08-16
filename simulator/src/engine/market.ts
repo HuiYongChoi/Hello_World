@@ -160,7 +160,12 @@ export interface HoldingDistribution {
   best: number;
   /** 손실로 끝난 진입시점의 비율 */
   lossRatio: number;
+  /** 표본이 이보다 적으면 분위수가 의미를 잃습니다 */
+  thin: boolean;
 }
+
+/** 진입시점이 이보다 적으면 중위·사분위가 같은 값으로 뭉개집니다. */
+export const MIN_ENTRY_POINTS = 5;
 
 function quantile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0;
@@ -186,9 +191,14 @@ export function holdingDistribution(
 
   const samples: number[] = [];
   for (const p of points) {
-    const end = points.find((x) => x.q === p.q + span);
+    // 종료 분기를 **정확히** 요구하면 거래 없는 분기 하나에 진입시점이 통째로 날아갑니다.
+    // 실제로 3년 표본이 0개인데 5년이 1개로 나오는 뒤집힌 결과가 나왔습니다.
+    // ±1분기까지 허용하고, 실제 간격으로 환산합니다.
+    const end = nearestPoint(points, p.q + span, 1);
     if (!end || p.price <= 0 || end.price <= 0) continue;
-    samples.push(Math.pow(end.price / p.price, 1 / holdYears) - 1);
+    const actualYears = (end.q - p.q) / 4;
+    if (actualYears < 1) continue;
+    samples.push(Math.pow(end.price / p.price, 1 / actualYears) - 1);
   }
   if (samples.length === 0) return null;
 
@@ -203,6 +213,55 @@ export function holdingDistribution(
     worst: sorted[0],
     best: sorted[sorted.length - 1],
     lossRatio: samples.filter((s) => s < 0).length / samples.length,
+    thin: samples.length < MIN_ENTRY_POINTS,
+  };
+}
+
+/** 목표 분기에 가장 가까운 관측점. 거래 없는 분기를 건너뛰기 위한 허용오차입니다. */
+function nearestPoint(
+  points: MarketPoint[],
+  q: number,
+  tolerance: number
+): MarketPoint | null {
+  let best: MarketPoint | null = null;
+  for (const p of points) {
+    const d = Math.abs(p.q - q);
+    if (d > tolerance) continue;
+    if (!best || d < Math.abs(best.q - q)) best = p;
+  }
+  return best;
+}
+
+export interface SafetyMargin {
+  /** 비교 기준선 (예: 대출금리, 손익분기 상승률) */
+  reference: number;
+  /** 하위 25% − 기준. 운이 나빴을 때도 남는 여유입니다. */
+  marginAtP25: number;
+  /** 최악 − 기준 */
+  marginAtWorst: number;
+  /** 기준을 넘긴 진입시점의 비율 */
+  beatRatio: number;
+  verdict: 'safe' | 'thin' | 'short';
+}
+
+/**
+ * 안전마진 — "운이 나빴을 때도 기준을 넘는가".
+ *
+ * 중위값이 기준을 넘는 건 당연히 좋지만, 실행 여부를 가르는 건 **하위 구간**입니다.
+ * 진입시점을 고를 수 없다면 하위 25%가 실질적인 기대치이기 때문입니다.
+ */
+export function safetyMargin(
+  dist: HoldingDistribution,
+  reference: number
+): SafetyMargin {
+  const marginAtP25 = dist.p25 - reference;
+  const marginAtWorst = dist.worst - reference;
+  return {
+    reference,
+    marginAtP25,
+    marginAtWorst,
+    beatRatio: dist.samples.filter((s) => s >= reference).length / dist.samples.length,
+    verdict: marginAtWorst >= 0 ? 'safe' : marginAtP25 >= 0 ? 'thin' : 'short',
   };
 }
 

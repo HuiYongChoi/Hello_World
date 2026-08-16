@@ -3,6 +3,8 @@ import {
   MARKET,
   cagrBetween,
   holdingDistribution,
+  MIN_ENTRY_POINTS,
+  safetyMargin,
   mainSize,
   quarterLabel,
   searchComplexes,
@@ -85,8 +87,66 @@ describe('진입시점 분포 — 평균 하나로 요약하지 않는다', () =
 
   it('모든 진입시점을 표본으로 잡는다', () => {
     const d = holdingDistribution(points, 5)!;
-    expect(d.count).toBe(points.length - 20);
+    // 종료 분기를 ±1분기까지 허용하므로 꼬리에서 한 건이 더 잡힙니다.
+    expect(d.count).toBeGreaterThanOrEqual(points.length - 20);
+    expect(d.count).toBeLessThanOrEqual(points.length - 18);
     expect(d.samples).toHaveLength(d.count);
+  });
+
+  it('거래 없는 분기가 있어도 진입시점이 통째로 날아가지 않는다', () => {
+    // 정확한 분기 매칭을 요구하면 3년 표본이 0개인데 5년이 1개로 나오는
+    // 뒤집힌 결과가 실제로 나왔습니다. ±1분기 허용으로 고친 부분입니다.
+    const sparse = points.filter((_, i) => i % 3 !== 1); // 분기를 군데군데 비웁니다
+    const d3 = holdingDistribution(sparse, 3);
+    const d5 = holdingDistribution(sparse, 5);
+
+    expect(d3).not.toBeNull();
+    expect(d5).not.toBeNull();
+    // 짧은 보유기간이 긴 쪽보다 표본이 적을 수는 없습니다
+    expect(d3!.count).toBeGreaterThanOrEqual(d5!.count);
+  });
+
+  it('표본이 적으면 얇다고 표시한다 — 분위수가 같은 값으로 뭉개집니다', () => {
+    const tiny = points.slice(0, 21);
+    const d = holdingDistribution(tiny, 5)!;
+    expect(d.thin).toBe(d.count < MIN_ENTRY_POINTS);
+    if (d.count === 1) {
+      expect(d.median).toBe(d.p25);
+      expect(d.p25).toBe(d.worst);
+    }
+  });
+});
+
+describe('안전마진 — 운이 나빴을 때도 기준을 넘는가', () => {
+  const points: MarketPoint[] = [];
+  for (let i = 0; i <= 40; i++) {
+    const price = i <= 20 ? 300000000 + i * 10000000 : 500000000 - (i - 20) * 5000000;
+    points.push({ q: q(2016, 1) + i, n: 10, price });
+  }
+
+  it('하위 25%와 최악에서 각각 기준 대비 여유를 낸다', () => {
+    const d = holdingDistribution(points, 5)!;
+    const m = safetyMargin(d, 0.045);
+    expect(m.marginAtP25).toBeCloseTo(d.p25 - 0.045, 10);
+    expect(m.marginAtWorst).toBeCloseTo(d.worst - 0.045, 10);
+  });
+
+  it('최악도 기준 위면 safe, 하위 25%만 넘으면 thin, 그 아래면 short', () => {
+    const d = holdingDistribution(points, 5)!;
+    expect(safetyMargin(d, d.worst - 0.01).verdict).toBe('safe');
+    expect(safetyMargin(d, (d.worst + d.p25) / 2).verdict).toBe('thin');
+    expect(safetyMargin(d, d.p25 + 0.01).verdict).toBe('short');
+  });
+
+  it('기준을 넘긴 진입시점 비율이 0~1 안에 들어온다', () => {
+    const d = holdingDistribution(points, 5)!;
+    for (const ref of [-0.1, 0, 0.05, 0.5]) {
+      const r = safetyMargin(d, ref).beatRatio;
+      expect(r).toBeGreaterThanOrEqual(0);
+      expect(r).toBeLessThanOrEqual(1);
+    }
+    expect(safetyMargin(d, -1).beatRatio).toBe(1);
+    expect(safetyMargin(d, 10).beatRatio).toBe(0);
   });
 
   it('분위수가 순서대로 나온다', () => {

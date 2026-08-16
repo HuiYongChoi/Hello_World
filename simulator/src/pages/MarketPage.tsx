@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Badge, Card, Empty, Field, Select, Stat, TextInput } from '../components/ui';
+import { Badge, Card, Empty, Field, NumberInput, Select, Stat, TextInput } from '../components/ui';
 import { money, percent } from '../engine/format';
 import {
   MARKET,
@@ -7,6 +7,7 @@ import {
   holdingDistribution,
   mainSize,
   quarterLabel,
+  safetyMargin,
   searchComplexes,
   THIN_DEAL_COUNT,
   type MarketPoint,
@@ -54,49 +55,122 @@ function Series({
   );
 }
 
+/**
+ * 분포를 하나의 띠로 보여줍니다.
+ *
+ * 중위·하위25%·최악을 숫자 네 개로 늘어놓으면 서로의 간격이 안 보입니다. 정작
+ * 의사결정에 쓰이는 건 **간격**입니다 — 진입시점을 못 고른다면 하위 구간이 실질
+ * 기대치이고, 그게 기준선(대출금리 등)을 넘는지가 실행 여부를 가릅니다.
+ */
 function DistributionRow({
   label,
   dist,
+  reference,
 }: {
   label: string;
   dist: ReturnType<typeof holdingDistribution>;
+  reference: number;
 }) {
   if (!dist) {
     return (
       <div className="flex items-center justify-between rounded-lg border border-slate-800/60 px-3 py-2">
         <span className="text-xs text-slate-500">{label}</span>
-        <span className="text-[11px] text-slate-600">데이터 기간이 짧아 낼 수 없습니다</span>
+        <span className="text-[11px] text-slate-600">
+          이 기간으로 짝지을 진입시점이 없습니다
+        </span>
       </div>
     );
   }
+
+  const margin = safetyMargin(dist, reference);
+  // 축은 최악·최고·기준선을 모두 담고 양쪽에 여백을 줍니다.
+  const lo = Math.min(dist.worst, reference, 0) - 0.01;
+  const hi = Math.max(dist.best, reference, 0) + 0.01;
+  const x = (v: number) => `${((v - lo) / (hi - lo)) * 100}%`;
+  const width = (a: number, b: number) => `${((b - a) / (hi - lo)) * 100}%`;
+
+  const tone =
+    margin.verdict === 'safe'
+      ? { badge: 'good' as const, text: '최악도 기준 위' }
+      : margin.verdict === 'thin'
+        ? { badge: 'warn' as const, text: '하위 25%는 기준 위' }
+        : { badge: 'bad' as const, text: '하위 25%가 기준 아래' };
+
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2.5">
+    <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3.5 py-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="text-xs font-medium text-slate-300">{label}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-slate-300">{label}</span>
+          <Badge tone={tone.badge}>{tone.text}</Badge>
+          {dist.thin && <Badge tone="warn">표본 {dist.count}개</Badge>}
+        </div>
         <span className="text-[11px] text-slate-500">진입시점 {dist.count}개</span>
       </div>
-      <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 sm:grid-cols-4">
+
+      {/* 분포 띠 — 최악 ├ 하위25% ▓ 중위 ▓ 상위25% ┤ 최고 */}
+      <div className="relative mt-3 h-9">
+        {/* 손실 구간 음영 */}
+        {lo < 0 && (
+          <div
+            className="absolute inset-y-0 rounded-l bg-rose-500/10"
+            style={{ left: 0, width: width(lo, Math.min(0, hi)) }}
+          />
+        )}
+        {/* 전체 범위 */}
+        <div
+          className="absolute top-4 h-px bg-slate-700"
+          style={{ left: x(dist.worst), width: width(dist.worst, dist.best) }}
+        />
+        {/* 사분위 상자 */}
+        <div
+          className="absolute top-2 h-5 rounded bg-sky-500/25 ring-1 ring-sky-500/40"
+          style={{ left: x(dist.p25), width: width(dist.p25, dist.p75) }}
+        />
+        {/* 중위 */}
+        <div className="absolute top-1.5 h-6 w-0.5 bg-sky-300" style={{ left: x(dist.median) }} />
+        {/* 기준선 */}
+        <div
+          className="absolute inset-y-0 w-px border-l border-dashed border-amber-400"
+          style={{ left: x(reference) }}
+        />
+        {/* 양 끝 수염 */}
+        {[dist.worst, dist.best].map((v, i) => (
+          <div key={i} className="absolute top-2.5 h-3 w-px bg-slate-500" style={{ left: x(v) }} />
+        ))}
+      </div>
+
+      <div className="flex justify-between text-[10px] tabular-nums text-slate-500">
+        <span className="text-rose-300">최악 {percent(dist.worst, 1)}</span>
+        <span className="text-amber-300">하위25% {percent(dist.p25, 1)}</span>
+        <span className="text-sky-200">중위 {percent(dist.median, 1)}</span>
+        <span className="text-slate-400">최고 {percent(dist.best, 1)}</span>
+      </div>
+
+      <div className="mt-2 grid grid-cols-3 gap-2 border-t border-slate-800/70 pt-2">
         <div>
-          <div className="text-[10px] text-slate-600">중위</div>
+          <div className="text-[10px] text-slate-600">안전마진 (하위25% − 기준)</div>
+          <div
+            className={`text-sm font-semibold tabular-nums ${
+              margin.marginAtP25 >= 0 ? 'text-emerald-300' : 'text-rose-300'
+            }`}
+          >
+            {margin.marginAtP25 >= 0 ? '+' : ''}
+            {percent(margin.marginAtP25, 1)}
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] text-slate-600">기준 넘긴 진입시점</div>
           <div className="text-sm font-semibold tabular-nums text-slate-100">
-            {percent(dist.median, 1)}
-          </div>
-        </div>
-        <div>
-          <div className="text-[10px] text-slate-600">하위 25%</div>
-          <div className="text-sm font-semibold tabular-nums text-amber-300">
-            {percent(dist.p25, 1)}
-          </div>
-        </div>
-        <div>
-          <div className="text-[10px] text-slate-600">최악</div>
-          <div className="text-sm font-semibold tabular-nums text-rose-300">
-            {percent(dist.worst, 1)}
+            {percent(margin.beatRatio, 0)}
           </div>
         </div>
         <div>
           <div className="text-[10px] text-slate-600">손실로 끝난 비율</div>
-          <div className="text-sm font-semibold tabular-nums text-slate-100">
+          <div
+            className={`text-sm font-semibold tabular-nums ${
+              dist.lossRatio > 0 ? 'text-rose-300' : 'text-slate-100'
+            }`}
+          >
             {percent(dist.lossRatio, 0)}
           </div>
         </div>
@@ -111,6 +185,8 @@ export function MarketPage() {
   const [areaKey, setAreaKey] = useState('');
   const [fromQ, setFromQ] = useState<number | null>(null);
   const [toQ, setToQ] = useState<number | null>(null);
+  // 기준선 기본값은 은행 주담대 금리 수준 — "빌려서 사도 남는가"가 됩니다.
+  const [reference, setReference] = useState(0.045);
 
   const results = useMemo(() => searchComplexes(query), [query]);
   const complex = results.find((c) => c.id === complexId) ?? results[0];
@@ -253,20 +329,50 @@ export function MarketPage() {
         <Card
           title="진입시점을 바꿔 보면"
           subtitle="위 숫자는 진입시점 하나를 고른 결과입니다. 같은 단지도 언제 들어갔느냐로 결과가 갈리므로, 가능한 모든 진입시점의 분포를 같이 봐야 합니다."
+          action={
+            <div className="w-40">
+              <Field label="기준 수익률" hint="이 선을 넘어야 남는 장사">
+                <NumberInput
+                  value={Number((reference * 100).toFixed(2))}
+                  step={0.1}
+                  suffix="%"
+                  onChange={(v) => setReference(v / 100)}
+                />
+              </Field>
+            </div>
+          }
         >
+          <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500">
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2.5 w-4 rounded bg-sky-500/25 ring-1 ring-sky-500/40" />
+              사분위 (하위25%~상위25%)
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-3 w-0.5 bg-sky-300" /> 중위
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-3 w-px border-l border-dashed border-amber-400" />{' '}
+              기준선 {percent(reference, 1)}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2.5 w-4 rounded bg-rose-500/10" /> 손실 구간
+            </span>
+          </div>
           <div className="space-y-2">
             {[3, 5, 10].map((y) => (
               <DistributionRow
                 key={y}
                 label={`${y}년 보유`}
                 dist={holdingDistribution(points, y)}
+                reference={reference}
               />
             ))}
           </div>
           <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
             “10년 보유하면 연 8%”보다 <span className="text-amber-300">하위 25%가 몇 %인지</span>가
-            의사결정에 쓸모 있습니다. 운이 나빴을 때를 감당할 수 있어야 실행할 수 있는
-            계획입니다.
+            의사결정에 쓸모 있습니다. 진입시점을 골라서 들어갈 수 없다면 하위 구간이 실질
+            기대치이고, 그게 기준선을 넘는지가 실행 여부를 가릅니다. 기준선은 대출금리
+            수준으로 두면 “빌려서 사도 남는가”가 됩니다.
           </p>
         </Card>
       )}
