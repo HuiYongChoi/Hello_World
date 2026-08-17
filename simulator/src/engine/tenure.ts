@@ -74,8 +74,28 @@ export interface TenureLeg {
   initialInvestment: number;
   /** ② 기간 중 순 적립액 (음수면 인출) */
   netContribution: number;
-  /** ② 주거에 실제로 나간 현금 총액 (원금상환·보증금 제외) */
+  /** ② 매달 통장에서 나간 현금 총액 — 아래 넷의 합 */
   housingCashOut: number;
+  /**
+   * ② 그중 원금상환분. **비용이 아니라 저축입니다** — 잔여대출을 줄여
+   * ③의 매도 순수취에 그대로 남습니다. 이걸 "주거비"라고 부르면 매수가
+   * 실제보다 비싸 보입니다.
+   */
+  principalRepaid: number;
+  /** ② 이자 — 매수는 주담대, 전세는 전세자금대출. 돌려받지 못하는 순비용 */
+  interestPaid: number;
+  /** ② 월세 — 돌려받지 못하는 순비용 */
+  rentPaid: number;
+  /** ② 보유비 (재산세+수선유지) — 매수자만 */
+  carryCost: number;
+  /**
+   * ② 갱신 때 더 넣은 보증금 누계.
+   *
+   * 투자자산을 헐어 넣으므로 적립액을 깎지만, ③에서 돌려받는 보증금에
+   * 그대로 얹힙니다. 이 값이 안 보이면 "7천만 넣었는데 왜 1.1억을
+   * 돌려받나"가 설명되지 않습니다.
+   */
+  depositTopUp: number;
   /** ③ 종료 시 투자 외로 회수한 목돈 — 매도 순수취 / 보증금 반환 */
   recovered: number;
   /** ③ 종료 투자잔고 (원금 + 수익) */
@@ -168,6 +188,14 @@ function renewalRaise(a: TenureAssumptions, renewalIndex: number): number {
   return capped ? Math.min(market, lease.renewalCapRatio) : market;
 }
 
+/** 매달 나가는 돈의 성격별 분해 — 저축인지 순비용인지 갈라야 합니다 */
+interface CashBreakdown {
+  principalRepaid: number;
+  interestPaid: number;
+  rentPaid: number;
+  carryCost: number;
+}
+
 /** 한 갈래의 월별 현금흐름 계획 */
 interface LegPlan {
   kind: TenureKind;
@@ -177,6 +205,7 @@ interface LegPlan {
   /** 월별 일시 지출 — 갱신 증액 보증금 등 */
   lumps: number[];
   recovered: number;
+  breakdown: CashBreakdown;
   detail: Record<string, number>;
   notes: string[];
 }
@@ -224,12 +253,23 @@ function buyPlan(
     notes.push('보유 2년 미만은 비과세가 통째로 사라집니다. 기간을 늘려 보세요.');
   }
 
+  // 원리금 중 얼마가 원금(저축)이고 얼마가 이자(순비용)인지 가릅니다.
+  const paidMonths = Math.min(months, termMonths);
+  const totalInstallment = loan.monthlyPayment * paidMonths;
+  const principalRepaid = principal - remainingLoan;
+
   return {
     kind: 'buy',
     initialOutlay: property.price - principal + acquisitionCost,
     outflow,
     lumps: new Array(months).fill(0),
     recovered: endPrice - remainingLoan - sellingFee - cgt.total,
+    breakdown: {
+      principalRepaid,
+      interestPaid: totalInstallment - principalRepaid,
+      rentPaid: 0,
+      carryCost: outflow.reduce((s, v) => s + v, 0) - totalInstallment,
+    },
     detail: {
       loanPrincipal: principal,
       acquisitionCost,
@@ -290,6 +330,12 @@ function jeonsePlan(property: Property, a: TenureAssumptions, equity: number): L
     outflow,
     lumps,
     recovered: deposit - jeonseLoan,
+    breakdown: {
+      principalRepaid: 0,
+      interestPaid: outflow.reduce((s, v) => s + v, 0),
+      rentPaid: 0,
+      carryCost: 0,
+    },
     detail: {
       deposit0,
       depositEnd: deposit,
@@ -334,6 +380,12 @@ function wolsePlan(property: Property, a: TenureAssumptions): LegPlan {
     outflow,
     lumps,
     recovered: deposit,
+    breakdown: {
+      principalRepaid: 0,
+      interestPaid: 0,
+      rentPaid: outflow.reduce((s, v) => s + v, 0),
+      carryCost: 0,
+    },
     detail: {
       deposit0,
       depositEnd: deposit,
@@ -385,6 +437,11 @@ function runLegs(plans: LegPlan[], equity: number, a: TenureAssumptions): Tenure
       initialInvestment,
       netContribution,
       housingCashOut,
+      principalRepaid: plan.breakdown.principalRepaid,
+      interestPaid: plan.breakdown.interestPaid,
+      rentPaid: plan.breakdown.rentPaid,
+      carryCost: plan.breakdown.carryCost,
+      depositTopUp: plan.lumps.reduce((s, v) => s + v, 0),
       recovered: plan.recovered,
       investmentEnd: balance,
       investedPrincipal,

@@ -35,6 +35,7 @@ function RateField({
   label,
   source,
   assumed,
+  help,
   value,
   onChange,
   step = 0.1,
@@ -43,14 +44,17 @@ function RateField({
   /** 실측이면 출처, 가정이면 무엇을 근거로 찍었는지 */
   source: string;
   assumed: boolean;
+  /** 이 값이 무엇이고 어디에 어떻게 쓰이는지 — 마우스를 올리면 뜹니다 */
+  help: string;
   value: number;
   onChange: (v: number) => void;
   step?: number;
 }) {
   return (
     <div>
-      <div className="flex items-baseline gap-1.5">
+      <div className="flex items-baseline gap-1.5" title={help}>
         <span className="text-xs font-medium text-slate-300">{label}</span>
+        <span className="text-slate-600">ⓘ</span>
         {assumed ? (
           <span className="rounded border border-slate-700 px-1 text-[9px] text-slate-500 print-plain">
             가정
@@ -97,17 +101,26 @@ function Row({
   hint,
   tone,
   strong,
+  help,
+  indent,
 }: {
   label: string;
   value: string;
   hint?: string;
   tone?: string;
   strong?: boolean;
+  /** 마우스를 올렸을 때 뜨는 설명 */
+  help?: string;
+  indent?: boolean;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1">
+    <div
+      className={`flex items-baseline justify-between gap-3 py-1 ${indent ? 'pl-3' : ''}`}
+      title={help}
+    >
       <span className={`text-[11px] ${strong ? 'text-slate-300' : 'text-slate-500'}`}>
         {label}
+        {help && <span className="ml-1 text-slate-600">ⓘ</span>}
         {hint && <span className="ml-1 text-slate-600">{hint}</span>}
       </span>
       <span
@@ -204,15 +217,75 @@ function LegCard({
 
       <Stage n="②" title={`${years}년 동안 매달`} />
       <Row
-        label="주거비로 나감"
+        label="통장에서 나감"
         hint={`(월 ${money(monthlyHousing)})`}
         value={money(leg.housingCashOut)}
+        help={
+          leg.kind === 'buy'
+            ? '원리금(원금+이자) + 재산세 + 수선유지비의 합입니다. 이 중 원금은 비용이 아니라 저축이라 아래에서 갈라 놨습니다.'
+            : leg.kind === 'jeonse'
+              ? '전세자금대출 이자만 나갑니다. 대출이 없으면 0원입니다.'
+              : '월세만 나갑니다. 돌려받지 못하는 순비용입니다.'
+        }
       />
+      {leg.principalRepaid > 0 && (
+        <Row
+          indent
+          label="└ 원금상환 (저축)"
+          value={money(leg.principalRepaid)}
+          tone="text-slate-200"
+          help={`대출 원금을 갚은 금액입니다. 나가는 돈이지만 잔여대출이 그만큼 줄어 ③의 “집 팔고 받는 돈”에 그대로 남습니다 — 비용이 아니라 저축입니다. 이 금액만큼 임차 쪽도 투자하게 해야 비교가 성립합니다.`}
+        />
+      )}
+      {leg.interestPaid > 0 && (
+        <Row
+          indent
+          label="└ 이자 (순비용)"
+          value={money(leg.interestPaid)}
+          tone="text-slate-400"
+          help={
+            leg.kind === 'buy'
+              ? '주택담보대출 이자입니다. 돌려받지 못합니다.'
+              : '전세자금대출 이자입니다. 돌려받지 못합니다.'
+          }
+        />
+      )}
+      {leg.rentPaid > 0 && (
+        <Row
+          indent
+          label="└ 월세 (순비용)"
+          value={money(leg.rentPaid)}
+          tone="text-slate-400"
+          help="집주인에게 낸 월세 누계입니다. 돌려받지 못합니다."
+        />
+      )}
+      {leg.carryCost > 0 && (
+        <Row
+          indent
+          label="└ 재산세·수선 (순비용)"
+          value={money(leg.carryCost)}
+          tone="text-slate-400"
+          help="소유자만 부담합니다. 재산세와 연 수선유지비(가정값)의 합이고, 집값이 오르면 재산세도 같이 오릅니다."
+        />
+      )}
+      {leg.depositTopUp > 0 && (
+        <Row
+          label="갱신 때 보증금 더 넣음"
+          value={money(leg.depositTopUp)}
+          tone="text-slate-300"
+          help="2년마다 갱신하며 오른 보증금입니다. 투자자산을 헐어 넣으므로 적립액이 그만큼 줄지만, ③에서 돌려받는 보증금에 그대로 얹힙니다. 처음 넣은 목돈보다 돌려받는 돈이 큰 이유가 이것입니다."
+        />
+      )}
       <Row
         label="투자에 추가 적립"
         hint={`(월 ${money(monthlySaving)})`}
         value={money(leg.netContribution)}
         tone={leg.netContribution > 0 ? 'text-slate-200' : 'text-slate-600'}
+        help={
+          leg.kind === 'buy'
+            ? '세 갈래 중 가장 많이 쓰는 쪽을 매달 기준예산으로 잡습니다. 매수가 보통 가장 많이 쓰므로 남는 돈이 없어 0원이 됩니다.'
+            : '배당 재투자가 아닙니다. 매수자가 매달 쓰는 금액을 기준으로 잡고, 내가 덜 쓴 차액을 투자에 넣은 누계입니다. 배당·이자 수익은 위 “대체투자 기대수익률”에 이미 포함돼 있습니다.'
+        }
       />
 
       <Stage n="③" title={`${years}년 뒤 손에 남는 것`} />
@@ -220,11 +293,19 @@ function LegCard({
         label={leg.kind === 'buy' ? '집 팔고 받는 돈' : '보증금 돌려받음'}
         hint={leg.kind === 'buy' ? '(대출·세금·수수료 뺀 뒤)' : undefined}
         value={money(leg.recovered)}
+        help={
+          leg.kind === 'buy'
+            ? '매도가에서 잔여대출·매도중개보수·양도세를 뺀 금액입니다. ②에서 갚은 원금이 잔여대출을 줄여 여기에 남습니다.'
+            : `최종 보증금 ${money(
+                leg.recovered + (leg.kind === 'jeonse' ? 0 : 0)
+              )}에서 임차대출을 갚고 남는 돈입니다. ①에서 넣은 목돈보다 큰 이유는 ②에서 갱신 때 보증금을 더 넣었기 때문입니다.`
+        }
       />
       <Row
         label="투자 잔고"
         hint={`(원금 ${money(leg.investedPrincipal)} + 수익 ${money(leg.investmentGain)})`}
         value={money(leg.investmentEnd)}
+        help="①에서 남긴 목돈과 ②에서 적립한 금액이 원금이고, 여기에 대체투자 기대수익률만큼 복리로 붙은 결과입니다. 배당·이자는 그 수익률에 이미 들어 있습니다."
       />
       <div className="mt-1 border-t border-slate-800/70 pt-1">
         <Row label="종료자산" value={money(leg.terminalWealth)} tone={tone.text} strong />
@@ -322,6 +403,7 @@ export function TenurePage() {
           </Field>
           <RateField
             label="주택 가격상승률"
+            help="집값이 매년 오르는 비율입니다. **매수 갈래만 여기에 노출됩니다** — 전세·월세의 회수액은 집값과 무관합니다. 이 값이 손익분기 상승률보다 높으면 매수가, 낮으면 임차가 앞섭니다."
             assumed
             source="자리표시자 · 매수 갈래만 여기에 노출됩니다"
             value={assumptions?.priceGrowthRate ?? 0}
@@ -391,6 +473,96 @@ export function TenurePage() {
           </Card>
 
           <Card
+            title="가정값"
+            subtitle={
+              measured
+                ? `전세가율·전월세전환율은 국토부 전월세 실거래 ${RENT.stats.deals.toLocaleString('ko-KR')}건에서 잰 값입니다 (${RENT.range.from.slice(0, 4)}년~, 같은 단지·평형·분기끼리 짝지음). 나머지는 아직 자리표시자입니다.`
+                : RULES.tenure.assumptionDefaults.note
+            }
+            action={measured ? <Badge tone="good">일부 실측</Badge> : <Badge tone="warn">실측 아님</Badge>}
+          >
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <RateField
+                label="대체투자 기대수익률"
+                help="집을 사지 않고 그 돈을 다른 데 굴렸을 때의 연 수익률입니다. 주식·채권 등을 아우르는 총수익 기준이라 **배당과 이자가 이미 포함**돼 있습니다 — 별도로 배당수익률을 넣을 필요가 없습니다. 세 갈래 모두 남는 돈에 이 수익률을 적용하므로, 이 값이 높을수록 임차가 유리해집니다."
+                assumed
+                source="자리표시자 · 근거 없음. KRX 총수익지수로 교체 예정"
+                value={result.assumptions.investmentReturnRate}
+                onChange={(v) => patch({ investmentReturnRate: v })}
+              />
+              <RateField
+                label="전세가율"
+                help="매매가 대비 전세보증금의 비율입니다. 전세보증금 = 매매가 × 이 비율. 높을수록 전세에 묶이는 목돈이 커져 투자에 남길 돈이 줄고, 월세도 같이 비싸집니다(월세가 여기서 파생되기 때문)."
+                assumed={!jeonseStat}
+                source={
+                  jeonseStat
+                    ? `실거래 · ${property.sigungu || '해당 권역'} · 표본 ${jeonseStat.n.toLocaleString('ko-KR')}건 · 사분위 ${percent(jeonseStat.p25, 1)}~${percent(jeonseStat.p75, 1)}`
+                    : '자리표시자 · 매매가 대비 전세보증금'
+                }
+                value={result.assumptions.jeonseRatio}
+                onChange={(v) => patch({ jeonseRatio: v })}
+              />
+              <RateField
+                label="전월세전환율"
+                help="전세보증금을 월세로 바꿀 때 적용하는 연이율입니다. 월세 = (전세보증금 − 월세보증금) × 이 비율 ÷ 12. 월세는 독립 가정값이 아니라 전세에서 파생됩니다. 높을수록 월세가 비싸져 월세 갈래가 불리해집니다."
+                assumed={!conversionStat}
+                source={
+                  conversionStat
+                    ? `실거래 · 표본 ${conversionStat.n.toLocaleString('ko-KR')}건 · 사분위 ${percent(conversionStat.p25, 2)}~${percent(conversionStat.p75, 2)}`
+                    : `자리표시자 · 법정 상한 ${percent(RULES.tenure.lease.conversionRateMax, 0)}`
+                }
+                value={result.assumptions.conversionRate}
+                onChange={(v) => patch({ conversionRate: v })}
+              />
+              <RateField
+                label="월세 보증금 비율"
+                help="월세 계약의 보증금이 전세보증금의 몇 %인지입니다. 이 비율이 높을수록 월세 보증금이 커지고 매달 내는 월세는 줄어듭니다."
+                assumed
+                source="자리표시자 · 전세보증금 대비"
+                value={result.assumptions.wolseDepositRatio}
+                onChange={(v) => patch({ wolseDepositRatio: v })}
+              />
+              <RateField
+                label="보증금·월세 상승률"
+                help="재계약 때 보증금과 월세가 오르는 연 비율입니다. 2년마다 갱신 시점에 반영되고, 첫 갱신에는 계약갱신청구권의 법정 상한 5%가 걸립니다. 오른 보증금은 투자자산을 헐어 채우므로 적립액을 깎습니다."
+                assumed
+                source={`자리표시자 · 갱신 ${RULES.tenure.lease.renewalYears}년마다 반영`}
+                value={result.assumptions.depositGrowthRate}
+                onChange={(v) => patch({ depositGrowthRate: v })}
+              />
+              <RateField
+                label="연 수선유지비"
+                help="집값 대비 연간 수선·유지 비용입니다. 소유자만 부담하며 매달 나가는 돈에 더해집니다. 임차인은 0입니다."
+                assumed
+                source="자리표시자 · 주택가격 대비, 매수자만 부담"
+                value={result.assumptions.maintenanceRate}
+                step={0.05}
+                onChange={(v) => patch({ maintenanceRate: v })}
+              />
+              <RateField
+                label="전세자금대출 금리"
+                help="전세보증금이 목돈보다 클 때 빌리는 대출의 금리입니다. 이자만 매달 내고 원금은 계약 종료 시 보증금에서 갚습니다 — 그래서 전세의 월 지출은 전부 이자입니다."
+                assumed
+                source="자리표시자 · ECOS 실측 금리로 교체 예정"
+                value={result.assumptions.jeonseLoanRate}
+                onChange={(v) => patch({ jeonseLoanRate: v })}
+              />
+              <ProvenanceValue
+                label="적용 대출"
+                value={`${money(loan.limit)}`}
+                assumed={false}
+                size="sm"
+                source={`${loan.productName} · ${percent(loan.rate)} · 월 ${money(loan.monthlyPayment)} · 룰셋 ${RULES.version}`}
+              />
+            </div>
+            <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
+              점선 밑줄이 그어진 숫자는 <span className="text-slate-300">우리가 정한 값</span>입니다.
+              근거가 있는 값과 섞어서 인용하면 도구 전체가 거짓말이 됩니다. 실측으로 바뀐 것은
+              전세가율·전월세전환율뿐입니다.
+            </p>
+          </Card>
+
+          <Card
             title="자금 흐름 — 같은 목돈을 어디에 두느냐의 차이"
             subtitle={`세 갈래 모두 자기자본 ${money(
               result.equity
@@ -412,89 +584,6 @@ export function TenurePage() {
               ① + ②의 적립액이 투자 원금이 되고, 여기에 수익이 붙어 ③의 투자 잔고가 됩니다.
               전세처럼 보증금이 목돈을 다 가져가면 ①의 투자액은 0원이지만, ②에서 매달 쌓이기
               때문에 ③의 잔고는 0이 아닙니다.
-            </p>
-          </Card>
-
-          <Card
-            title="가정값"
-            subtitle={
-              measured
-                ? `전세가율·전월세전환율은 국토부 전월세 실거래 ${RENT.stats.deals.toLocaleString('ko-KR')}건에서 잰 값입니다 (${RENT.range.from.slice(0, 4)}년~, 같은 단지·평형·분기끼리 짝지음). 나머지는 아직 자리표시자입니다.`
-                : RULES.tenure.assumptionDefaults.note
-            }
-            action={measured ? <Badge tone="good">일부 실측</Badge> : <Badge tone="warn">실측 아님</Badge>}
-          >
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <RateField
-                label="대체투자 기대수익률"
-                assumed
-                source="자리표시자 · 근거 없음. KRX 총수익지수로 교체 예정"
-                value={result.assumptions.investmentReturnRate}
-                onChange={(v) => patch({ investmentReturnRate: v })}
-              />
-              <RateField
-                label="전세가율"
-                assumed={!jeonseStat}
-                source={
-                  jeonseStat
-                    ? `실거래 · ${property.sigungu || '해당 권역'} · 표본 ${jeonseStat.n.toLocaleString('ko-KR')}건 · 사분위 ${percent(jeonseStat.p25, 1)}~${percent(jeonseStat.p75, 1)}`
-                    : '자리표시자 · 매매가 대비 전세보증금'
-                }
-                value={result.assumptions.jeonseRatio}
-                onChange={(v) => patch({ jeonseRatio: v })}
-              />
-              <RateField
-                label="전월세전환율"
-                assumed={!conversionStat}
-                source={
-                  conversionStat
-                    ? `실거래 · 표본 ${conversionStat.n.toLocaleString('ko-KR')}건 · 사분위 ${percent(conversionStat.p25, 2)}~${percent(conversionStat.p75, 2)}`
-                    : `자리표시자 · 법정 상한 ${percent(RULES.tenure.lease.conversionRateMax, 0)}`
-                }
-                value={result.assumptions.conversionRate}
-                onChange={(v) => patch({ conversionRate: v })}
-              />
-              <RateField
-                label="월세 보증금 비율"
-                assumed
-                source="자리표시자 · 전세보증금 대비"
-                value={result.assumptions.wolseDepositRatio}
-                onChange={(v) => patch({ wolseDepositRatio: v })}
-              />
-              <RateField
-                label="보증금·월세 상승률"
-                assumed
-                source={`자리표시자 · 갱신 ${RULES.tenure.lease.renewalYears}년마다 반영`}
-                value={result.assumptions.depositGrowthRate}
-                onChange={(v) => patch({ depositGrowthRate: v })}
-              />
-              <RateField
-                label="연 수선유지비"
-                assumed
-                source="자리표시자 · 주택가격 대비, 매수자만 부담"
-                value={result.assumptions.maintenanceRate}
-                step={0.05}
-                onChange={(v) => patch({ maintenanceRate: v })}
-              />
-              <RateField
-                label="전세자금대출 금리"
-                assumed
-                source="자리표시자 · ECOS 실측 금리로 교체 예정"
-                value={result.assumptions.jeonseLoanRate}
-                onChange={(v) => patch({ jeonseLoanRate: v })}
-              />
-              <ProvenanceValue
-                label="적용 대출"
-                value={`${money(loan.limit)}`}
-                assumed={false}
-                size="sm"
-                source={`${loan.productName} · ${percent(loan.rate)} · 월 ${money(loan.monthlyPayment)} · 룰셋 ${RULES.version}`}
-              />
-            </div>
-            <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
-              점선 밑줄이 그어진 숫자는 <span className="text-slate-300">우리가 정한 값</span>입니다.
-              근거가 있는 값과 섞어서 인용하면 도구 전체가 거짓말이 됩니다. 실측으로 바뀐 것은
-              전세가율·전월세전환율뿐입니다.
             </p>
           </Card>
 

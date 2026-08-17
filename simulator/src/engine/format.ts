@@ -11,6 +11,8 @@ export function manwon(v: number): string {
 /** 3.04억 / 8,500만 처럼 크기에 따라 단위를 바꿔 표기 */
 export function money(v: number): string {
   if (!Number.isFinite(v)) return '—';
+  // 부동소수점 먼지가 "-0원"으로 찍히는 걸 막습니다. 1원 미만은 0으로 봅니다.
+  if (Math.abs(v) < 1) return '0원';
   const abs = Math.abs(v);
   if (abs >= 100000000) return eok(v);
   if (abs >= 10000) return manwon(v);

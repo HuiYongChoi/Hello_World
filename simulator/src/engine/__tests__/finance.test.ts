@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { money } from '../format';
 import { monthlyPayment, presentValue, totalInterest } from '../finance';
 
 describe('원리금균등상환 계산', () => {
@@ -29,5 +30,20 @@ describe('원리금균등상환 계산', () => {
     const years = 30;
     const expected = monthlyPayment(principal, rate, years) * 360 - principal;
     expect(totalInterest(principal, rate, years)).toBeCloseTo(expected, 6);
+  });
+});
+
+describe('금액 표기', () => {
+  it('부동소수점 먼지를 "-0원"으로 찍지 않는다', () => {
+    expect(money(-0)).toBe('0원');
+    expect(money(-1e-9)).toBe('0원');
+    expect(money(0.4)).toBe('0원');
+  });
+
+  it('1원 이상은 그대로 표기하고 음수 부호를 유지한다', () => {
+    expect(money(1)).toBe('1원');
+    expect(money(-5000)).toBe('-5,000원');
+    expect(money(-50000)).toContain('만');
+    expect(money(-50000).startsWith('-')).toBe(true);
   });
 });

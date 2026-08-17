@@ -336,3 +336,57 @@ describe('부정적 결과를 숨기지 않는다', () => {
     ).toBeNull();
   });
 });
+
+describe('매달 나가는 돈의 성격 분해', () => {
+  it('네 항목의 합이 총 현금유출과 같다 — 새는 돈이 없어야 합니다', () => {
+    for (const l of compare().legs) {
+      expect(l.principalRepaid + l.interestPaid + l.rentPaid + l.carryCost).toBeCloseTo(
+        l.housingCashOut,
+        0
+      );
+    }
+  });
+
+  it('매수의 원금상환은 비용이 아니라 저축이다 — 잔여대출이 그만큼 줄어 있다', () => {
+    const c = compare();
+    const b = leg(c, 'buy');
+    const remaining = b.detail.remainingLoan;
+    expect(b.principalRepaid).toBeCloseTo(b.detail.loanPrincipal - remaining, 0);
+    // 그리고 그 값은 ③의 매도 순수취에 그대로 반영돼 있습니다
+    expect(b.recovered).toBeCloseTo(
+      b.detail.endPrice - remaining - b.detail.sellingFee - b.detail.capitalGainsTax,
+      0
+    );
+  });
+
+  it('매수만 원금상환·보유비가 있고 임차는 없다', () => {
+    const c = compare();
+    expect(leg(c, 'buy').principalRepaid).toBeGreaterThan(0);
+    expect(leg(c, 'buy').carryCost).toBeGreaterThan(0);
+    for (const kind of ['jeonse', 'wolse'] as const) {
+      expect(leg(c, kind).principalRepaid).toBe(0);
+      expect(leg(c, kind).carryCost).toBe(0);
+    }
+  });
+
+  it('전세는 이자만, 월세는 월세만 나간다', () => {
+    const c = compare({}, 30, 120000000);
+    expect(leg(c, 'jeonse').interestPaid).toBeGreaterThan(0);
+    expect(leg(c, 'jeonse').rentPaid).toBe(0);
+    expect(leg(c, 'wolse').rentPaid).toBeGreaterThan(0);
+    expect(leg(c, 'wolse').interestPaid).toBe(0);
+  });
+
+  it('갱신 증액 보증금이 드러난다 — 넣은 목돈보다 돌려받는 돈이 큰 이유', () => {
+    const j = leg(compare({}, 30, 120000000), 'jeonse');
+    expect(j.depositTopUp).toBeGreaterThan(0);
+    // 최초 보증금 + 증액분 = 최종 보증금
+    expect(j.detail.deposit0 + j.depositTopUp).toBeCloseTo(j.detail.depositEnd, 0);
+    // 돌려받는 돈 = 최종 보증금 − 전세대출
+    expect(j.recovered).toBeCloseTo(j.detail.depositEnd - j.detail.jeonseLoan, 0);
+  });
+
+  it('매수는 갱신 증액이 없다', () => {
+    expect(leg(compare(), 'buy').depositTopUp).toBe(0);
+  });
+});
