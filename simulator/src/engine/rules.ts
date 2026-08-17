@@ -118,6 +118,11 @@ export interface Ruleset {
       renewalCapUses: number;
       conversionRateMax: number;
     };
+    investmentPresets: {
+      note: string;
+      currencyWarning: string;
+      items: { id: string; label: string; rate: number; note: string }[];
+    };
     assumptionDefaults: {
       note: string;
       years: number;

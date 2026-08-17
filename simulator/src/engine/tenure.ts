@@ -96,6 +96,17 @@ export interface TenureLeg {
    * 돌려받나"가 설명되지 않습니다.
    */
   depositTopUp: number;
+  /**
+   * **10년간 주거에 쓴 돈** — 넣은 돈에서 돌려받은 돈을 뺀 순액.
+   *
+   *   주거 사용액 = 초기 투입 + 매달 나간 돈 + 갱신 증액 − 회수액
+   *
+   * 원금상환과 보증금처럼 **돌려받는 돈은 자동으로 상쇄**되고, 취득세·이자·
+   * 보유세·중개보수·월세·양도세처럼 사라지는 돈만 남습니다. 매수는 집값
+   * 상승분이 회수액에 들어 있어 그만큼 차감됩니다 — 집이 올랐으면 그 기간
+   * 주거에 쓴 돈이 실제로 줄어든 것이 맞습니다.
+   */
+  netHousingCost: number;
   /** ③ 종료 시 투자 외로 회수한 목돈 — 매도 순수취 / 보증금 반환 */
   recovered: number;
   /** ③ 종료 투자잔고 (원금 + 수익) */
@@ -425,6 +436,7 @@ function runLegs(plans: LegPlan[], equity: number, a: TenureAssumptions): Tenure
     // 1원 미만 차이는 0으로 봅니다.
     const rawShortfall = plan.initialOutlay - equity;
     const shortfall = rawShortfall > 1 ? rawShortfall : 0;
+    const depositTopUp = plan.lumps.reduce((s, v) => s + v, 0);
     const investedPrincipal = initialInvestment + netContribution;
     const terminalWealth = plan.recovered + balance;
 
@@ -441,7 +453,8 @@ function runLegs(plans: LegPlan[], equity: number, a: TenureAssumptions): Tenure
       interestPaid: plan.breakdown.interestPaid,
       rentPaid: plan.breakdown.rentPaid,
       carryCost: plan.breakdown.carryCost,
-      depositTopUp: plan.lumps.reduce((s, v) => s + v, 0),
+      depositTopUp,
+      netHousingCost: plan.initialOutlay + housingCashOut + depositTopUp - plan.recovered,
       recovered: plan.recovered,
       investmentEnd: balance,
       investedPrincipal,
@@ -522,6 +535,51 @@ const CAVEATS = [
   '연환산 수익률은 주거비를 쓰고 남은 자기자본 기준입니다 — 순수 투자수익률이 아니라 “같은 집에 살면서 자본이 얼마나 불었나”입니다.',
   '거주 만족도·이사 비용·직장 이동 같은 비금전 요소는 들어 있지 않습니다.',
 ];
+
+export interface ReturnScenario {
+  id: string;
+  label: string;
+  rate: number;
+  note: string;
+  /** 갈래별 종료자산 */
+  terminal: Record<TenureKind, number>;
+  best: TenureKind;
+  /** 1등과 2등의 격차 — 작으면 수익률 가정 하나로 뒤집힙니다 */
+  gap: number;
+}
+
+/**
+ * **대체투자 수익률을 바꿔 가며 우열을 봅니다.**
+ *
+ * 매수와 임차의 차액을 어디에 굴리느냐가 결론을 바꿉니다. 코스피 6%로 보면
+ * 매수가 이기는데 나스닥 13%로 보면 임차가 이기는 식이죠. 수익률 하나가
+ * 답을 뒤집는다면 그 답은 "매수가 낫다"가 아니라 **"어디에 굴릴 자신이
+ * 있느냐에 달렸다"** 입니다. 그 사실이 보여야 합니다.
+ *
+ * 매수 갈래도 같은 수익률의 영향을 받습니다 — 목돈을 다 쓰지 않고 남긴
+ * 만큼은 매수자도 굴리기 때문입니다.
+ */
+export function compareAcrossReturns(
+  input: TenureInput,
+  presets: { id: string; label: string; rate: number; note: string }[]
+): ReturnScenario[] {
+  return presets.map((p) => {
+    const legs = compute({
+      ...input,
+      assumptions: { ...input.assumptions, investmentReturnRate: p.rate },
+    });
+    const terminal = Object.fromEntries(
+      legs.map((l) => [l.kind, l.terminalWealth])
+    ) as Record<TenureKind, number>;
+    const sorted = [...legs].sort((a, b) => b.terminalWealth - a.terminalWealth);
+    return {
+      ...p,
+      terminal,
+      best: sorted[0].kind,
+      gap: sorted[0].terminalWealth - sorted[1].terminalWealth,
+    };
+  });
+}
 
 export function compareTenures(input: TenureInput): TenureComparison | null {
   if (!input.loan.eligible || input.loan.limit <= 0) return null;

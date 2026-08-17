@@ -3,6 +3,7 @@ import { calcLoan } from '../loan';
 import { getProduct, RULES } from '../rules';
 import { ALL_SCENARIO_AXES, deriveScenario } from '../scenario';
 import {
+  compareAcrossReturns,
   compareTenures,
   defaultAssumptions,
   loanBalance,
@@ -388,5 +389,92 @@ describe('매달 나가는 돈의 성격 분해', () => {
 
   it('매수는 갱신 증액이 없다', () => {
     expect(leg(compare(), 'buy').depositTopUp).toBe(0);
+  });
+});
+
+describe('주거 사용액 — 돌려받지 못한 돈', () => {
+  it('돌려받는 돈은 상쇄되고 사라지는 돈만 남는다', () => {
+    // 가격 변동이 없으면 매수의 주거 사용액 = 취득비용 + 이자 + 보유비 + 매도비용 + 양도세
+    const b = leg(compare({ priceGrowthRate: 0 }), 'buy');
+    const expected =
+      b.detail.acquisitionCost +
+      b.interestPaid +
+      b.carryCost +
+      b.detail.sellingFee +
+      b.detail.capitalGainsTax;
+    expect(b.netHousingCost).toBeCloseTo(expected, 0);
+    // 원금상환은 돌려받으므로 들어가지 않습니다
+    expect(b.netHousingCost).toBeLessThan(b.housingCashOut + b.detail.acquisitionCost);
+  });
+
+  it('전세 사용액은 이자 + 중개보수뿐이다 — 보증금은 전액 돌려받습니다', () => {
+    const j = leg(compare({}, 30, 120000000), 'jeonse');
+    expect(j.netHousingCost).toBeCloseTo(j.interestPaid + j.detail.brokerage, 0);
+  });
+
+  it('월세 사용액은 월세 + 중개보수뿐이다', () => {
+    const w = leg(compare(), 'wolse');
+    expect(w.netHousingCost).toBeCloseTo(w.rentPaid + w.detail.brokerage, 0);
+  });
+
+  it('집값이 오르면 매수의 주거 사용액이 줄어든다', () => {
+    const flat = leg(compare({ priceGrowthRate: 0 }), 'buy');
+    const up = leg(compare({ priceGrowthRate: 0.05 }), 'buy');
+    expect(up.netHousingCost).toBeLessThan(flat.netHousingCost);
+  });
+
+  it('사용액 항등식 — 넣은 돈 − 돌려받은 돈', () => {
+    for (const l of compare().legs) {
+      expect(l.netHousingCost).toBeCloseTo(
+        l.initialOutlay + l.housingCashOut + l.depositTopUp - l.recovered,
+        0
+      );
+    }
+  });
+});
+
+describe('대체투자 수익률을 바꿔 가며', () => {
+  const presets = [
+    { id: 'a', label: '낮음', rate: 0.02, note: '' },
+    { id: 'b', label: '보통', rate: 0.06, note: '' },
+    { id: 'c', label: '높음', rate: 0.13, note: '' },
+  ];
+  const input = {
+    property,
+    loan,
+    equity: EQUITY,
+    termYears: 30,
+    assumptions: defaultAssumptions(property.region),
+  };
+
+  it('프리셋마다 세 갈래 종료자산을 낸다', () => {
+    const rows = compareAcrossReturns(input, presets);
+    expect(rows).toHaveLength(3);
+    for (const r of rows) {
+      expect(r.terminal.buy).toBeGreaterThan(0);
+      expect(r.terminal.jeonse).toBeGreaterThan(0);
+      expect(r.terminal.wolse).toBeGreaterThan(0);
+      expect(r.gap).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('수익률이 오르면 임차가 매수를 따라잡는다 — 차액을 굴리는 쪽이라', () => {
+    const [low, , high] = compareAcrossReturns(input, presets);
+    const lead = (r: (typeof low)) => r.terminal.buy - Math.max(r.terminal.jeonse, r.terminal.wolse);
+    expect(lead(high)).toBeLessThan(lead(low));
+  });
+
+  it('세 갈래 모두 수익률에 반응한다 — 매수도 남긴 목돈을 굴립니다', () => {
+    const [low, , high] = compareAcrossReturns(input, presets);
+    for (const kind of ['buy', 'jeonse', 'wolse'] as const) {
+      expect(high.terminal[kind]).toBeGreaterThan(low.terminal[kind]);
+    }
+  });
+
+  it('승자는 종료자산이 가장 큰 갈래다', () => {
+    for (const r of compareAcrossReturns(input, presets)) {
+      const max = Math.max(r.terminal.buy, r.terminal.jeonse, r.terminal.wolse);
+      expect(r.terminal[r.best]).toBe(max);
+    }
   });
 });

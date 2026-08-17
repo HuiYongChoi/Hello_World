@@ -14,6 +14,7 @@ import { money, percent } from '../engine/format';
 import { cellKey } from '../engine/matrix';
 import { RULES } from '../engine/rules';
 import {
+  compareAcrossReturns,
   compareTenures,
   defaultAssumptions,
   type TenureAssumptions,
@@ -89,6 +90,8 @@ function RateField({
  * "선택됨"·"충족"·"경고"를 뜻합니다. 색이 두 가지를 뜻하면 둘 다 못 읽힙니다.
  * 계열 구분은 무채색 3단계로 옮기고, 색은 판정과 상태에만 남깁니다.
  */
+const LEG_LABEL: Record<TenureKind, string> = { buy: '매수', jeonse: '전세', wolse: '월세' };
+
 const TONE: Record<TenureKind, { bar: string; text: string; ring: string }> = {
   buy: { bar: 'bg-slate-100', text: 'text-slate-100', ring: 'border-slate-500 bg-slate-800/40' },
   jeonse: { bar: 'bg-slate-400', text: 'text-slate-300', ring: 'border-slate-600 bg-slate-800/30' },
@@ -309,6 +312,22 @@ function LegCard({
       />
       <div className="mt-1 border-t border-slate-800/70 pt-1">
         <Row label="종료자산" value={money(leg.terminalWealth)} tone={tone.text} strong />
+        <Row
+          label={`${years}년간 주거에 쓴 돈`}
+          value={money(leg.netHousingCost)}
+          tone="text-slate-400"
+          help={`넣은 돈(초기 투입 + 매달 나간 돈 + 갱신 증액)에서 돌려받은 돈을 뺀 순액입니다. 원금상환·보증금처럼 돌아오는 돈은 저절로 상쇄되고, ${
+            leg.kind === 'buy'
+              ? '취득세·이자·보유세·매도중개보수·양도세처럼'
+              : leg.kind === 'jeonse'
+                ? '전세대출 이자와 중개보수처럼'
+                : '월세와 중개보수처럼'
+          } 사라지는 돈만 남습니다.${
+            leg.kind === 'buy'
+              ? ' 집값이 오르면 그만큼 차감됩니다 — 오른 만큼 실제로 덜 쓴 것이기 때문입니다.'
+              : ''
+          }`}
+        />
       </div>
 
       {leg.notes.length > 0 && (
@@ -361,6 +380,17 @@ export function TenurePage() {
   const patch = (p: Partial<TenureAssumptions>) => setOver((o) => ({ ...o, ...p }));
 
   // 전세가율·전월세전환율만 실측으로 바뀌었습니다. 어느 값이 실측인지 구분해 보여줍니다.
+  /** 대체투자 수익률을 바꿔 가며 우열이 뒤집히는지 봅니다 */
+  const scenarios = useMemo(() => {
+    if (!property || !scenario || !loan || !assumptions) return [];
+    return compareAcrossReturns(
+      { property, loan, equity: scenario.availableCash, termYears: profile.termYears, assumptions },
+      RULES.tenure.investmentPresets.items
+    );
+  }, [property, scenario, loan, assumptions, profile.termYears]);
+
+  const flipsAcrossReturns = new Set(scenarios.map((s) => s.best)).size > 1;
+
   const measured = property ? isMeasured(property.region) : false;
   const jeonseStat = property ? RENT.byRegion[property.region]?.jeonseRatio : null;
   const conversionStat = property ? RENT.byRegion[property.region]?.conversionRate : null;
@@ -585,6 +615,85 @@ export function TenurePage() {
               전세처럼 보증금이 목돈을 다 가져가면 ①의 투자액은 0원이지만, ②에서 매달 쌓이기
               때문에 ③의 잔고는 0이 아닙니다.
             </p>
+          </Card>
+
+          {/*
+            "어디에 굴리느냐"가 결론을 바꿉니다. 수익률 하나로 답이 뒤집힌다면
+            그 답은 "매수가 낫다"가 아니라 "굴릴 자신이 있느냐에 달렸다"입니다.
+          */}
+          <Card
+            title="차액을 어디에 굴리느냐 — 대체투자 수익률별 우열"
+            subtitle="매수와 임차의 차액을 굴리는 수익률을 바꿔 가며 종료자산을 다시 계산합니다. 세 갈래 모두 영향을 받습니다 — 매수도 목돈을 다 쓰지 않고 남긴 만큼은 굴리기 때문입니다."
+            action={<Badge tone="warn">전부 가정값</Badge>}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[520px] text-left">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[10px] text-slate-500">
+                    <th className="pb-1.5">굴리는 곳</th>
+                    <th className="pb-1.5 text-right">수익률</th>
+                    <th className="pb-1.5 text-right">매수</th>
+                    <th className="pb-1.5 text-right">전세</th>
+                    <th className="pb-1.5 text-right">월세</th>
+                    <th className="pb-1.5">우위</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scenarios.map((s) => (
+                    <tr key={s.id} className="border-b border-slate-800/50" title={s.note}>
+                      <td className="py-1.5 text-[11px] text-slate-300">
+                        {s.label}
+                        <span className="ml-1 text-slate-600">ⓘ</span>
+                      </td>
+                      <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
+                        {percent(s.rate, 1)}
+                      </td>
+                      {(['buy', 'jeonse', 'wolse'] as const).map((k) => (
+                        <td
+                          key={k}
+                          className={`py-1.5 text-right text-[11px] tabular-nums ${
+                            s.best === k ? 'font-semibold text-slate-100' : 'text-slate-500'
+                          }`}
+                        >
+                          {money(s.terminal[k])}
+                        </td>
+                      ))}
+                      <td className="py-1.5 pl-2 text-[11px] text-slate-300">
+                        {LEG_LABEL[s.best]}
+                        <span className="ml-1 text-[10px] text-slate-600">
+                          +{money(s.gap)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 space-y-1">
+              <p className="text-[11px] leading-relaxed text-slate-500">
+                {flipsAcrossReturns ? (
+                  <>
+                    <span className="text-amber-300">수익률 가정 하나로 우위가 뒤집힙니다.</span>{' '}
+                    그렇다면 결론은 “매수가 낫다”가 아니라{' '}
+                    <span className="text-slate-300">
+                      “차액을 어디에 굴릴 자신이 있느냐에 달렸다”
+                    </span>
+                    입니다.
+                  </>
+                ) : (
+                  <>
+                    이 구간에서는 수익률을 바꿔도 우위가 <span className="text-slate-300">{LEG_LABEL[scenarios[0]?.best ?? 'buy']}</span>로
+                    유지됩니다. 결론이 투자 수익률 가정에 덜 민감하다는 뜻입니다.
+                  </>
+                )}
+              </p>
+              <p className="text-[10px] leading-relaxed text-slate-600">
+                {RULES.tenure.investmentPresets.note}
+              </p>
+              <p className="text-[10px] leading-relaxed text-amber-200/70">
+                {RULES.tenure.investmentPresets.currencyWarning}
+              </p>
+            </div>
           </Card>
 
           <Card title="이 계산이 아닌 것">
