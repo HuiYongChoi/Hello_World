@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { calcLoan, constraintAdvice, rankProducts } from '../loan';
+import {
+  calcLoan,
+  constraintAdvice,
+  CONSTRAINT_LABELS,
+  limitDerivation,
+  limitFootnote,
+  rankProducts,
+} from '../loan';
+import { money } from '../format';
 import { getProduct } from '../rules';
 import { ALL_SCENARIO_AXES, deriveScenario } from '../scenario';
 import { baseProfile, makeProperty } from './fixtures';
@@ -203,5 +211,36 @@ describe('상품 랭킹', () => {
   it('실행 가능한 상품이 있으면 그중에서 고른다', () => {
     const { best } = rankProducts(baseProfile, s, property, 'interest');
     expect(best?.feasible).toBe(true);
+  });
+});
+
+describe('한도 근거 문장 (가이드 03)', () => {
+  const scenario = deriveScenario(baseProfile, ALL_SCENARIO_AXES.find((a) => a.id === 'before-sole')!);
+
+  it('구속 조건에 맞는 산출 경로를 한 줄로 낸다', () => {
+    const property = makeProperty();
+    const r = calcLoan(getProduct('bogeumjari_first'), baseProfile, scenario, property);
+    const line = limitDerivation(r, property);
+
+    expect(line).toContain(`${(r.appliedLtv * 100).toFixed(0)}%`);
+    expect(line.length).toBeGreaterThan(10);
+  });
+
+  it('인쇄 각주는 네 후보를 모두 담는다 — 종이만 들고 나가도 빠지는 게 없어야 합니다', () => {
+    const property = makeProperty();
+    const r = calcLoan(getProduct('bogeumjari_first'), baseProfile, scenario, property);
+    const note = limitFootnote(r, property);
+
+    expect(note).toContain('LTV');
+    expect(note).toContain('상품 한도');
+    expect(note).toContain('상환능력');
+    expect(note).toContain('매매가 상한');
+    expect(note).toContain(CONSTRAINT_LABELS[r.bindingConstraint]);
+  });
+
+  it('각주에 최종 한도값이 들어간다', () => {
+    const property = makeProperty();
+    const r = calcLoan(getProduct('bank_mortgage'), baseProfile, scenario, property);
+    expect(limitFootnote(r, property)).toContain(money(r.limit));
   });
 });

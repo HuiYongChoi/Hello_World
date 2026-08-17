@@ -1,5 +1,16 @@
 import { useMemo, useState } from 'react';
-import { Badge, Card, Empty, Field, NumberInput, Select, Stat, TextInput } from '../components/ui';
+import {
+  Badge,
+  Card,
+  Empty,
+  Field,
+  Foldable,
+  NumberInput,
+  Select,
+  Stat,
+  TextInput,
+  TierBadge,
+} from '../components/ui';
 import { money, percent } from '../engine/format';
 import {
   MARKET,
@@ -290,37 +301,68 @@ export function MarketPage() {
               <Series points={points} fromQ={start} toQ={end} />
             </div>
 
+            {/*
+              신뢰도 경고는 카드 하단이 아니라 **그 숫자 옆에** 붙입니다 (가이드 05).
+              4.18%의 신뢰도를 좌우하는 한 줄이 방법론 설명 아래에 묻혀 있었습니다.
+            */}
             {result && (
               <div className="mt-3 grid gap-3 sm:grid-cols-4">
                 <Stat
                   label={`${quarterLabel(result.from.q)} 중위가`}
                   value={money(result.from.price)}
-                  hint={`거래 ${result.from.n}건`}
+                  hint={
+                    result.from.n < THIN_DEAL_COUNT
+                      ? `거래 ${result.from.n}건 — 중위 아님`
+                      : `거래 ${result.from.n}건`
+                  }
+                  tone={result.from.n < THIN_DEAL_COUNT ? 'warn' : undefined}
                 />
                 <Stat
                   label={`${quarterLabel(result.to.q)} 중위가`}
                   value={money(result.to.price)}
-                  hint={`거래 ${result.to.n}건`}
+                  hint={
+                    result.to.n < THIN_DEAL_COUNT
+                      ? `거래 ${result.to.n}건 — 중위 아님`
+                      : `거래 ${result.to.n}건`
+                  }
+                  tone={result.to.n < THIN_DEAL_COUNT ? 'warn' : undefined}
                 />
-                <Stat
-                  label="누적 변화"
-                  value={percent(result.totalReturn, 1)}
-                  tone={result.totalReturn >= 0 ? 'good' : 'bad'}
-                />
-                <Stat
-                  label="연 복리"
-                  value={percent(result.cagr, 2)}
-                  tone={result.cagr >= 0 ? 'good' : 'bad'}
-                />
+                <Stat label="누적 변화" value={percent(result.totalReturn, 1)} />
+                <div className="rounded-xl border border-slate-800 bg-slate-950/40 px-3.5 py-3 print-plain">
+                  <div className="text-[11px] text-slate-500">연 복리</div>
+                  <div className="mt-1 text-lg font-semibold tabular-nums text-slate-100">
+                    {percent(result.cagr, 2)}
+                  </div>
+                  {result.thinData ? (
+                    <div className="mt-1">
+                      <TierBadge tier="warn" label="표본 얇음" />
+                      <div className="mt-1 text-[10px] leading-relaxed text-amber-200/80">
+                        개별 한 채에 가까움
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-0.5 text-[11px] text-slate-500">
+                      양 끝 분기 거래 {Math.min(result.from.n, result.to.n)}건 이상
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
-            {result?.thinData && (
-              <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] leading-relaxed text-amber-200/90">
-                양 끝 분기의 거래가 {THIN_DEAL_COUNT}건 미만입니다. 중위가라기보다 개별 물건 한
-                채의 가격에 가까워, 층·향·수리 상태가 그대로 수익률에 섞여 들어갑니다.
-              </p>
-            )}
+            {/* 방법론·정의는 개수만 보여주고 접습니다 — 인쇄에서는 전부 펼쳐집니다 */}
+            <Foldable summary="이 숫자의 산출 조건" count={3}>
+              <ul className="space-y-1">
+                {[
+                  '해제 신고된 거래는 제외했습니다 — 체결되지 않은 고점이 섞이면 왜곡됩니다.',
+                  '층·향·수리 상태는 보정하지 않았습니다. 같은 평형도 편차가 큽니다.',
+                  '과거 실현치이고 예측이 아닙니다. 진입시점을 언제로 잡느냐로 답이 갈립니다.',
+                ].map((t) => (
+                  <li key={t} className="text-[10px] leading-relaxed text-slate-500">
+                    · {t}
+                  </li>
+                ))}
+              </ul>
+            </Foldable>
           </>
         )}
       </Card>
@@ -377,13 +419,15 @@ export function MarketPage() {
         </Card>
       )}
 
+      {/*
+        방법론 세 줄은 위 카드의 접이식으로 옮겼습니다 (가이드 05 — 지우지 않고 위치만 이동).
+        여기는 "이 수치로 무엇을 하면 안 되는가"만 남깁니다.
+      */}
       <Card title="이 숫자가 아닌 것">
         <ul className="space-y-1.5">
           {[
-            '과거에 일어난 값이지 예측이 아닙니다. 진입시점을 언제로 잡느냐로 답이 크게 갈립니다.',
-            '분기 중위가 기준입니다. 같은 평형도 층·향·수리 상태로 편차가 큽니다.',
             '물가·거래비용·보유세·양도세가 빠진 명목 가격 변화입니다. 실제로 손에 남는 돈은 3-way 비교 화면에서 보세요.',
-            '해제 신고된 거래는 제외했습니다. 남겨두면 체결되지 않은 고점이 섞입니다.',
+            '한 단지의 과거 실현치입니다. 같은 동네 다른 단지에 그대로 옮겨 쓸 수 없습니다.',
           ].map((t) => (
             <li key={t} className="text-xs leading-relaxed text-slate-400">
               · {t}

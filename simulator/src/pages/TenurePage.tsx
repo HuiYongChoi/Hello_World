@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Badge, Card, Empty, Field, NumberInput, Select, Stat } from '../components/ui';
+import { Badge, Card, Empty, Field, NumberInput, ProvenanceValue, Select, Stat } from '../components/ui';
 import { money, percent } from '../engine/format';
 import { cellKey } from '../engine/matrix';
 import { RULES } from '../engine/rules';
@@ -14,29 +14,57 @@ import { RENT, isMeasured } from '../engine/rent';
 import { propertyThesis } from '../engine/thesis';
 import { useStore } from '../state/store';
 
-/** 소수로 든 비율을 %로 보여주고 받는 입력 */
+/**
+ * 소수로 든 비율을 %로 보여주고 받는 입력.
+ *
+ * 실측값과 자리표시자가 같은 모양이면 인용되는 순간 구분이 사라집니다.
+ * 가정값에는 **점선 밑줄과 "가정" 표식**을 붙이고 명도를 한 단 낮춥니다 —
+ * 색이 아니라 획이라 흑백 인쇄와 색각 이상에서도 살아남습니다.
+ */
 function RateField({
   label,
-  hint,
+  source,
+  assumed,
   value,
   onChange,
   step = 0.1,
 }: {
   label: string;
-  hint?: string;
+  /** 실측이면 출처, 가정이면 무엇을 근거로 찍었는지 */
+  source: string;
+  assumed: boolean;
   value: number;
   onChange: (v: number) => void;
   step?: number;
 }) {
   return (
-    <Field label={label} hint={hint}>
-      <NumberInput
-        value={Number((value * 100).toFixed(2))}
-        step={step}
-        suffix="%"
-        onChange={(v) => onChange(v / 100)}
-      />
-    </Field>
+    <div>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-xs font-medium text-slate-300">{label}</span>
+        {assumed ? (
+          <span className="rounded border border-slate-700 px-1 text-[9px] text-slate-500 print-plain">
+            가정
+          </span>
+        ) : (
+          <span className="text-[9px] text-slate-500">실측</span>
+        )}
+      </div>
+      <div
+        className={
+          assumed
+            ? 'underline decoration-slate-600 decoration-dotted underline-offset-[6px]'
+            : undefined
+        }
+      >
+        <NumberInput
+          value={Number((value * 100).toFixed(2))}
+          step={step}
+          suffix="%"
+          onChange={(v) => onChange(v / 100)}
+        />
+      </div>
+      <span className="mt-1 block text-[10px] leading-relaxed text-slate-600">{source}</span>
+    </div>
   );
 }
 
@@ -285,7 +313,8 @@ export function TenurePage() {
           </Field>
           <RateField
             label="주택 가격상승률"
-            hint="매수 갈래만 여기에 노출됩니다"
+            assumed
+            source="자리표시자 · 매수 갈래만 여기에 노출됩니다"
             value={assumptions?.priceGrowthRate ?? 0}
             onChange={(v) => patch({ priceGrowthRate: v })}
           />
@@ -390,60 +419,75 @@ export function TenurePage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <RateField
                 label="대체투자 기대수익률"
-                hint="주식·채권 등, 배당 포함 명목 — 자리표시자"
+                assumed
+                source="자리표시자 · 근거 없음. KRX 총수익지수로 교체 예정"
                 value={result.assumptions.investmentReturnRate}
                 onChange={(v) => patch({ investmentReturnRate: v })}
               />
               <RateField
                 label="전세가율"
-                hint={
+                assumed={!jeonseStat}
+                source={
                   jeonseStat
-                    ? `실측 중위 ${percent(jeonseStat.median, 1)} · 사분위 ${percent(jeonseStat.p25, 1)}~${percent(jeonseStat.p75, 1)} (표본 ${jeonseStat.n.toLocaleString('ko-KR')})`
-                    : '매매가 대비 전세보증금'
+                    ? `실거래 · ${property.sigungu || '해당 권역'} · 표본 ${jeonseStat.n.toLocaleString('ko-KR')}건 · 사분위 ${percent(jeonseStat.p25, 1)}~${percent(jeonseStat.p75, 1)}`
+                    : '자리표시자 · 매매가 대비 전세보증금'
                 }
                 value={result.assumptions.jeonseRatio}
                 onChange={(v) => patch({ jeonseRatio: v })}
               />
               <RateField
                 label="전월세전환율"
-                hint={
+                assumed={!conversionStat}
+                source={
                   conversionStat
-                    ? `실측 중위 ${percent(conversionStat.median, 2)} · 사분위 ${percent(conversionStat.p25, 2)}~${percent(conversionStat.p75, 2)} (표본 ${conversionStat.n.toLocaleString('ko-KR')})`
-                    : `법정 상한 ${percent(RULES.tenure.lease.conversionRateMax, 0)}`
+                    ? `실거래 · 표본 ${conversionStat.n.toLocaleString('ko-KR')}건 · 사분위 ${percent(conversionStat.p25, 2)}~${percent(conversionStat.p75, 2)}`
+                    : `자리표시자 · 법정 상한 ${percent(RULES.tenure.lease.conversionRateMax, 0)}`
                 }
                 value={result.assumptions.conversionRate}
                 onChange={(v) => patch({ conversionRate: v })}
               />
               <RateField
                 label="월세 보증금 비율"
-                hint="전세보증금 대비"
+                assumed
+                source="자리표시자 · 전세보증금 대비"
                 value={result.assumptions.wolseDepositRatio}
                 onChange={(v) => patch({ wolseDepositRatio: v })}
               />
               <RateField
                 label="보증금·월세 상승률"
-                hint={`갱신 ${RULES.tenure.lease.renewalYears}년마다 반영`}
+                assumed
+                source={`자리표시자 · 갱신 ${RULES.tenure.lease.renewalYears}년마다 반영`}
                 value={result.assumptions.depositGrowthRate}
                 onChange={(v) => patch({ depositGrowthRate: v })}
               />
               <RateField
                 label="연 수선유지비"
-                hint="주택가격 대비, 매수자만 부담"
+                assumed
+                source="자리표시자 · 주택가격 대비, 매수자만 부담"
                 value={result.assumptions.maintenanceRate}
                 step={0.05}
                 onChange={(v) => patch({ maintenanceRate: v })}
               />
               <RateField
                 label="전세자금대출 금리"
+                assumed
+                source="자리표시자 · ECOS 실측 금리로 교체 예정"
                 value={result.assumptions.jeonseLoanRate}
                 onChange={(v) => patch({ jeonseLoanRate: v })}
               />
-              <Field label="적용 대출" hint={`${percent(loan.rate)} · 월 ${money(loan.monthlyPayment)}`}>
-                <div className="mt-1 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-300">
-                  {loan.productName} {money(loan.limit)}
-                </div>
-              </Field>
+              <ProvenanceValue
+                label="적용 대출"
+                value={`${money(loan.limit)}`}
+                assumed={false}
+                size="sm"
+                source={`${loan.productName} · ${percent(loan.rate)} · 월 ${money(loan.monthlyPayment)} · 룰셋 ${RULES.version}`}
+              />
             </div>
+            <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
+              점선 밑줄이 그어진 숫자는 <span className="text-slate-300">우리가 정한 값</span>입니다.
+              근거가 있는 값과 섞어서 인용하면 도구 전체가 거짓말이 됩니다. 실측으로 바뀐 것은
+              전세가율·전월세전환율뿐입니다.
+            </p>
           </Card>
 
           <Card title="이 계산이 아닌 것">

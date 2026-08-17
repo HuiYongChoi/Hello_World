@@ -60,6 +60,164 @@ export function Badge({
   );
 }
 
+/**
+ * 배지 3등급 — 가이드 01.
+ *
+ * 19종이 같은 형태·같은 무게라 읽는 순서가 없었습니다. 종류를 줄이는 대신
+ * **무게를 재배분**합니다.
+ *
+ * - `block` 차단: 실행 자체가 불가능한 사유. 채워진 rose. **셀당 하나, 첫 줄.**
+ * - `warn`  경고: 실행은 되지만 돈을 잃는 구조. 채워진 amber + 이유 문장.
+ *   레버리지 역효과가 여기이고, 등급이 올라가 오히려 강해집니다.
+ * - `cond`  조건: 한도·부담·현금 같은 수치. 테두리만, 무채색, 라벨+값.
+ *
+ * "밀림" 같은 절차 사유는 배지가 아니라 회색 문장으로 강등합니다.
+ */
+export type BadgeTier = 'block' | 'warn' | 'cond';
+
+const TIER_CLASS: Record<BadgeTier, string> = {
+  block: 'bg-rose-500/85 text-white border-rose-400/60 font-semibold',
+  warn: 'bg-amber-500/85 text-slate-950 border-amber-400/60 font-semibold',
+  cond: 'bg-transparent text-slate-400 border-slate-700',
+};
+
+export function TierBadge({
+  tier,
+  label,
+  value,
+  title,
+}: {
+  tier: BadgeTier;
+  label: string;
+  /** 조건 등급에서 라벨 옆에 붙는 값 */
+  value?: string;
+  title?: string;
+}) {
+  return (
+    <span
+      title={title}
+      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] whitespace-nowrap print-plain ${TIER_CLASS[tier]}`}
+    >
+      <span className={tier === 'cond' ? 'text-slate-500' : undefined}>{label}</span>
+      {value && <span className="tabular-nums">{value}</span>}
+    </span>
+  );
+}
+
+/**
+ * 가정값 표기 — 가이드 02.
+ *
+ * 실측과 자리표시자가 시각적으로 같으면, 인용되는 순간 구분이 사라집니다.
+ * **색이 아니라 획과 밑줄로** 가릅니다 — 흑백 인쇄에서도 색각 이상에서도
+ * 유지되는 유일한 신호이기 때문입니다. 가정값은 점선 밑줄 + 굵기·명도를 한 단
+ * 낮추고, 출처는 값 바로 아래 고정합니다.
+ */
+export function ProvenanceValue({
+  label,
+  value,
+  assumed,
+  source,
+  size = 'md',
+}: {
+  label: string;
+  value: ReactNode;
+  /** true 면 우리가 정한 값 (자리표시자) */
+  assumed: boolean;
+  /** 실측이면 출처, 가정이면 근거 없음을 적습니다 */
+  source: string;
+  size?: 'sm' | 'md';
+}) {
+  const valueSize = size === 'sm' ? 'text-sm' : 'text-lg';
+  return (
+    <div>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-[11px] text-slate-500">{label}</span>
+        {assumed && (
+          <span className="rounded border border-slate-700 px-1 text-[9px] text-slate-500 print-plain">
+            가정
+          </span>
+        )}
+      </div>
+      <div
+        className={`mt-0.5 tabular-nums ${valueSize} ${
+          assumed
+            ? 'font-normal text-slate-400 underline decoration-slate-600 decoration-dotted underline-offset-4'
+            : 'font-semibold text-slate-100'
+        }`}
+      >
+        {value}
+      </div>
+      <div className="mt-0.5 text-[10px] leading-relaxed text-slate-600">{source}</div>
+    </div>
+  );
+}
+
+/**
+ * 근거 칩 — 가이드 03.
+ *
+ * "3.64억"에서 "왜 3.64억인가"로 가는 길을 툴팁에 두면 인쇄에서 통째로 빠지고
+ * 누를 수 있다는 신호도 없습니다. 화면에는 **상시 노출 칩**, 종이에는 각주 —
+ * 같은 데이터를 쓰고 표현만 갈립니다.
+ */
+export function ProvenanceChip({
+  children,
+  footnote,
+  onOpen,
+  openLabel,
+}: {
+  children: ReactNode;
+  /** 각주 번호. 인쇄본 각주 목록과 짝을 맞춥니다 */
+  footnote?: number;
+  onOpen?: () => void;
+  openLabel?: string;
+}) {
+  return (
+    <div className="mt-1 space-y-0.5">
+      <div className="flex items-start gap-1 text-[10px] leading-relaxed text-slate-500">
+        {footnote !== undefined && (
+          <sup className="text-slate-600 tabular-nums">{footnote}</sup>
+        )}
+        <span>{children}</span>
+      </div>
+      {onOpen && (
+        <button
+          type="button"
+          onClick={onOpen}
+          className="text-[10px] text-sky-400 transition hover:text-sky-300 no-print"
+        >
+          ▸ {openLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 접히는 방법론 — 가이드 05.
+ *
+ * 한 줄도 지우지 않고 위치만 옮깁니다. 신뢰도 경고는 숫자에 붙고, 방법론·정의는
+ * 개수를 보여주며 접힙니다. **인쇄할 때는 전부 펼쳐집니다** — 종이에서 접힘은
+ * 정보 손실이기 때문입니다.
+ */
+export function Foldable({
+  summary,
+  count,
+  children,
+}: {
+  summary: string;
+  count: number;
+  children: ReactNode;
+}) {
+  return (
+    <details className="mt-3 print-open">
+      <summary className="cursor-pointer list-none text-[10px] text-slate-500 transition hover:text-slate-300">
+        ▸ {summary} {count}건
+      </summary>
+      <div className="mt-1.5">{children}</div>
+    </details>
+  );
+}
+
 export function Field({
   label,
   hint,

@@ -68,4 +68,31 @@ input[type='number'] {
     color: #111 !important;
     border-color: #ccc !important;
   }
+
+  /*
+   * 접힌 것은 종이에서 정보 손실입니다. 방법론·정의는 화면에서 개수만 보여주고
+   * 접히지만, 인쇄에서는 전부 펼쳐져야 "화면에만 있고 인쇄본에 없는 정보"가
+   * 생기지 않습니다 (검수 ①).
+   */
+  details.print-open > summary {
+    display: none;
+  }
+  details.print-open > *:not(summary) {
+    display: block !important;
+  }
+
+  /*
+   * 가정값의 점선 밑줄은 색이 아니라 획이라, 흑백에서도 그대로 남습니다 (검수 ②).
+   * 다만 회색 계열이 인쇄에서 날아가지 않도록 명시적으로 눌러 둡니다.
+   */
+  .print-plain [class*='decoration-dotted'] {
+    text-decoration-color: #666 !important;
+  }
+
+  /* 화면에서 배지 배경이 채워져 있어도 종이에서는 테두리로만 구분합니다 */
+  .print-badge {
+    background: #fff !important;
+    color: #111 !important;
+    border-color: #666 !important;
+  }
 }

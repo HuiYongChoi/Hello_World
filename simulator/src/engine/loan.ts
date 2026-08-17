@@ -366,6 +366,47 @@ export const CONSTRAINT_LABELS: Record<BindingConstraint, string> = {
 };
 
 /**
+ * 한도가 그 숫자인 이유를 한 줄로 — 가이드 03.
+ *
+ * "3.64억"만 보여주면 왜 그 숫자인지 모릅니다. 툴팁에 숨기면 인쇄에서 통째로
+ * 빠지므로 **화면에 상시 노출**할 짧은 문장을 냅니다. 네 후보(LTV·캡·상환능력·
+ * 매매가) 중 무엇이 이겼는지와, 그 값이 어떻게 나왔는지를 같이 적습니다.
+ */
+export function limitDerivation(result: LoanResult, property: Property): string {
+  const ltv = `LTV ${(result.appliedLtv * 100).toFixed(0)}% × ${money(property.price)}`;
+  switch (result.bindingConstraint) {
+    case 'LTV':
+      return `${ltv} = ${money(result.limitLtv)} — 이 값이 가장 낮아 한도를 정했습니다.`;
+    case 'CAP':
+      return `${ltv}는 ${money(result.limitLtv)}지만 상품 한도 ${money(result.limitCap)}에서 잘렸습니다.`;
+    case 'DSR':
+      return `${ltv}는 ${money(result.limitLtv)}지만 스트레스 DSR 상환능력 ${money(result.limitRepay)}로 절삭됐습니다.`;
+    case 'DTI':
+      return `${ltv}는 ${money(result.limitLtv)}지만 DTI 상환능력 ${money(result.limitRepay)}로 절삭됐습니다.`;
+    case 'PRICE':
+      return `매매가 ${money(property.price)}가 상한이라 그 이상은 빌릴 수 없습니다.`;
+  }
+}
+
+/**
+ * 인쇄본 각주용 전체 문장 — 화면 칩보다 길게, 네 후보를 모두 적습니다.
+ * 종이만 들고 나가도 빠지는 정보가 없어야 합니다 (검수 ①).
+ */
+export function limitFootnote(result: LoanResult, property: Property): string {
+  const parts = [
+    `LTV ${(result.appliedLtv * 100).toFixed(0)}% × 매매가 ${money(property.price)} = ${money(result.limitLtv)}`,
+    `상품 한도 ${money(result.limitCap)}`,
+    `상환능력 ${money(result.limitRepay)}`,
+    `매매가 상한 ${money(result.limitPrice)}`,
+  ];
+  return (
+    `${result.productName} 한도 ${money(result.limit)} = 네 값 중 최솟값. ` +
+    `${parts.join(' · ')}. ` +
+    `구속 조건은 ${CONSTRAINT_LABELS[result.bindingConstraint]}. ${constraintAdvice(result, property)}`
+  );
+}
+
+/**
  * binding constraint별 "다음 행동" 제안.
  * 같은 LTV 제약이라도 수도권이라 막힌 것인지, 규제지역이라 막힌 것인지에 따라
  * 취해야 할 행동이 완전히 달라지므로 물건 맥락을 함께 봅니다.

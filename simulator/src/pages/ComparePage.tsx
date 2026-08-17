@@ -1,7 +1,22 @@
 import { useState } from 'react';
-import { Badge, Button, Card, Empty, SegmentedControl, Stat } from '../components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  Empty,
+  Foldable,
+  ProvenanceChip,
+  SegmentedControl,
+  Stat,
+  TierBadge,
+} from '../components/ui';
 import { money, percent, won } from '../engine/format';
-import { CONSTRAINT_LABELS, OBJECTIVE_LABELS, constraintAdvice } from '../engine/loan';
+import {
+  OBJECTIVE_LABELS,
+  constraintAdvice,
+  limitDerivation,
+  limitFootnote,
+} from '../engine/loan';
 import { leverageView } from '../engine/leverage';
 import { cellKey } from '../engine/matrix';
 import { propertyThesis } from '../engine/thesis';
@@ -34,6 +49,22 @@ export function ComparePage() {
   const rec = matrix.recommendation;
   const recProperty = rec ? properties.find((p) => p.id === rec.propertyId) : null;
   const recScenario = rec ? matrix.scenarios.find((s) => s.id === rec.scenarioId) : null;
+
+  /*
+   * 각주 번호는 셀 순서대로 매깁니다 — 화면 칩과 인쇄 각주가 같은 번호를 씁니다.
+   * 툴팁으로만 있던 근거가 종이에서 사라지지 않게 하는 장치입니다 (가이드 03 · 검수 ①).
+   */
+  const footnotes: { n: number; property: Property; text: string }[] = [];
+  const footnoteIndex = new Map<string, number>();
+  for (const p of properties) {
+    for (const s of matrix.scenarios) {
+      const best = matrix.cells[cellKey(p.id, s.id)]?.best;
+      if (!best) continue;
+      const n = footnotes.length + 1;
+      footnoteIndex.set(cellKey(p.id, s.id), n);
+      footnotes.push({ n, property: p, text: `${p.name} × ${s.label} — ${limitFootnote(best, p)}` });
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -112,6 +143,7 @@ export function ComparePage() {
                         property={p}
                         highlight={rec?.propertyId === p.id && rec?.scenarioId === s.id}
                         onClick={() => setDetail({ property: p, scenario: s })}
+                        footnote={footnoteIndex.get(cellKey(p.id, s.id))}
                       />
                     </td>
                   ))}
@@ -120,6 +152,20 @@ export function ComparePage() {
             </tbody>
           </table>
         </div>
+
+        {/* 인쇄본 각주 — 화면에서는 칩으로, 종이에서는 여기로 나옵니다 */}
+        {footnotes.length > 0 && (
+          <div className="mt-5 hidden border-t border-slate-300 pt-3 print:block">
+            <h3 className="text-[11px] font-semibold text-slate-700">한도 산출 근거</h3>
+            <ol className="mt-1 space-y-1">
+              {footnotes.map((f) => (
+                <li key={f.n} className="text-[10px] leading-relaxed text-slate-700">
+                  <sup className="tabular-nums">{f.n}</sup> {f.text}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
 
         <div className="mt-4 flex flex-wrap gap-3 text-[11px] text-slate-500">
           <span className="flex items-center gap-1">
@@ -255,11 +301,14 @@ function MatrixCell({
   property,
   highlight,
   onClick,
+  footnote,
 }: {
   cell: CellResult | undefined;
   property: Property;
   highlight: boolean;
   onClick: () => void;
+  /** 인쇄본 각주 번호 */
+  footnote?: number;
 }) {
   if (!cell) return null;
   const r = cell.best;
@@ -314,21 +363,31 @@ function MatrixCell({
       <div className="mt-0.5 text-sm font-semibold tabular-nums text-slate-100">
         월 {money(r.monthlyPayment)}
       </div>
-      <div
-        className={`mt-0.5 text-[11px] tabular-nums ${
-          r.feasible ? 'text-slate-400' : 'text-rose-300'
-        }`}
-      >
-        현금 {money(r.requiredCash)}
-        {!r.feasible && ` (${money(r.cashGap)} 부족)`}
-      </div>
+      <span className="mt-0.5 block text-[10px] text-sky-400 no-print">
+        ▸ 누르면 {cell.summary.totalCount}개 상품 전체 계산 내역
+      </span>
+      {/*
+        배지 3등급 — 가이드 01.
+        차단(채워진 rose)은 셀당 하나, 첫 줄. 경고(채워진 amber)는 이유 문장과 함께.
+        나머지 수치는 테두리만 남긴 무채색 조건 배지로 내립니다.
+      */}
+      {!r.feasible && (
+        <div className="mt-1.5">
+          <TierBadge tier="block" label="자금 부족" value={money(r.cashGap)} />
+        </div>
+      )}
+      <LeverageBadge result={r} property={property} />
       <div className="mt-1.5 flex flex-wrap gap-1">
-        <Badge tone="neutral" title={constraintAdvice(r, property)}>
-          {CONSTRAINT_LABELS[r.bindingConstraint]}
-        </Badge>
-        <Badge tone="neutral">부담 {percent(r.dtiRatio, 0)}</Badge>
-        <LeverageBadge result={r} property={property} />
+        <TierBadge
+          tier="cond"
+          label="한도"
+          value={`LTV ${(r.appliedLtv * 100).toFixed(0)}%`}
+          title={constraintAdvice(r, property)}
+        />
+        <TierBadge tier="cond" label="부담" value={percent(r.dtiRatio, 0)} />
+        <TierBadge tier="cond" label="현금" value={money(r.requiredCash)} />
       </div>
+      <ProvenanceChip footnote={footnote}>{limitDerivation(r, property)}</ProvenanceChip>
       <HiddenProductBadges summary={cell.summary} />
     </button>
   );
@@ -347,28 +406,30 @@ function HiddenProductBadges({ summary }: { summary: CellSummary }) {
   if (!passedOver && rejected.length === 0) return null;
 
   return (
-    <div className="mt-1 flex flex-wrap gap-1">
+    <div className="mt-1.5 space-y-1">
+      {/*
+        "밀림"은 실행을 막는 사유가 아니라 절차 사유입니다 — 배지에서 회색 문장으로
+        강등합니다 (가이드 01). 대신 문장이라 무엇이 어떻게 밀렸는지 상시 보입니다.
+      */}
       {passedOver && (
-        <Badge
-          tone="info"
-          title={`${passedOver.productName} — 한도 ${money(passedOver.limit)} (${
-            passedOver.limitDelta >= 0 ? '+' : ''
-          }${money(passedOver.limitDelta)}) · 금리 ${percent(passedOver.rate)} · 월 ${money(
-            passedOver.monthlyPayment
-          )} (${passedOver.monthlyDelta >= 0 ? '+' : ''}${money(
-            passedOver.monthlyDelta
-          )}). 자격은 되지만 “${OBJECTIVE_LABELS[objective]}” 기준에서 밀렸습니다. 목적함수를 바꾸면 이 상품이 올라옵니다.`}
-        >
-          {passedOver.shortName} 밀림
-        </Badge>
+        <p className="text-[10px] leading-relaxed text-slate-500">
+          {passedOver.shortName}은 한도 {money(passedOver.limit)}(
+          {passedOver.limitDelta >= 0 ? '+' : ''}
+          {money(passedOver.limitDelta)})로 더 크지만 월 {money(passedOver.monthlyPayment)}(
+          {passedOver.monthlyDelta >= 0 ? '+' : ''}
+          {money(passedOver.monthlyDelta)})라 “{OBJECTIVE_LABELS[objective]}”에서 밀렸습니다.
+        </p>
       )}
       {rejected.length > 0 && (
-        <Badge
-          tone="neutral"
-          title={rejected.map((x) => `${x.productName} — ${x.reason}`).join('\n')}
-        >
-          {rejected.length}종 부적격
-        </Badge>
+        <Foldable summary="자격 미달 상품" count={rejected.length}>
+          <ul className="space-y-0.5">
+            {rejected.map((x) => (
+              <li key={x.productName} className="text-[10px] leading-relaxed text-slate-500">
+                {x.productName} — {x.reason}
+              </li>
+            ))}
+          </ul>
+        </Foldable>
       )}
     </div>
   );
@@ -388,31 +449,41 @@ function ThesisBadge({ property }: { property: Property }) {
   );
 }
 
+/**
+ * 레버리지 역효과는 **경고 등급**입니다 (가이드 01) — 실행은 되지만 빌릴수록
+ * 손해가 커지는 구조라, 배지를 유지한 채 이유 문장을 붙여 오히려 강화합니다.
+ * 반대로 증폭 구간은 참고 수치라 조건 등급으로 내립니다.
+ */
 function LeverageBadge({ result, property }: { result: LoanResult; property: Property }) {
   const { profile } = useStore();
   const view = leverageView(result, property, profile.priceGrowthRate);
   if (!view) return null;
 
-  return view.amplifying ? (
-    <Badge
-      tone="neutral"
-      title={`가격상승률 ${percent(view.unleveredReturn, 1)} > 금리 ${percent(
-        view.breakEvenGrowth,
-        2
-      )} — 레버리지가 수익을 증폭합니다 (배율 ${view.debtToEquity.toFixed(1)}배)`}
-    >
-      레버 {view.debtToEquity.toFixed(1)}배
-    </Badge>
-  ) : (
-    <Badge
-      tone="bad"
-      title={`가격상승률 ${percent(view.unleveredReturn, 1)} < 금리 ${percent(
-        view.breakEvenGrowth,
-        2
-      )} — 배율 ${view.debtToEquity.toFixed(1)}배가 손실을 키웁니다`}
-    >
-      레버리지 역효과
-    </Badge>
+  if (!view.amplifying) {
+    return (
+      <div className="mt-1.5">
+        <TierBadge tier="warn" label="레버리지 역효과" />
+        <p className="mt-1 text-[10px] leading-relaxed text-amber-200/80">
+          빌린 돈이 손해를 키웁니다. 가정 상승률 {percent(view.unleveredReturn, 1)}가 대출 금리{' '}
+          {percent(view.breakEvenGrowth, 2)}보다 낮아, 많이 빌릴수록 순자산이 줄어드는 구간입니다
+          (배율 {view.debtToEquity.toFixed(1)}배).
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-1.5">
+      <TierBadge
+        tier="cond"
+        label="레버"
+        value={`${view.debtToEquity.toFixed(1)}배`}
+        title={`가격상승률 ${percent(view.unleveredReturn, 1)} > 금리 ${percent(
+          view.breakEvenGrowth,
+          2
+        )} — 레버리지가 수익을 증폭합니다`}
+      />
+    </div>
   );
 }
 
