@@ -373,18 +373,18 @@ export const CONSTRAINT_LABELS: Record<BindingConstraint, string> = {
  * 매매가) 중 무엇이 이겼는지와, 그 값이 어떻게 나왔는지를 같이 적습니다.
  */
 export function limitDerivation(result: LoanResult, property: Property): string {
-  const ltv = `LTV ${(result.appliedLtv * 100).toFixed(0)}% × ${money(property.price)}`;
+  const ltv = `LTV ${(result.appliedLtv * 100).toFixed(0)}%×${money(property.price)}`;
   switch (result.bindingConstraint) {
     case 'LTV':
-      return `${ltv} = ${money(result.limitLtv)} — 이 값이 가장 낮아 한도를 정했습니다.`;
+      return `${ltv} = ${money(result.limitLtv)}`;
     case 'CAP':
-      return `${ltv}는 ${money(result.limitLtv)}지만 상품 한도 ${money(result.limitCap)}에서 잘렸습니다.`;
+      return `${ltv} → 상품 한도 ${money(result.limitCap)}로 절삭`;
     case 'DSR':
-      return `${ltv}는 ${money(result.limitLtv)}지만 스트레스 DSR 상환능력 ${money(result.limitRepay)}로 절삭됐습니다.`;
+      return `${ltv} → 스트레스 DSR ${money(result.limitRepay)}로 절삭`;
     case 'DTI':
-      return `${ltv}는 ${money(result.limitLtv)}지만 DTI 상환능력 ${money(result.limitRepay)}로 절삭됐습니다.`;
+      return `${ltv} → DTI ${money(result.limitRepay)}로 절삭`;
     case 'PRICE':
-      return `매매가 ${money(property.price)}가 상한이라 그 이상은 빌릴 수 없습니다.`;
+      return `매매가 ${money(property.price)}가 상한`;
   }
 }
 

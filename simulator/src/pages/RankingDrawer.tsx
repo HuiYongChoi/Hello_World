@@ -92,7 +92,7 @@ function TraitCard({ group, topCount }: { group: TraitGroup; topCount: number })
               <span className="text-[11px] text-slate-300">{b.key}</span>
               <span className="text-[11px] tabular-nums text-slate-400">
                 {b.topCount}건 ·{' '}
-                <span className={b.lift >= 1.3 ? 'text-emerald-300' : 'text-slate-400'}>
+                <span className={b.lift >= 1.3 ? 'font-semibold text-slate-100' : 'text-slate-500'}>
                   {b.lift.toFixed(2)}배
                 </span>
               </span>
@@ -100,13 +100,13 @@ function TraitCard({ group, topCount }: { group: TraitGroup; topCount: number })
             <div className="mt-0.5 flex h-1.5 gap-0.5">
               <div className="flex-1 overflow-hidden rounded-full bg-slate-800">
                 <div
-                  className="h-full bg-sky-500"
+                  className="h-full bg-slate-300"
                   style={{ width: `${Math.min(100, b.topShare * 100)}%` }}
                 />
               </div>
               <div className="flex-1 overflow-hidden rounded-full bg-slate-800">
                 <div
-                  className="h-full bg-slate-600"
+                  className="h-full bg-slate-700"
                   style={{ width: `${Math.min(100, b.allShare * 100)}%` }}
                 />
               </div>
@@ -270,7 +270,7 @@ export function RankingDrawer() {
             <span className="text-[11px] text-slate-600">·</span>
             <span className="text-[11px] text-slate-400">
               단지·평형 {result.universe.toLocaleString('ko-KR')}건 중 상위{' '}
-              <span className="text-sky-300">{result.topCount}건</span>
+              <span className="font-semibold text-slate-100">{result.topCount}건</span>
             </span>
           </div>
 
@@ -294,7 +294,7 @@ export function RankingDrawer() {
                       key={i.headline}
                       className={`rounded-lg border px-3 py-2 ${
                         i.strength === 'strong'
-                          ? 'border-emerald-500/25 bg-emerald-500/5'
+                          ? 'border-slate-600 bg-slate-800/40'
                           : 'border-slate-800 bg-slate-950/40'
                       }`}
                     >
@@ -303,7 +303,7 @@ export function RankingDrawer() {
                           {i.headline}
                         </span>
                         {i.strength === 'weak' && (
-                          <span className="shrink-0 text-[9px] text-amber-400/80">표본 얇음</span>
+                          <span className="shrink-0 text-[9px] text-amber-300">표본 얇음</span>
                         )}
                       </div>
                       <div className="mt-0.5 text-[10px] tabular-nums text-slate-500">
@@ -372,11 +372,11 @@ export function RankingDrawer() {
                           <br />
                           {money(e.endPrice)}
                         </td>
-                        <td className="py-1.5 text-right text-[11px] font-semibold tabular-nums text-emerald-300">
+                        <td className="py-1.5 text-right text-[11px] font-semibold tabular-nums text-slate-100">
                           {percent(e.cagr, 1)}
                         </td>
                         <td
-                          className="py-1.5 text-right text-[11px] tabular-nums text-sky-300"
+                          className="py-1.5 text-right text-[11px] tabular-nums text-slate-300"
                           title={`같은 시군구 중위 ${percent(
                             e.cagr - e.excess,
                             2

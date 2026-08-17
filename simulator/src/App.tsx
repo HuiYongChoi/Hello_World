@@ -20,14 +20,35 @@ type TabId =
   | 'market'
   | 'report';
 
-const TABS: { id: TabId; label: string; step: string }[] = [
-  { id: 'profile', label: '가구 프로필', step: '1' },
-  { id: 'scenarios', label: '시나리오', step: '2' },
-  { id: 'properties', label: '물건 · 입지', step: '3' },
-  { id: 'compare', label: '비교 매트릭스', step: '4' },
-  { id: 'tenure', label: '매수 · 전세 · 월세', step: '5' },
-  { id: 'market', label: '실거래 수익률', step: '6' },
-  { id: 'report', label: '리포트', step: '7' },
+/**
+ * 7탭을 3층으로 묶습니다 — 가이드 06.
+ *
+ * 번호는 순서를 암시하지만 실제로는 4번과 5번을 오가며 씁니다. 번호와 순서는
+ * 그대로 두고 **그룹 라벨만 얹어** 각 탭이 무엇을 하는 단계인지 드러냅니다.
+ */
+const TAB_GROUPS: { label: string; tabs: { id: TabId; label: string; step: string }[] }[] = [
+  {
+    label: '입력 — 무엇을 가정하나',
+    tabs: [
+      { id: 'profile', label: '가구 프로필', step: '1' },
+      { id: 'scenarios', label: '시나리오', step: '2' },
+      { id: 'properties', label: '물건 · 입지', step: '3' },
+    ],
+  },
+  {
+    label: '판정 — 무엇이 되나',
+    tabs: [
+      { id: 'compare', label: '비교 매트릭스', step: '4' },
+      { id: 'tenure', label: '매수 · 전세 · 월세', step: '5' },
+    ],
+  },
+  {
+    label: '근거 · 산출',
+    tabs: [
+      { id: 'market', label: '실거래 수익률', step: '6' },
+      { id: 'report', label: '리포트', step: '7' },
+    ],
+  },
 ];
 
 export function App() {
@@ -69,28 +90,45 @@ export function App() {
             </div>
           </div>
 
-          <nav className="mt-3 flex gap-1 overflow-x-auto">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium whitespace-nowrap transition ${
-                  tab === t.id
-                    ? 'bg-sky-500/15 text-sky-300'
-                    : 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
-                }`}
-              >
-                <span
-                  className={`flex h-4.5 w-4.5 items-center justify-center rounded text-[10px] ${
-                    tab === t.id ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-500'
-                  }`}
-                >
-                  {t.step}
-                </span>
-                {t.label}
-              </button>
+          <nav className="mt-3 flex flex-wrap items-end gap-x-5 gap-y-2 overflow-x-auto">
+            {TAB_GROUPS.map((g) => (
+              <div key={g.label}>
+                <div className="mb-1 px-1 text-[10px] font-medium tracking-wide text-slate-600">
+                  {g.label}
+                </div>
+                <div className="flex gap-1">
+                  {g.tabs.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setTab(t.id)}
+                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium whitespace-nowrap transition ${
+                        tab === t.id
+                          ? 'bg-sky-500/15 text-sky-300'
+                          : 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
+                      }`}
+                    >
+                      <span
+                        className={`flex h-4.5 w-4.5 items-center justify-center rounded text-[10px] ${
+                          tab === t.id ? 'bg-sky-500 text-white' : 'bg-slate-800 text-slate-500'
+                        }`}
+                      >
+                        {t.step}
+                      </span>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
+            <div>
+              <div className="mb-1 px-1 text-[10px] font-medium tracking-wide text-slate-600">
+                어디서나
+              </div>
+              <span className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-700 px-3 py-2 text-xs text-slate-500">
+                수익률 공통점 ▸
+              </span>
+            </div>
           </nav>
         </div>
       </header>

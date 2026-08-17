@@ -363,9 +363,6 @@ function MatrixCell({
       <div className="mt-0.5 text-sm font-semibold tabular-nums text-slate-100">
         월 {money(r.monthlyPayment)}
       </div>
-      <span className="mt-0.5 block text-[10px] text-sky-400 no-print">
-        ▸ 누르면 {cell.summary.totalCount}개 상품 전체 계산 내역
-      </span>
       {/*
         배지 3등급 — 가이드 01.
         차단(채워진 rose)은 셀당 하나, 첫 줄. 경고(채워진 amber)는 이유 문장과 함께.
@@ -450,9 +447,13 @@ function ThesisBadge({ property }: { property: Property }) {
 }
 
 /**
- * 레버리지 역효과는 **경고 등급**입니다 (가이드 01) — 실행은 되지만 빌릴수록
- * 손해가 커지는 구조라, 배지를 유지한 채 이유 문장을 붙여 오히려 강화합니다.
- * 반대로 증폭 구간은 참고 수치라 조건 등급으로 내립니다.
+ * 레버리지 역효과는 경고 등급이지만 **이유 문장은 호버로만** 냅니다.
+ *
+ * 가이드 01은 배지에 이유 문장을 붙이라고 했는데, 그 mock 은 셀 하나 기준이었습니다.
+ * 실제 4×3 그리드에서는 판정이 전역 가정 상승률 하나로 결정되므로 **같은 문장이 12번
+ * 반복**되어 매트릭스를 통째로 덮었습니다. 반복되는 설명은 정보가 아니라 소음입니다.
+ * 판정(배지)만 셀에 남기고 이유는 느낌표에 접어 둡니다 — 전역 조건이라 한 번만 읽으면
+ * 되고, 매트릭스 위 레버리지 안내에도 같은 내용이 이미 있습니다.
  */
 function LeverageBadge({ result, property }: { result: LoanResult; property: Property }) {
   const { profile } = useStore();
@@ -462,12 +463,19 @@ function LeverageBadge({ result, property }: { result: LoanResult; property: Pro
   if (!view.amplifying) {
     return (
       <div className="mt-1.5">
-        <TierBadge tier="warn" label="레버리지 역효과" />
-        <p className="mt-1 text-[10px] leading-relaxed text-amber-200/80">
-          빌린 돈이 손해를 키웁니다. 가정 상승률 {percent(view.unleveredReturn, 1)}가 대출 금리{' '}
-          {percent(view.breakEvenGrowth, 2)}보다 낮아, 많이 빌릴수록 순자산이 줄어드는 구간입니다
-          (배율 {view.debtToEquity.toFixed(1)}배).
-        </p>
+        <TierBadge
+          tier="warn"
+          label="⚠ 레버리지 역효과"
+          title={`빌린 돈이 손해를 키웁니다. 가정 상승률 ${percent(
+            view.unleveredReturn,
+            1
+          )}가 이 상품 금리 ${percent(
+            view.breakEvenGrowth,
+            2
+          )}보다 낮아, 많이 빌릴수록 순자산이 줄어드는 구간입니다 (배율 ${view.debtToEquity.toFixed(
+            1
+          )}배).`}
+        />
       </div>
     );
   }

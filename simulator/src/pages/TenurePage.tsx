@@ -1,5 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Badge, Card, Empty, Field, NumberInput, ProvenanceValue, Select, Stat } from '../components/ui';
+import {
+  Badge,
+  Card,
+  Empty,
+  Field,
+  NumberInput,
+  ProvenanceValue,
+  Select,
+  Stat,
+  TierBadge,
+} from '../components/ui';
 import { money, percent } from '../engine/format';
 import { cellKey } from '../engine/matrix';
 import { RULES } from '../engine/rules';
@@ -68,18 +78,17 @@ function RateField({
   );
 }
 
+/**
+ * 세 갈래 구분은 **색이 아니라 명도**로 합니다 — 가이드 07.
+ *
+ * 예전에는 매수=sky, 전세=emerald, 월세=amber 였는데, 같은 색이 화면 다른 곳에서
+ * "선택됨"·"충족"·"경고"를 뜻합니다. 색이 두 가지를 뜻하면 둘 다 못 읽힙니다.
+ * 계열 구분은 무채색 3단계로 옮기고, 색은 판정과 상태에만 남깁니다.
+ */
 const TONE: Record<TenureKind, { bar: string; text: string; ring: string }> = {
-  buy: { bar: 'bg-sky-500', text: 'text-sky-300', ring: 'border-sky-500/40 bg-sky-500/5' },
-  jeonse: {
-    bar: 'bg-emerald-500',
-    text: 'text-emerald-300',
-    ring: 'border-emerald-500/40 bg-emerald-500/5',
-  },
-  wolse: {
-    bar: 'bg-amber-500',
-    text: 'text-amber-300',
-    ring: 'border-amber-500/40 bg-amber-500/5',
-  },
+  buy: { bar: 'bg-slate-100', text: 'text-slate-100', ring: 'border-slate-500 bg-slate-800/40' },
+  jeonse: { bar: 'bg-slate-400', text: 'text-slate-300', ring: 'border-slate-600 bg-slate-800/30' },
+  wolse: { bar: 'bg-slate-600', text: 'text-slate-400', ring: 'border-slate-700 bg-slate-800/20' },
 };
 
 function Row({
@@ -159,9 +168,9 @@ function LegCard({
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-100">{leg.label}</h3>
         <div className="flex flex-wrap justify-end gap-1">
-          {best && <Badge tone="info">종료자산 최대</Badge>}
-          {!leg.feasible && <Badge tone="bad">자금 부족</Badge>}
-          {leg.feasible && leg.liquidityRisk && <Badge tone="warn">중간에 잔고 소진</Badge>}
+          {best && <TierBadge tier="cond" label="종료자산 최대" />}
+          {!leg.feasible && <TierBadge tier="block" label="자금 부족" />}
+          {leg.feasible && leg.liquidityRisk && <TierBadge tier="warn" label="중간에 잔고 소진" />}
         </div>
       </div>
 
@@ -187,7 +196,7 @@ function LegCard({
         label="투자에 남김"
         hint="(주식·채권 등)"
         value={money(leg.initialInvestment)}
-        tone={leg.initialInvestment > 0 ? 'text-emerald-300' : 'text-slate-500'}
+        tone={leg.initialInvestment > 0 ? 'text-slate-200' : 'text-slate-600'}
       />
       {!leg.feasible && (
         <Row label="모자란 돈" value={money(leg.shortfall)} tone="text-rose-300" />
@@ -203,7 +212,7 @@ function LegCard({
         label="투자에 추가 적립"
         hint={`(월 ${money(monthlySaving)})`}
         value={money(leg.netContribution)}
-        tone={leg.netContribution > 0 ? 'text-emerald-300' : 'text-slate-500'}
+        tone={leg.netContribution > 0 ? 'text-slate-200' : 'text-slate-600'}
       />
 
       <Stage n="③" title={`${years}년 뒤 손에 남는 것`} />
@@ -356,8 +365,7 @@ export function TenurePage() {
               <Stat
                 label="가정한 가격상승률"
                 value={percent(result.assumptions.priceGrowthRate, 2)}
-                tone={
-                  result.breakEvenPriceGrowth !== null &&
+                tone={                  result.breakEvenPriceGrowth !== null &&
                   result.assumptions.priceGrowthRate >= result.breakEvenPriceGrowth
                     ? 'good'
                     : 'bad'
