@@ -313,20 +313,22 @@ function LegCard({
       <div className="mt-1 border-t border-slate-800/70 pt-1">
         <Row label="종료자산" value={money(leg.terminalWealth)} tone={tone.text} strong />
         <Row
-          label={`${years}년간 주거에 쓴 돈`}
+          label={`${years}년간 주거 순비용`}
           value={money(leg.netHousingCost)}
           tone="text-slate-400"
-          help={`넣은 돈(초기 투입 + 매달 나간 돈 + 갱신 증액)에서 돌려받은 돈을 뺀 순액입니다. 원금상환·보증금처럼 돌아오는 돈은 저절로 상쇄되고, ${
+          help={`돌려받지 못하고 사라진 돈만 셉니다 — ${
             leg.kind === 'buy'
-              ? '취득세·이자·보유세·매도중개보수·양도세처럼'
+              ? '취득비용 + 이자 + 재산세·수선 + 매도중개보수 + 양도세'
               : leg.kind === 'jeonse'
-                ? '전세대출 이자와 중개보수처럼'
-                : '월세와 중개보수처럼'
-          } 사라지는 돈만 남습니다.${
-            leg.kind === 'buy'
-              ? ' 집값이 오르면 그만큼 차감됩니다 — 오른 만큼 실제로 덜 쓴 것이기 때문입니다.'
-              : ''
-          }`}
+                ? '전세대출 이자 + 중개보수'
+                : '월세 + 중개보수'
+          }. 원금상환과 보증금은 자본이라 빠집니다(나갔다가 돌아옵니다). 집값 상승분도 상계하지 않습니다 — 비용과 자본이득은 성격이 달라 같은 칸에서 빼면 둘 다 못 읽습니다.`}
+        />
+        <Row
+          label={`${years}년간 통장에서 나간 총액`}
+          value={money(leg.totalCashOut)}
+          tone="text-slate-400"
+          help="초기 투입 + 매달 나간 돈 + 갱신 증액 보증금. 자본이 되는 원금상환·보증금까지 포함한 현금흐름입니다. 갈래 간 이 값의 차이가 곧 투자에 넣을 수 있는 돈의 차이가 됩니다."
         />
       </div>
 
@@ -614,6 +616,65 @@ export function TenurePage() {
               ① + ②의 적립액이 투자 원금이 되고, 여기에 수익이 붙어 ③의 투자 잔고가 됩니다.
               전세처럼 보증금이 목돈을 다 가져가면 ①의 투자액은 0원이지만, ②에서 매달 쌓이기
               때문에 ③의 잔고는 0이 아닙니다.
+            </p>
+          </Card>
+
+          {/*
+            매수는 원금상환이 얹혀 현금유출이 큽니다. 그 차액을 임차가 굴린다는 것이
+            이 비교의 전제인데, 화면에는 적립액만 있고 "얼마나 덜 썼는지"가 없었습니다.
+            차액 → 투자 원금 → 수익으로 이어지는 사슬을 한 표에 세웁니다.
+          */}
+          <Card
+            title="매수보다 덜 쓴 돈은 어디로 갔나"
+            subtitle={`매수는 원금상환이 얹혀 현금이 가장 많이 나갑니다. 임차가 덜 쓴 만큼은 그대로 투자로 갑니다 — 이 표의 "덜 쓴 돈"과 "투자 원금 차이"는 정확히 같은 금액입니다.`}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-left">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[10px] text-slate-500">
+                    <th className="pb-1.5">갈래</th>
+                    <th className="pb-1.5 text-right">통장에서 나간 총액</th>
+                    <th className="pb-1.5 text-right">매수보다 덜 씀</th>
+                    <th className="pb-1.5 text-right">투자 원금</th>
+                    <th className="pb-1.5 text-right">투자 수익</th>
+                    <th className="pb-1.5 text-right">주거 순비용</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.legs.map((l) => {
+                    const buyLeg = result.legs.find((x) => x.kind === 'buy')!;
+                    const saved = buyLeg.totalCashOut - l.totalCashOut;
+                    return (
+                      <tr key={l.kind} className="border-b border-slate-800/50">
+                        <td className="py-1.5 text-[11px] text-slate-300">{l.label}</td>
+                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
+                          {money(l.totalCashOut)}
+                        </td>
+                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-200">
+                          {saved > 1 ? money(saved) : '—'}
+                        </td>
+                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
+                          {money(l.investedPrincipal)}
+                        </td>
+                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-200">
+                          {money(l.investmentGain)}
+                        </td>
+                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
+                          {money(l.netHousingCost)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+              매수의 현금유출이 큰 것은 낭비가 아닙니다 — 그중{' '}
+              {money(result.legs.find((l) => l.kind === 'buy')?.principalRepaid ?? 0)}는 원금상환이라
+              집에 쌓입니다. 반대로 임차가 덜 쓴 돈은 투자에 쌓입니다.{' '}
+              <span className="text-slate-300">
+                어느 쪽이 이기는지는 집값 상승률과 투자 수익률 중 무엇이 더 높으냐로 갈립니다.
+              </span>
             </p>
           </Card>
 

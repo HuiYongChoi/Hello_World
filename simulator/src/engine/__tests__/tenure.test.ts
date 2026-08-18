@@ -392,44 +392,74 @@ describe('매달 나가는 돈의 성격 분해', () => {
   });
 });
 
-describe('주거 사용액 — 돌려받지 못한 돈', () => {
-  it('돌려받는 돈은 상쇄되고 사라지는 돈만 남는다', () => {
-    // 가격 변동이 없으면 매수의 주거 사용액 = 취득비용 + 이자 + 보유비 + 매도비용 + 양도세
-    const b = leg(compare({ priceGrowthRate: 0 }), 'buy');
-    const expected =
-      b.detail.acquisitionCost +
-      b.interestPaid +
-      b.carryCost +
-      b.detail.sellingFee +
-      b.detail.capitalGainsTax;
-    expect(b.netHousingCost).toBeCloseTo(expected, 0);
-    // 원금상환은 돌려받으므로 들어가지 않습니다
+describe('주거 순비용 — 돌려받지 못하고 사라진 돈', () => {
+  it('매수 순비용 = 취득비용 + 이자 + 보유비 + 매도중개보수 + 양도세', () => {
+    const b = leg(compare(), 'buy');
+    expect(b.netHousingCost).toBeCloseTo(
+      b.detail.acquisitionCost + b.interestPaid + b.carryCost + b.detail.sellingFee +
+        b.detail.capitalGainsTax,
+      0
+    );
+  });
+
+  it('원금상환은 순비용에 들어가지 않는다 — 자본이라 돌아옵니다', () => {
+    const b = leg(compare(), 'buy');
+    expect(b.principalRepaid).toBeGreaterThan(0);
     expect(b.netHousingCost).toBeLessThan(b.housingCashOut + b.detail.acquisitionCost);
   });
 
-  it('전세 사용액은 이자 + 중개보수뿐이다 — 보증금은 전액 돌려받습니다', () => {
-    const j = leg(compare({}, 30, 120000000), 'jeonse');
-    expect(j.netHousingCost).toBeCloseTo(j.interestPaid + j.detail.brokerage, 0);
-  });
-
-  it('월세 사용액은 월세 + 중개보수뿐이다', () => {
-    const w = leg(compare(), 'wolse');
-    expect(w.netHousingCost).toBeCloseTo(w.rentPaid + w.detail.brokerage, 0);
-  });
-
-  it('집값이 오르면 매수의 주거 사용액이 줄어든다', () => {
+  it('집값이 올라도 순비용은 줄지 않는다 — 비용과 자본이득은 다른 칸입니다', () => {
+    // 예전에는 회수액을 통째로 빼서 상승분이 비용을 덮고 음수가 나왔습니다.
     const flat = leg(compare({ priceGrowthRate: 0 }), 'buy');
     const up = leg(compare({ priceGrowthRate: 0.05 }), 'buy');
-    expect(up.netHousingCost).toBeLessThan(flat.netHousingCost);
+    expect(up.netHousingCost).toBeGreaterThanOrEqual(flat.netHousingCost);
   });
 
-  it('사용액 항등식 — 넣은 돈 − 돌려받은 돈', () => {
+  it('순비용은 어떤 갈래에서도 음수가 아니다', () => {
+    for (const g of [0, 0.03, 0.08]) {
+      for (const l of compare({ priceGrowthRate: g }).legs) {
+        expect(l.netHousingCost).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('전세 순비용은 이자 + 중개보수, 월세는 월세 + 중개보수뿐이다', () => {
+    const c = compare({}, 30, 120000000);
+    const j = leg(c, 'jeonse');
+    const w = leg(c, 'wolse');
+    expect(j.netHousingCost).toBeCloseTo(j.interestPaid + j.detail.brokerage, 0);
+    expect(w.netHousingCost).toBeCloseTo(w.rentPaid + w.detail.brokerage, 0);
+  });
+});
+
+describe('현금흐름 차이가 곧 투자 원금 차이', () => {
+  it('총 현금유출 = 초기 투입 + 매달 + 갱신 증액', () => {
     for (const l of compare().legs) {
-      expect(l.netHousingCost).toBeCloseTo(
-        l.initialOutlay + l.housingCashOut + l.depositTopUp - l.recovered,
+      expect(l.totalCashOut).toBeCloseTo(
+        l.initialOutlay + l.housingCashOut + l.depositTopUp,
         0
       );
     }
+  });
+
+  it('매수보다 현금이 덜 나가는 만큼 임차가 투자에 더 넣는다', () => {
+    // 이 항등식이 "덜 쓴 돈을 굴린다"의 근거입니다. 어긋나면 비교가 성립하지 않습니다.
+    const c = compare();
+    const buy = leg(c, 'buy');
+    for (const kind of ['jeonse', 'wolse'] as const) {
+      const l = leg(c, kind);
+      expect(l.investedPrincipal - buy.investedPrincipal).toBeCloseTo(
+        buy.totalCashOut - l.totalCashOut,
+        0
+      );
+    }
+  });
+
+  it('매수의 현금유출이 임차보다 크다 — 원금상환이 얹히기 때문', () => {
+    const c = compare();
+    const buy = leg(c, 'buy');
+    expect(buy.totalCashOut).toBeGreaterThan(leg(c, 'jeonse').totalCashOut);
+    expect(buy.totalCashOut).toBeGreaterThan(leg(c, 'wolse').totalCashOut);
   });
 });
 
