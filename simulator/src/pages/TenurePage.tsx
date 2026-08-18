@@ -21,6 +21,7 @@ import {
   type TenureKind,
   type TenureLeg,
 } from '../engine/tenure';
+import { INDEXES, PROVENANCE_LABEL, investmentOptions } from '../engine/indexes';
 import { RENT, isMeasured } from '../engine/rent';
 import { propertyThesis } from '../engine/thesis';
 import { useStore } from '../state/store';
@@ -387,11 +388,13 @@ export function TenurePage() {
     if (!property || !scenario || !loan || !assumptions) return [];
     return compareAcrossReturns(
       { property, loan, equity: scenario.availableCash, termYears: profile.termYears, assumptions },
-      RULES.tenure.investmentPresets.items
+      investmentOptions()
     );
   }, [property, scenario, loan, assumptions, profile.termYears]);
 
   const flipsAcrossReturns = new Set(scenarios.map((s) => s.best)).size > 1;
+  const provenanceOf = (id: string) =>
+    investmentOptions().find((o) => o.id === id)?.provenance ?? 'assumed';
 
   const measured = property ? isMeasured(property.region) : false;
   const jeonseStat = property ? RENT.byRegion[property.region]?.jeonseRatio : null;
@@ -462,6 +465,7 @@ export function TenurePage() {
         </Empty>
       ) : (
         <>
+          {/* ── 결론 ─────────────────────────────────────────── */}
           <Card
             title="손익분기 가격상승률"
             subtitle="“몇 년 뒤 얼마”보다 “몇 % 올라야 매수가 이기나”가 검증 가능한 질문입니다."
@@ -504,6 +508,192 @@ export function TenurePage() {
             )}
           </Card>
 
+          {/* ── 왜 그렇게 되나 — 현금흐름이 갈리는 지점 ────────── */}
+          {/*
+            매수는 원금상환이 얹혀 현금유출이 큽니다. 그 차액을 임차가 굴린다는 것이
+            이 비교의 전제인데, 화면에는 적립액만 있고 "얼마나 덜 썼는지"가 없었습니다.
+            차액 → 투자 원금 → 수익으로 이어지는 사슬을 한 표에 세웁니다.
+          */}
+          <Card
+            title="매수보다 덜 쓴 돈은 어디로 갔나"
+            subtitle={`매수는 원금상환이 얹혀 현금이 가장 많이 나갑니다. 임차가 덜 쓴 만큼은 그대로 투자로 갑니다 — 이 표의 "덜 쓴 돈"과 "투자 원금 차이"는 정확히 같은 금액입니다.`}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-left">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[10px] text-slate-500">
+                    <th className="pb-1.5">갈래</th>
+                    <th className="pb-1.5 text-right">통장에서 나간 총액</th>
+                    <th className="pb-1.5 text-right">매수보다 덜 씀</th>
+                    <th className="pb-1.5 text-right">투자 원금</th>
+                    <th className="pb-1.5 text-right">투자 수익</th>
+                    <th className="pb-1.5 text-right">주거 순비용</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.legs.map((l) => {
+                    const buyLeg = result.legs.find((x) => x.kind === 'buy')!;
+                    const saved = buyLeg.totalCashOut - l.totalCashOut;
+                    return (
+                      <tr key={l.kind} className="border-b border-slate-800/50">
+                        <td className="py-1.5 text-[11px] text-slate-300">{l.label}</td>
+                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
+                          {money(l.totalCashOut)}
+                        </td>
+                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-200">
+                          {saved > 1 ? money(saved) : '—'}
+                        </td>
+                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
+                          {money(l.investedPrincipal)}
+                        </td>
+                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-200">
+                          {money(l.investmentGain)}
+                        </td>
+                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
+                          {money(l.netHousingCost)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+              매수의 현금유출이 큰 것은 낭비가 아닙니다 — 그중{' '}
+              {money(result.legs.find((l) => l.kind === 'buy')?.principalRepaid ?? 0)}는 원금상환이라
+              집에 쌓입니다. 반대로 임차가 덜 쓴 돈은 투자에 쌓입니다.{' '}
+              <span className="text-slate-300">
+                어느 쪽이 이기는지는 집값 상승률과 투자 수익률 중 무엇이 더 높으냐로 갈립니다.
+              </span>
+            </p>
+          </Card>
+
+          {/*
+            "어디에 굴리느냐"가 결론을 바꿉니다. 수익률 하나로 답이 뒤집힌다면
+            그 답은 "매수가 낫다"가 아니라 "굴릴 자신이 있느냐에 달렸다"입니다.
+          */}
+          <Card
+            title="차액을 어디에 굴리느냐 — 대체투자 수익률별 우열"
+            subtitle="매수와 임차의 차액을 굴리는 수익률을 바꿔 가며 종료자산을 다시 계산합니다. 세 갈래 모두 영향을 받습니다 — 매수도 목돈을 다 쓰지 않고 남긴 만큼은 굴리기 때문입니다."
+            action={<Badge tone="warn">전부 가정값</Badge>}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[520px] text-left">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[10px] text-slate-500">
+                    <th className="pb-1.5">굴리는 곳</th>
+                    <th className="pb-1.5 text-right">수익률</th>
+                    <th className="pb-1.5 text-right">매수</th>
+                    <th className="pb-1.5 text-right">전세</th>
+                    <th className="pb-1.5 text-right">월세</th>
+                    <th className="pb-1.5">우위</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scenarios.map((s) => (
+                    <tr key={s.id} className="border-b border-slate-800/50" title={s.note}>
+                      <td className="py-1.5 text-[11px] text-slate-300">
+                        {s.label}
+                        <span className="ml-1 text-slate-600">ⓘ</span>
+                        <span
+                          className={`ml-1.5 rounded border px-1 text-[9px] ${
+                            provenanceOf(s.id) === 'measured'
+                              ? 'border-slate-500 text-slate-300'
+                              : provenanceOf(s.id) === 'approx'
+                                ? 'border-slate-700 text-slate-500'
+                                : 'border-slate-800 text-slate-600'
+                          }`}
+                        >
+                          {PROVENANCE_LABEL[provenanceOf(s.id)]}
+                        </span>
+                      </td>
+                      <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
+                        {percent(s.rate, 1)}
+                      </td>
+                      {(['buy', 'jeonse', 'wolse'] as const).map((k) => (
+                        <td
+                          key={k}
+                          className={`py-1.5 text-right text-[11px] tabular-nums ${
+                            s.best === k ? 'font-semibold text-slate-100' : 'text-slate-500'
+                          }`}
+                        >
+                          {money(s.terminal[k])}
+                        </td>
+                      ))}
+                      <td className="py-1.5 pl-2 text-[11px] text-slate-300">
+                        {LEG_LABEL[s.best]}
+                        <span className="ml-1 text-[10px] text-slate-600">
+                          +{money(s.gap)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 space-y-1">
+              <p className="text-[11px] leading-relaxed text-slate-500">
+                {flipsAcrossReturns ? (
+                  <>
+                    <span className="text-amber-300">수익률 가정 하나로 우위가 뒤집힙니다.</span>{' '}
+                    그렇다면 결론은 “매수가 낫다”가 아니라{' '}
+                    <span className="text-slate-300">
+                      “차액을 어디에 굴릴 자신이 있느냐에 달렸다”
+                    </span>
+                    입니다.
+                  </>
+                ) : (
+                  <>
+                    이 구간에서는 수익률을 바꿔도 우위가 <span className="text-slate-300">{LEG_LABEL[scenarios[0]?.best ?? 'buy']}</span>로
+                    유지됩니다. 결론이 투자 수익률 가정에 덜 민감하다는 뜻입니다.
+                  </>
+                )}
+              </p>
+              <p className="text-[10px] leading-relaxed text-slate-600">
+                코스피·채권은 KRX 실측입니다 ({INDEXES.range.from.slice(0, 4)}~
+                {INDEXES.range.to.slice(0, 4)}년 {INDEXES.range.years}년 구간). 다만 KRX 에
+                코스피 <strong className="text-slate-400">총수익지수가 없어</strong> 배당{' '}
+                {(INDEXES.kospi.dividendYieldAssumed * 100).toFixed(1)}%는 가정을 더한
+                근사입니다. 채권만 총수익지수 실측이라 근사가 아닙니다. 해외지수는 소스가
+                없어 통념치입니다.
+              </p>
+              <p className="text-[10px] leading-relaxed text-slate-600">
+                10년 두 점으로 낸 CAGR 이라 구간을 조금만 옮겨도 크게 달라집니다.
+                “앞으로도 이만큼”이 아니라 “이 구간에는 이랬다”로 읽으세요.
+              </p>
+              <p className="text-[10px] leading-relaxed text-amber-200/70">
+                {RULES.tenure.investmentPresets.currencyWarning}
+              </p>
+            </div>
+          </Card>
+
+          {/* ── 갈래별 상세 ──────────────────────────────────── */}
+          <Card
+            title="자금 흐름 — 같은 목돈을 어디에 두느냐의 차이"
+            subtitle={`세 갈래 모두 자기자본 ${money(
+              result.equity
+            )}에서 출발합니다. 주거에 묶는 만큼 투자에 남길 돈이 줄고, 매달 주거비를 덜 쓰는 만큼 투자에 더 넣습니다. 매수자가 갚는 원금은 소비가 아니라 저축이므로, 임차 쪽에도 그 차액만큼 투자시켜야 비교가 성립합니다.`}
+          >
+            <div className="grid gap-4 lg:grid-cols-3">
+              {result.legs.map((leg) => (
+                <LegCard
+                  key={leg.kind}
+                  leg={leg}
+                  best={leg.kind === result.best}
+                  max={Math.max(...result.legs.map((l) => l.terminalWealth))}
+                  equity={result.equity}
+                  years={result.years}
+                />
+              ))}
+            </div>
+            <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
+              ① + ②의 적립액이 투자 원금이 되고, 여기에 수익이 붙어 ③의 투자 잔고가 됩니다.
+              전세처럼 보증금이 목돈을 다 가져가면 ①의 투자액은 0원이지만, ②에서 매달 쌓이기
+              때문에 ③의 잔고는 0이 아닙니다.
+            </p>
+          </Card>
+
+          {/* ── 조건 ─────────────────────────────────────────── */}
           <Card
             title="가정값"
             subtitle={
@@ -592,169 +782,6 @@ export function TenurePage() {
               근거가 있는 값과 섞어서 인용하면 도구 전체가 거짓말이 됩니다. 실측으로 바뀐 것은
               전세가율·전월세전환율뿐입니다.
             </p>
-          </Card>
-
-          <Card
-            title="자금 흐름 — 같은 목돈을 어디에 두느냐의 차이"
-            subtitle={`세 갈래 모두 자기자본 ${money(
-              result.equity
-            )}에서 출발합니다. 주거에 묶는 만큼 투자에 남길 돈이 줄고, 매달 주거비를 덜 쓰는 만큼 투자에 더 넣습니다. 매수자가 갚는 원금은 소비가 아니라 저축이므로, 임차 쪽에도 그 차액만큼 투자시켜야 비교가 성립합니다.`}
-          >
-            <div className="grid gap-4 lg:grid-cols-3">
-              {result.legs.map((leg) => (
-                <LegCard
-                  key={leg.kind}
-                  leg={leg}
-                  best={leg.kind === result.best}
-                  max={Math.max(...result.legs.map((l) => l.terminalWealth))}
-                  equity={result.equity}
-                  years={result.years}
-                />
-              ))}
-            </div>
-            <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
-              ① + ②의 적립액이 투자 원금이 되고, 여기에 수익이 붙어 ③의 투자 잔고가 됩니다.
-              전세처럼 보증금이 목돈을 다 가져가면 ①의 투자액은 0원이지만, ②에서 매달 쌓이기
-              때문에 ③의 잔고는 0이 아닙니다.
-            </p>
-          </Card>
-
-          {/*
-            매수는 원금상환이 얹혀 현금유출이 큽니다. 그 차액을 임차가 굴린다는 것이
-            이 비교의 전제인데, 화면에는 적립액만 있고 "얼마나 덜 썼는지"가 없었습니다.
-            차액 → 투자 원금 → 수익으로 이어지는 사슬을 한 표에 세웁니다.
-          */}
-          <Card
-            title="매수보다 덜 쓴 돈은 어디로 갔나"
-            subtitle={`매수는 원금상환이 얹혀 현금이 가장 많이 나갑니다. 임차가 덜 쓴 만큼은 그대로 투자로 갑니다 — 이 표의 "덜 쓴 돈"과 "투자 원금 차이"는 정확히 같은 금액입니다.`}
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-left">
-                <thead>
-                  <tr className="border-b border-slate-800 text-[10px] text-slate-500">
-                    <th className="pb-1.5">갈래</th>
-                    <th className="pb-1.5 text-right">통장에서 나간 총액</th>
-                    <th className="pb-1.5 text-right">매수보다 덜 씀</th>
-                    <th className="pb-1.5 text-right">투자 원금</th>
-                    <th className="pb-1.5 text-right">투자 수익</th>
-                    <th className="pb-1.5 text-right">주거 순비용</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.legs.map((l) => {
-                    const buyLeg = result.legs.find((x) => x.kind === 'buy')!;
-                    const saved = buyLeg.totalCashOut - l.totalCashOut;
-                    return (
-                      <tr key={l.kind} className="border-b border-slate-800/50">
-                        <td className="py-1.5 text-[11px] text-slate-300">{l.label}</td>
-                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
-                          {money(l.totalCashOut)}
-                        </td>
-                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-200">
-                          {saved > 1 ? money(saved) : '—'}
-                        </td>
-                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
-                          {money(l.investedPrincipal)}
-                        </td>
-                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-200">
-                          {money(l.investmentGain)}
-                        </td>
-                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
-                          {money(l.netHousingCost)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-              매수의 현금유출이 큰 것은 낭비가 아닙니다 — 그중{' '}
-              {money(result.legs.find((l) => l.kind === 'buy')?.principalRepaid ?? 0)}는 원금상환이라
-              집에 쌓입니다. 반대로 임차가 덜 쓴 돈은 투자에 쌓입니다.{' '}
-              <span className="text-slate-300">
-                어느 쪽이 이기는지는 집값 상승률과 투자 수익률 중 무엇이 더 높으냐로 갈립니다.
-              </span>
-            </p>
-          </Card>
-
-          {/*
-            "어디에 굴리느냐"가 결론을 바꿉니다. 수익률 하나로 답이 뒤집힌다면
-            그 답은 "매수가 낫다"가 아니라 "굴릴 자신이 있느냐에 달렸다"입니다.
-          */}
-          <Card
-            title="차액을 어디에 굴리느냐 — 대체투자 수익률별 우열"
-            subtitle="매수와 임차의 차액을 굴리는 수익률을 바꿔 가며 종료자산을 다시 계산합니다. 세 갈래 모두 영향을 받습니다 — 매수도 목돈을 다 쓰지 않고 남긴 만큼은 굴리기 때문입니다."
-            action={<Badge tone="warn">전부 가정값</Badge>}
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] text-left">
-                <thead>
-                  <tr className="border-b border-slate-800 text-[10px] text-slate-500">
-                    <th className="pb-1.5">굴리는 곳</th>
-                    <th className="pb-1.5 text-right">수익률</th>
-                    <th className="pb-1.5 text-right">매수</th>
-                    <th className="pb-1.5 text-right">전세</th>
-                    <th className="pb-1.5 text-right">월세</th>
-                    <th className="pb-1.5">우위</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {scenarios.map((s) => (
-                    <tr key={s.id} className="border-b border-slate-800/50" title={s.note}>
-                      <td className="py-1.5 text-[11px] text-slate-300">
-                        {s.label}
-                        <span className="ml-1 text-slate-600">ⓘ</span>
-                      </td>
-                      <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
-                        {percent(s.rate, 1)}
-                      </td>
-                      {(['buy', 'jeonse', 'wolse'] as const).map((k) => (
-                        <td
-                          key={k}
-                          className={`py-1.5 text-right text-[11px] tabular-nums ${
-                            s.best === k ? 'font-semibold text-slate-100' : 'text-slate-500'
-                          }`}
-                        >
-                          {money(s.terminal[k])}
-                        </td>
-                      ))}
-                      <td className="py-1.5 pl-2 text-[11px] text-slate-300">
-                        {LEG_LABEL[s.best]}
-                        <span className="ml-1 text-[10px] text-slate-600">
-                          +{money(s.gap)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-3 space-y-1">
-              <p className="text-[11px] leading-relaxed text-slate-500">
-                {flipsAcrossReturns ? (
-                  <>
-                    <span className="text-amber-300">수익률 가정 하나로 우위가 뒤집힙니다.</span>{' '}
-                    그렇다면 결론은 “매수가 낫다”가 아니라{' '}
-                    <span className="text-slate-300">
-                      “차액을 어디에 굴릴 자신이 있느냐에 달렸다”
-                    </span>
-                    입니다.
-                  </>
-                ) : (
-                  <>
-                    이 구간에서는 수익률을 바꿔도 우위가 <span className="text-slate-300">{LEG_LABEL[scenarios[0]?.best ?? 'buy']}</span>로
-                    유지됩니다. 결론이 투자 수익률 가정에 덜 민감하다는 뜻입니다.
-                  </>
-                )}
-              </p>
-              <p className="text-[10px] leading-relaxed text-slate-600">
-                {RULES.tenure.investmentPresets.note}
-              </p>
-              <p className="text-[10px] leading-relaxed text-amber-200/70">
-                {RULES.tenure.investmentPresets.currencyWarning}
-              </p>
-            </div>
           </Card>
 
           <Card title="이 계산이 아닌 것">

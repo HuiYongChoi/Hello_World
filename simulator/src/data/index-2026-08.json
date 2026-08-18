@@ -1,0 +1,32 @@
+{
+ "version": "2026-08",
+ "asOf": "2026-08-18",
+ "source": {
+  "name": "KRX Open API 지수 시세정보",
+  "endpoint": "data-dbg.krx.co.kr/svc/apis/idx",
+  "license": "KRX 정보데이터시스템 이용약관"
+ },
+ "range": {
+  "from": "20160818",
+  "to": "20260814",
+  "years": 10
+ },
+ "kospi": {
+  "label": "코스피",
+  "fromIndex": 2055.47,
+  "toIndex": 6977.94,
+  "priceCagr": 0.13,
+  "dividendYieldAssumed": 0.02,
+  "totalReturnApprox": 0.15,
+  "measured": "price-only",
+  "note": "가격지수 실측 CAGR 에 배당수익률 가정을 더한 총수익 근사치입니다. KRX 지수 API 에 코스피 총수익지수(TR)가 없어 근사가 불가피합니다."
+ },
+ "bond": {
+  "label": "KRX 채권지수 (총수익)",
+  "fromIndex": 174.49,
+  "toIndex": 194.21,
+  "totalReturnCagr": 0.0108,
+  "measured": "total-return",
+  "note": "TOT_EARNG_IDX 는 총수익지수라 배당·이자 재투자가 이미 반영돼 있습니다. 근사가 아닙니다."
+ }
+}
