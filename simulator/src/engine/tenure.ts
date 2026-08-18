@@ -33,6 +33,7 @@
 
 import { brokerageFee } from './costs';
 import { money } from './format';
+import { measuredJeonseLoanRate } from './indexes';
 import { measuredConversionRate, measuredJeonseRatio } from './rent';
 import { RULES } from './rules';
 import { capitalGainsTax, leaseBrokerageFee, propertyTax } from './tax';
@@ -178,7 +179,8 @@ export function defaultAssumptions(
     wolseDepositRatio: r.wolseDepositRatio,
     depositGrowthRate: d.depositGrowthRate,
     maintenanceRate: d.maintenanceRate,
-    jeonseLoanRate: RULES.tenure.jeonseLoan.rate,
+    // ECOS 실측 금리가 있으면 그것을, 없으면 룰셋 자리표시자를 씁니다.
+    jeonseLoanRate: measuredJeonseLoanRate() ?? RULES.tenure.jeonseLoan.rate,
     ...over,
   };
 }

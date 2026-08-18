@@ -1,0 +1,53 @@
+{
+ "version": "2026-08",
+ "asOf": "2026-08-18",
+ "sources": {
+  "fred": {
+   "name": "St. Louis Fed (FRED)",
+   "note": "SP500·NASDAQ100 은 가격지수라 배당은 가정입니다."
+  },
+  "ecos": {
+   "name": "한국은행 ECOS",
+   "note": "예금은행 대출금리(신규취급액 기준) 연간 · 소비자물가지수"
+  }
+ },
+ "indexes": {
+  "SP500": {
+   "commonStart": "2016-08-18",
+   "from": "2016-08-18",
+   "to": "2026-08-17",
+   "years": 10,
+   "fromIndex": 2187.02,
+   "toIndex": 7745.06,
+   "priceCagr": 0.1349,
+   "dividendYieldAssumed": 0.015,
+   "totalReturnApprox": 0.1499
+  },
+  "NASDAQ100": {
+   "commonStart": "2016-08-18",
+   "from": "2016-08-18",
+   "to": "2026-08-17",
+   "years": 10,
+   "fromIndex": 4808.68,
+   "toIndex": 29995.38,
+   "priceCagr": 0.201,
+   "dividendYieldAssumed": 0.008,
+   "totalReturnApprox": 0.209
+  }
+ },
+ "rates": {
+  "jeonseLoan": {
+   "year": "2025",
+   "rate": 0.0387
+  },
+  "mortgage": {
+   "year": "2025",
+   "rate": 0.0406
+  }
+ },
+ "inflation": {
+  "from": "2015",
+  "to": "2025",
+  "cagr": 0.0209
+ }
+}

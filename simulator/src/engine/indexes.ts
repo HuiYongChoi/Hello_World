@@ -23,7 +23,7 @@
  */
 
 import indexSnapshot from '../data/index-2026-08.json';
-import { RULES } from './rules';
+import ratesSnapshot from '../data/rates-2026-08.json';
 
 export type Provenance = 'measured' | 'approx' | 'assumed';
 
@@ -58,7 +58,41 @@ interface RawIndexSnapshot {
   } | null;
 }
 
+interface RawRatesSnapshot {
+  version: string;
+  asOf: string;
+  sources: Record<string, { name: string; note: string }>;
+  indexes: Record<
+    string,
+    {
+      commonStart: string;
+      from: string;
+      to: string;
+      years: number;
+      priceCagr: number;
+      dividendYieldAssumed: number;
+      totalReturnApprox: number;
+    }
+  >;
+  rates: {
+    jeonseLoan: { year: string; rate: number } | null;
+    mortgage: { year: string; rate: number } | null;
+  };
+  inflation: { from: string; to: string; cagr: number } | null;
+}
+
 export const INDEXES = indexSnapshot as unknown as RawIndexSnapshot;
+export const RATES = ratesSnapshot as unknown as RawRatesSnapshot;
+
+/** 전세자금대출 금리 실측치 (ECOS 예금은행 신규취급액 기준) */
+export const measuredJeonseLoanRate = (): number | null => RATES.rates.jeonseLoan?.rate ?? null;
+/** 소비자물가 상승률 — 명목을 실질로 환산할 때 씁니다 */
+export const measuredInflation = (): number | null => RATES.inflation?.cagr ?? null;
+
+/** 명목 수익률을 실질로. 근사가 아니라 피셔 관계로 정확히 계산합니다. */
+export function toReal(nominal: number, inflation: number): number {
+  return (1 + nominal) / (1 + inflation) - 1;
+}
 
 const ymd = (s: string) => `${s.slice(0, 4)}.${s.slice(4, 6)}`;
 
@@ -93,10 +127,24 @@ export function investmentOptions(): InvestmentOption[] {
     });
   }
 
-  // 해외지수는 아직 소스가 없습니다 — 통념치를 쓰되 실측과 섞이지 않게 표시합니다.
-  for (const p of RULES.tenure.investmentPresets.items) {
-    if (p.id === 'kospi' || p.id === 'bond') continue;
-    out.push({ id: p.id, label: p.label, rate: p.rate, provenance: 'assumed', note: p.note });
+  // 해외지수도 FRED 실측입니다. 다만 가격지수라 배당은 코스피와 같은 방식으로 가정합니다.
+  const foreign: [string, string][] = [
+    ['SP500', 'S&P 500'],
+    ['NASDAQ100', '나스닥 100'],
+  ];
+  for (const [id, label] of foreign) {
+    const x = RATES.indexes[id];
+    if (!x) continue;
+    out.push({
+      id,
+      label,
+      rate: x.totalReturnApprox,
+      provenance: 'approx',
+      note:
+        `${x.from}~${x.to} (${x.years}년) 가격지수 실측 CAGR ${(x.priceCagr * 100).toFixed(2)}% ` +
+        `+ 배당 가정 ${(x.dividendYieldAssumed * 100).toFixed(1)}%. ` +
+        '달러 기준이라 원화로 환산하면 환율 변동이 더해집니다.',
+    });
   }
 
   return out.sort((a, b) => a.rate - b.rate);

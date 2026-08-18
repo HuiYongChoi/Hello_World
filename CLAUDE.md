@@ -91,6 +91,8 @@ npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /re
 npm run standalone       # dist/standalone.html — 골격 없는 조각 (아티팩트 호스트용)
 npm run fetch:market     # 국토부 매매 실거래가 → src/data/market-*.json
 npm run fetch:rent       # 국토부 전월세 실거래가 → src/data/rent-*.json
+npm run fetch:index      # KRX 코스피·채권지수 → src/data/index-*.json
+npm run fetch:rates      # FRED 해외지수 + ECOS 금리·물가 → src/data/rates-*.json
 node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 룰셋
 ```
 
@@ -178,8 +180,16 @@ node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 
 
    남은 소스:
    - 국토부 **분양권전매** 실거래가 — 청약 축에 필요
-   - 한국은행 ECOS (주담대 금리·기준금리·CPI) — 키는 `.env.local` 에 있음
-   - KRX 코스피 **총수익지수(TR)** — 배당 포함. 일반 지수 쓰면 대체투자가 부당하게 불리해집니다.
+   - ~~한국은행 ECOS~~ · ~~KRX~~ · ~~FRED~~ — **완료**. 전세자금대출 금리·CPI·코스피·채권·
+     S&P500·나스닥100 이 실측으로 들어왔습니다.
+
+   **다만 총수익지수(TR)는 코스피에 없습니다.** KRX 지수 API 가 주는 코스피 계열 51개가
+   전부 가격지수라 배당이 빠집니다. 그래서 가격지수 실측 CAGR 에 **배당수익률 가정**을
+   더한 근사치를 쓰고, 화면에 `실측+가정` 표식을 답니다. FRED 의 S&P500·나스닥100 도
+   같은 사정이라 같은 방식으로 맞췄습니다. **KRX 채권지수만 `TOT_EARNG_IDX` 라 진짜
+   총수익 실측**입니다. 지수마다 제공 기간이 달라(나스닥 1986~, S&P500 2016~) 가장 늦게
+   시작하는 지수에 맞춰 구간을 자릅니다 — 40년 CAGR 과 10년 CAGR 을 나란히 놓으면
+   비교가 성립하지 않습니다.
    - 네이버 부동산은 제외. 공식 API 없고 약관상 크롤링 금지이며 판례도 있습니다.
 
 3. **롤링 백테스트** — 엔진은 `market.ts` 의 `holdingDistribution` 으로 들어갔습니다.

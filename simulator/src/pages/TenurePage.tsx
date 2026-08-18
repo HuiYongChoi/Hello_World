@@ -21,7 +21,14 @@ import {
   type TenureKind,
   type TenureLeg,
 } from '../engine/tenure';
-import { INDEXES, PROVENANCE_LABEL, investmentOptions } from '../engine/indexes';
+import {
+  INDEXES,
+  PROVENANCE_LABEL,
+  RATES,
+  investmentOptions,
+  measuredInflation,
+  toReal,
+} from '../engine/indexes';
 import { RENT, isMeasured } from '../engine/rent';
 import { propertyThesis } from '../engine/thesis';
 import { useStore } from '../state/store';
@@ -657,6 +664,18 @@ export function TenurePage() {
                 근사입니다. 채권만 총수익지수 실측이라 근사가 아닙니다. 해외지수는 소스가
                 없어 통념치입니다.
               </p>
+              {measuredInflation() !== null && (
+                <p className="text-[10px] leading-relaxed text-slate-600">
+                  전부 <strong className="text-slate-400">명목</strong> 수익률입니다. 같은 기간
+                  소비자물가가 연 {percent(measuredInflation()!, 2)} 올랐으므로(ECOS 실측),
+                  실질로는 각각 그만큼 낮습니다 — 예: 코스피{' '}
+                  {percent(
+                    toReal(investmentOptions().find((o) => o.id === 'kospi')?.rate ?? 0, measuredInflation()!),
+                    2
+                  )}
+                  . 집값 상승률도 명목이라 비교 자체는 성립합니다.
+                </p>
+              )}
               <p className="text-[10px] leading-relaxed text-slate-600">
                 10년 두 점으로 낸 CAGR 이라 구간을 조금만 옮겨도 크게 달라집니다.
                 “앞으로도 이만큼”이 아니라 “이 구간에는 이랬다”로 읽으세요.
@@ -708,7 +727,9 @@ export function TenurePage() {
                 label="대체투자 기대수익률"
                 help="집을 사지 않고 그 돈을 다른 데 굴렸을 때의 연 수익률입니다. 주식·채권 등을 아우르는 총수익 기준이라 **배당과 이자가 이미 포함**돼 있습니다 — 별도로 배당수익률을 넣을 필요가 없습니다. 세 갈래 모두 남는 돈에 이 수익률을 적용하므로, 이 값이 높을수록 임차가 유리해집니다."
                 assumed
-                source="자리표시자 · 근거 없음. KRX 총수익지수로 교체 예정"
+                source={`아래 표의 프리셋을 참고해 직접 정하세요. 코스피 ${(
+                  investmentOptions().find((o) => o.id === 'kospi')?.rate ?? 0
+                ) * 100}% 등`}
                 value={result.assumptions.investmentReturnRate}
                 onChange={(v) => patch({ investmentReturnRate: v })}
               />
@@ -764,8 +785,12 @@ export function TenurePage() {
               <RateField
                 label="전세자금대출 금리"
                 help="전세보증금이 목돈보다 클 때 빌리는 대출의 금리입니다. 이자만 매달 내고 원금은 계약 종료 시 보증금에서 갚습니다 — 그래서 전세의 월 지출은 전부 이자입니다."
-                assumed
-                source="자리표시자 · ECOS 실측 금리로 교체 예정"
+                assumed={!RATES.rates.jeonseLoan}
+                source={
+                  RATES.rates.jeonseLoan
+                    ? `실측 · 한국은행 ECOS 예금은행 신규취급액 ${RATES.rates.jeonseLoan.year}년`
+                    : '자리표시자'
+                }
                 value={result.assumptions.jeonseLoanRate}
                 onChange={(v) => patch({ jeonseLoanRate: v })}
               />
