@@ -593,7 +593,7 @@ export function TenurePage() {
                     <th className="pb-1.5 text-right">매수</th>
                     <th className="pb-1.5 text-right">전세</th>
                     <th className="pb-1.5 text-right">월세</th>
-                    <th className="pb-1.5">우위</th>
+                    <th className="border-l border-slate-800 pb-1.5 pl-3">우위</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -621,16 +621,18 @@ export function TenurePage() {
                         <td
                           key={k}
                           className={`py-1.5 text-right text-[11px] tabular-nums ${
-                            s.best === k ? 'font-semibold text-slate-100' : 'text-slate-500'
+                            s.best === k && s.gap >= 1000000
+                              ? 'font-semibold text-slate-100'
+                              : 'text-slate-400'
                           }`}
                         >
                           {money(s.terminal[k])}
                         </td>
                       ))}
-                      <td className="py-1.5 pl-2 text-[11px] text-slate-300">
+                      <td className="border-l border-slate-800/70 py-1.5 pl-3 text-[11px] text-slate-300">
                         {LEG_LABEL[s.best]}
                         <span className="ml-1 text-[10px] text-slate-600">
-                          +{money(s.gap)}
+                          {s.gap < 1000000 ? '(사실상 동률)' : `+${money(s.gap)}`}
                         </span>
                       </td>
                     </tr>
