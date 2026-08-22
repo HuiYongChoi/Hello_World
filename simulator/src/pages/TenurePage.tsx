@@ -17,6 +17,7 @@ import {
   compareAcrossReturns,
   compareTenures,
   defaultAssumptions,
+  housingCostBreakdown,
   type TenureAssumptions,
   type TenureKind,
   type TenureLeg,
@@ -171,12 +172,15 @@ function LegCard({
   max,
   equity,
   years,
+  returnRate,
 }: {
   leg: TenureLeg;
   best: boolean;
   max: number;
   equity: number;
   years: number;
+  /** 이 계산에 쓰인 대체투자 수익률 — 수익 옆에 무엇 대비인지 적기 위해 */
+  returnRate: number;
 }) {
   const tone = TONE[leg.kind];
   const width = max > 0 ? Math.max(2, (leg.terminalWealth / max) * 100) : 0;
@@ -318,6 +322,25 @@ function LegCard({
         value={money(leg.investmentEnd)}
         help="①에서 남긴 목돈과 ②에서 적립한 금액이 원금이고, 여기에 대체투자 기대수익률만큼 복리로 붙은 결과입니다. 배당·이자는 그 수익률에 이미 들어 있습니다."
       />
+      <Row
+        indent
+        label="└ 원금 대비"
+        value={`${percent(
+          leg.investedPrincipal > 0 ? leg.investmentGain / leg.investedPrincipal : 0,
+          1
+        )}  (연 ${percent(returnRate, 2)} 적립식)`}
+        tone="text-slate-500"
+        help={`투자 수익 ${money(leg.investmentGain)} ÷ 투자 원금 ${money(
+          leg.investedPrincipal
+        )} 입니다. 매달 나눠 넣는 **적립식**이라 마지막 달에 넣은 돈은 거의 못 굴립니다 — 같은 돈을 처음부터 목돈으로 넣었다면 ${percent(
+          Math.pow(1 + returnRate, years) - 1,
+          1
+        )} 였을 것이고, 적립식이라 그보다 낮은 것이 정상입니다.${
+          leg.depositTopUp > 0
+            ? ` 게다가 갱신 때 ${money(leg.depositTopUp)}을 중간에 헐어 써서 그만큼 더 줄어듭니다.`
+            : ''
+        }`}
+      />
       <div className="mt-1 border-t border-slate-800/70 pt-1">
         <Row label="종료자산" value={money(leg.terminalWealth)} tone={tone.text} strong />
         <Row
@@ -359,6 +382,8 @@ export function TenurePage() {
   const [propertyId, setPropertyId] = useState('');
   const [scenarioId, setScenarioId] = useState('');
   const [over, setOver] = useState<Partial<TenureAssumptions>>({});
+  /** 순비용 내역을 펼친 갈래 */
+  const [openCost, setOpenCost] = useState<TenureKind | null>(null);
 
   const property = properties.find((p) => p.id === propertyId) ?? properties[0];
   const scenario = matrix.scenarios.find((s) => s.id === scenarioId) ?? matrix.scenarios[0];
@@ -543,7 +568,9 @@ export function TenurePage() {
                   {result.legs.map((l) => {
                     const buyLeg = result.legs.find((x) => x.kind === 'buy')!;
                     const saved = buyLeg.totalCashOut - l.totalCashOut;
-                    return (
+                    const items = housingCostBreakdown(l);
+                    const open = openCost === l.kind;
+                    return [
                       <tr key={l.kind} className="border-b border-slate-800/50">
                         <td className="py-1.5 text-[11px] text-slate-300">{l.label}</td>
                         <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
@@ -558,11 +585,59 @@ export function TenurePage() {
                         <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-200">
                           {money(l.investmentGain)}
                         </td>
-                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
-                          {money(l.netHousingCost)}
+                        {/* 순비용은 여러 항목의 합이라 눌러서 풀어 볼 수 있어야 합니다 */}
+                        <td className="py-1.5 text-right text-[11px] tabular-nums">
+                          <button
+                            type="button"
+                            onClick={() => setOpenCost(open ? null : l.kind)}
+                            className="text-slate-300 transition hover:text-slate-100 no-print"
+                            title={items
+                              .map((i) => `${i.label} ${money(i.amount)}`)
+                              .join(' · ')}
+                          >
+                            {money(l.netHousingCost)}
+                            <span className="ml-1 text-[9px] text-slate-600">
+                              {open ? '▾' : '▸'}
+                            </span>
+                          </button>
+                          <span className="hidden print:inline">{money(l.netHousingCost)}</span>
                         </td>
-                      </tr>
-                    );
+                      </tr>,
+                      // 인쇄에서는 접힘이 정보 손실이라 항상 펼칩니다.
+                      <tr
+                        key={`${l.kind}-detail`}
+                        className={`border-b border-slate-800/50 ${open ? '' : 'hidden print:table-row'}`}
+                      >
+                        <td colSpan={6} className="bg-slate-950/60 px-3 py-2 print-plain">
+                          <div className="mb-1 text-[10px] text-slate-500">
+                            {l.label} 주거 순비용 {money(l.netHousingCost)} 의 내역
+                          </div>
+                          <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                            {items.map((i) => (
+                              <div
+                                key={i.label}
+                                className="flex items-baseline justify-between gap-3"
+                                title={i.help}
+                              >
+                                <span className="text-[10px] text-slate-500">
+                                  {i.label}
+                                  <span className="ml-1 text-slate-600">ⓘ</span>
+                                </span>
+                                <span className="text-[10px] tabular-nums text-slate-300">
+                                  {i.reducesCost ? '−' : ''}
+                                  {money(i.amount)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="mt-1.5 text-[10px] leading-relaxed text-slate-600">
+                            {l.kind === 'buy'
+                              ? '원금상환과 집값 변동은 여기 없습니다 — 원금은 돌려받는 자본이고, 집값 상승분은 비용이 아니라 자본이득이라 상계하지 않습니다.'
+                              : '보증금은 여기 없습니다 — 계약 종료 시 돌려받는 자본입니다.'}
+                          </p>
+                        </td>
+                      </tr>,
+                    ];
                   })}
                 </tbody>
               </table>
@@ -710,6 +785,7 @@ export function TenurePage() {
                   max={Math.max(...result.legs.map((l) => l.terminalWealth))}
                   equity={result.equity}
                   years={result.years}
+                  returnRate={result.assumptions.investmentReturnRate}
                 />
               ))}
             </div>

@@ -303,6 +303,7 @@ function buyPlan(
     detail: {
       loanPrincipal: principal,
       acquisitionCost,
+      purchasePrice: property.price,
       endPrice,
       remainingLoan,
       sellingFee,
@@ -557,6 +558,84 @@ const CAVEATS = [
   '연환산 수익률은 주거비를 쓰고 남은 자기자본 기준입니다 — 순수 투자수익률이 아니라 “같은 집에 살면서 자본이 얼마나 불었나”입니다.',
   '거주 만족도·이사 비용·직장 이동 같은 비금전 요소는 들어 있지 않습니다.',
 ];
+
+export interface CostItem {
+  label: string;
+  amount: number;
+  /** 음수 항목(집값 상승분)은 비용을 깎습니다 */
+  reducesCost: boolean;
+  help: string;
+}
+
+/**
+ * 주거 순비용을 항목으로 풉니다.
+ *
+ * 합계가 `netHousingCost` 와 정확히 맞아야 합니다 — 안 맞으면 어느 쪽이든
+ * 틀린 것이고, 테스트로 고정해 뒀습니다.
+ */
+export function housingCostBreakdown(leg: TenureLeg): CostItem[] {
+  const items: CostItem[] = [];
+
+  if (leg.kind === 'buy') {
+    items.push({
+      label: '취득비용',
+      amount: leg.detail.acquisitionCost,
+      reducesCost: false,
+      help: '취득세·법무비·중개보수·이사수리비. 집을 사는 순간 사라지는 돈입니다.',
+    });
+    items.push({
+      label: '대출이자',
+      amount: leg.interestPaid,
+      reducesCost: false,
+      help: '원리금 중 이자분입니다. 원금은 돌려받으므로 여기 없습니다.',
+    });
+    items.push({
+      label: '재산세·수선유지',
+      amount: leg.carryCost,
+      reducesCost: false,
+      help: '보유하는 동안 매년 나가는 돈입니다.',
+    });
+    items.push({
+      label: '매도 중개보수',
+      amount: leg.detail.sellingFee,
+      reducesCost: false,
+      help: '팔 때 내는 중개보수입니다.',
+    });
+    if (leg.detail.capitalGainsTax > 0) {
+      items.push({
+        label: '양도세',
+        amount: leg.detail.capitalGainsTax,
+        reducesCost: false,
+        help: '1세대1주택 비과세 한도를 넘거나 보유 2년을 못 채운 경우에만 붙습니다.',
+      });
+    }
+  } else {
+    if (leg.interestPaid > 0) {
+      items.push({
+        label: '전세대출 이자',
+        amount: leg.interestPaid,
+        reducesCost: false,
+        help: '보증금 원금은 계약 종료 시 돌려받으므로 비용이 아닙니다. 이자만 사라집니다.',
+      });
+    }
+    if (leg.rentPaid > 0) {
+      items.push({
+        label: '월세',
+        amount: leg.rentPaid,
+        reducesCost: false,
+        help: '돌려받지 못하는 순비용입니다.',
+      });
+    }
+    items.push({
+      label: '임대차 중개보수',
+      amount: leg.detail.brokerage,
+      reducesCost: false,
+      help: '계약갱신청구권으로 계속 거주한다고 보아 최초 1회만 계산합니다.',
+    });
+  }
+
+  return items.filter((i) => Math.abs(i.amount) > 0);
+}
 
 export interface ReturnScenario {
   id: string;

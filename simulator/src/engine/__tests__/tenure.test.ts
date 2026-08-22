@@ -6,6 +6,7 @@ import {
   compareAcrossReturns,
   compareTenures,
   defaultAssumptions,
+  housingCostBreakdown,
   loanBalance,
   type TenureAssumptions,
   type TenureComparison,
@@ -505,6 +506,48 @@ describe('대체투자 수익률을 바꿔 가며', () => {
     for (const r of compareAcrossReturns(input, presets)) {
       const max = Math.max(r.terminal.buy, r.terminal.jeonse, r.terminal.wolse);
       expect(r.terminal[r.best]).toBe(max);
+    }
+  });
+});
+
+describe('주거 순비용 분해', () => {
+  it('항목 합계가 순비용과 정확히 맞는다', () => {
+    for (const l of compare().legs) {
+      const sum = housingCostBreakdown(l).reduce(
+        (s, i) => s + (i.reducesCost ? -i.amount : i.amount),
+        0
+      );
+      expect(sum).toBeCloseTo(l.netHousingCost, 0);
+    }
+  });
+
+  it('매수는 취득비용·이자·보유비·매도수수료로 갈린다', () => {
+    const items = housingCostBreakdown(leg(compare(), 'buy')).map((i) => i.label);
+    expect(items).toContain('취득비용');
+    expect(items).toContain('대출이자');
+    expect(items).toContain('재산세·수선유지');
+    expect(items).toContain('매도 중개보수');
+  });
+
+  it('임차는 이자·월세와 중개보수뿐이다 — 보증금은 자본이라 없습니다', () => {
+    const j = housingCostBreakdown(leg(compare({}, 30, 120000000), 'jeonse')).map((i) => i.label);
+    expect(j).toContain('전세대출 이자');
+    expect(j).toContain('임대차 중개보수');
+    expect(j.some((l) => /보증금/.test(l))).toBe(false);
+
+    const w = housingCostBreakdown(leg(compare(), 'wolse')).map((i) => i.label);
+    expect(w).toContain('월세');
+  });
+
+  it('0원 항목은 빼고 냅니다', () => {
+    for (const l of compare().legs) {
+      for (const i of housingCostBreakdown(l)) expect(Math.abs(i.amount)).toBeGreaterThan(0);
+    }
+  });
+
+  it('모든 항목에 설명이 붙어 있다', () => {
+    for (const l of compare().legs) {
+      for (const i of housingCostBreakdown(l)) expect(i.help.length).toBeGreaterThan(10);
     }
   });
 });
