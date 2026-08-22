@@ -402,6 +402,8 @@ export function TenurePage() {
   const flipsAcrossReturns = new Set(scenarios.map((s) => s.best)).size > 1;
   const provenanceOf = (id: string) =>
     investmentOptions().find((o) => o.id === id)?.provenance ?? 'assumed';
+  /** 근사가 아닌 순수 실측이 몇 개인지 — 배지 문구가 실제 상태와 어긋나면 안 됩니다 */
+  const measuredCount = scenarios.filter((s) => provenanceOf(s.id) === 'measured').length;
 
   const measured = property ? isMeasured(property.region) : false;
   const jeonseStat = property ? RENT.byRegion[property.region]?.jeonseRatio : null;
@@ -582,7 +584,11 @@ export function TenurePage() {
           <Card
             title="차액을 어디에 굴리느냐 — 대체투자 수익률별 우열"
             subtitle="매수와 임차의 차액을 굴리는 수익률을 바꿔 가며 종료자산을 다시 계산합니다. 세 갈래 모두 영향을 받습니다 — 매수도 목돈을 다 쓰지 않고 남긴 만큼은 굴리기 때문입니다."
-            action={<Badge tone="warn">전부 가정값</Badge>}
+            action={
+              <Badge tone={measuredCount > 0 ? 'good' : 'warn'}>
+                {measuredCount > 0 ? `${measuredCount}/${scenarios.length} 실측` : '전부 가정값'}
+              </Badge>
+            }
           >
             <div className="overflow-x-auto">
               <table className="w-full min-w-[520px] text-left">
@@ -593,7 +599,7 @@ export function TenurePage() {
                     <th className="pb-1.5 text-right">매수</th>
                     <th className="pb-1.5 text-right">전세</th>
                     <th className="pb-1.5 text-right">월세</th>
-                    <th className="border-l border-slate-800 pb-1.5 pl-3">우위</th>
+                    <th className="w-28 border-l border-slate-800 pb-1.5 pl-3 text-right">우위</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -629,10 +635,10 @@ export function TenurePage() {
                           {money(s.terminal[k])}
                         </td>
                       ))}
-                      <td className="border-l border-slate-800/70 py-1.5 pl-3 text-[11px] text-slate-300">
+                      <td className="w-28 border-l border-slate-800/70 py-1.5 pl-3 text-right text-[11px] tabular-nums text-slate-300">
                         {LEG_LABEL[s.best]}
                         <span className="ml-1 text-[10px] text-slate-600">
-                          {s.gap < 1000000 ? '(사실상 동률)' : `+${money(s.gap)}`}
+                          {s.gap < 1000000 ? '동률' : `+${money(s.gap)}`}
                         </span>
                       </td>
                     </tr>
