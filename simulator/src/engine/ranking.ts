@@ -136,6 +136,42 @@ function priceBand(price: number): string {
   return '7억 이상';
 }
 
+/**
+ * 상위군과 전체의 속성 분포를 비교해 배수(lift)를 냅니다.
+ *
+ * 수익률 상위권과 분양권 프리미엄 상위권이 같은 질문을 하므로 — "오른
+ * 것들끼리 무엇이 같았나" — 계산을 공유합니다. 임계값과 다중비교 주의도
+ * 한 곳에 두어야 두 화면이 어긋나지 않습니다.
+ */
+export function computeTraits<T>(
+  all: T[],
+  top: T[],
+  groups: { id: string; label: string; hint: string; of: (e: T) => string }[]
+): TraitGroup[] {
+  return groups.map((g) => {
+    const allCount = new Map<string, number>();
+    const topCount = new Map<string, number>();
+    for (const e of all) allCount.set(g.of(e), (allCount.get(g.of(e)) ?? 0) + 1);
+    for (const e of top) topCount.set(g.of(e), (topCount.get(g.of(e)) ?? 0) + 1);
+
+    const buckets: TraitBucket[] = [...topCount.entries()]
+      .map(([key, n]) => {
+        const topShare = n / Math.max(1, top.length);
+        const allShare = (allCount.get(key) ?? 0) / Math.max(1, all.length);
+        return { key, topCount: n, topShare, allShare, lift: allShare > 0 ? topShare / allShare : 0 };
+      })
+      .sort((a, b) => b.lift - a.lift || b.topCount - a.topCount);
+
+    return { id: g.id, label: g.label, hint: g.hint, buckets };
+  });
+}
+
+/** 배수가 이 값을 넘으면 상위군에 유의미하게 몰렸다고 봅니다. */
+export const TRAIT_LIFT_STRONG = 1.3;
+export const TRAIT_LIFT_WEAK = 0.7;
+/** 표본이 이보다 적으면 배수가 커도 이야기로 만들지 않습니다. */
+export const TRAIT_MIN_BUCKET = 3;
+
 function traitsOf(all: PerformerEntry[], top: PerformerEntry[]): TraitGroup[] {
   const groups: { id: string; label: string; hint: string; of: (e: PerformerEntry) => string }[] = [
     {

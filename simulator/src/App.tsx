@@ -7,6 +7,7 @@ import { PropertiesPage } from './pages/PropertiesPage';
 import { ReportPage } from './pages/ReportPage';
 import { ScenarioPage } from './pages/ScenarioPage';
 import { MarketPage } from './pages/MarketPage';
+import { PremiumDrawer } from './pages/PremiumDrawer';
 import { RankingDrawer } from './pages/RankingDrawer';
 import { TenurePage } from './pages/TenurePage';
 import { useStore } from './state/store';
@@ -125,9 +126,14 @@ export function App() {
               <div className="mb-1 px-1 text-[10px] font-medium tracking-wide text-slate-600">
                 어디서나
               </div>
-              <span className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-700 px-3 py-2 text-xs text-slate-500">
-                수익률 공통점 ▸
-              </span>
+              <div className="flex gap-1">
+                <span className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-700 px-3 py-2 text-xs text-slate-500">
+                  수익률 공통점 ▸
+                </span>
+                <span className="flex items-center gap-1.5 rounded-lg border border-dashed border-slate-700 px-3 py-2 text-xs text-slate-500">
+                  청약 공통점 ▸
+                </span>
+              </div>
             </div>
           </nav>
         </div>
@@ -144,6 +150,7 @@ export function App() {
       </main>
 
       <RankingDrawer />
+      <PremiumDrawer />
 
       <footer className="mx-auto max-w-7xl px-5 pb-10">
         <div className="rounded-xl border border-slate-800 bg-slate-900/30 px-4 py-3 print-plain">

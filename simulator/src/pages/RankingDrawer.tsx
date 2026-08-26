@@ -198,7 +198,7 @@ export function RankingDrawer() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed top-1/2 right-0 z-40 -translate-y-1/2 rounded-l-xl border border-r-0 border-slate-700 bg-slate-900 px-2 py-4 text-[11px] font-medium text-slate-300 transition hover:bg-slate-800 no-print"
+        className="fixed top-1/2 right-0 z-40 -translate-y-[calc(50%+6px)] rounded-l-xl border border-r-0 border-slate-700 bg-slate-900 px-2 py-4 text-[11px] font-medium text-slate-300 transition hover:bg-slate-800 no-print"
         style={{ writingMode: 'vertical-rl' }}
       >
         수익률 공통점

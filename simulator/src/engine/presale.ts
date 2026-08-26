@@ -21,6 +21,7 @@
 
 import presaleSnapshot from '../data/presale-2026-08.json';
 import { MARKET, quarterLabel, type MarketPoint } from './market';
+import { computeTraits, TRAIT_MIN_BUCKET, type TraitGroup } from './ranking';
 import { DISTRICTS } from './regions';
 
 export interface PresaleComplex {
@@ -181,3 +182,172 @@ export function summarizePremium(rows: PremiumRow[]): PremiumSummary | null {
 /** 화면에서 쓰는 기간 표기 */
 export const premiumPeriod = (r: PremiumRow) =>
   `${quarterLabel(r.presaleQ)} → ${quarterLabel(r.saleQ)}`;
+
+// ── 청약 공통점 ─────────────────────────────────────────────────
+
+export type PremiumMode = 'total' | 'annualized';
+
+export interface PremiumInsightResult {
+  mode: PremiumMode;
+  topPercent: number;
+  universe: number;
+  topCount: number;
+  entries: PremiumRow[];
+  traits: TraitGroup[];
+  summary: PremiumSummary;
+  caveats: string[];
+}
+
+const areaBand = (a: number) =>
+  a < 40 ? '초소형 (40㎡ 미만)'
+  : a < 60 ? '소형 (40~60㎡)'
+  : a <= 85 ? '중형 (60~85㎡)'
+  : a <= 135 ? '대형 (85~135㎡)'
+  : '초대형 (135㎡ 초과)';
+
+const priceBand = (p: number) => {
+  const eok = p / 1e8;
+  return eok < 2 ? '2억 미만'
+    : eok < 3 ? '2~3억'
+    : eok < 4 ? '3~4억'
+    : eok < 6 ? '4~6억'
+    : eok < 9 ? '6~9억'
+    : '9억 이상';
+};
+
+const yearOf = (q: number) => `${PRESALE.quarterBaseYear + Math.floor(q / 4)}년`;
+
+const holdBand = (gap: number) => {
+  const y = gap / 4;
+  return y < 3 ? '3년 미만' : y < 5 ? '3~5년' : y < 8 ? '5~8년' : '8년 이상';
+};
+
+/** 연환산 프리미엄 — 시차가 다른 건들을 같은 자로 재려면 필요합니다. */
+export const annualizedPremium = (r: PremiumRow) =>
+  Math.pow(1 + r.premiumRatio, 1 / Math.max(0.25, r.quarterGap / 4)) - 1;
+
+/**
+ * 프리미엄이 많이 붙은 분양권의 **공통점**.
+ *
+ * 총 프리미엄으로 상위를 뽑으면 "오래 들고 있었다"가 1등 공통점이 됩니다 —
+ * 시차 중위가 27분기라 그 기간 시장이 오른 몫이 통째로 섞이기 때문입니다.
+ * 그래서 **연환산 모드를 기본**으로 둡니다. 같은 자로 재야 평형·지역·가격대의
+ * 차이가 드러납니다.
+ */
+export function premiumInsights(
+  districtCodes: string[] | undefined,
+  mode: PremiumMode,
+  topPercent = 20
+): PremiumInsightResult | null {
+  const all = premiumRows(districtCodes);
+  const summary = summarizePremium(all);
+  if (!summary) return null;
+
+  const key = (r: PremiumRow) => (mode === 'annualized' ? annualizedPremium(r) : r.premiumRatio);
+  const sorted = [...all].sort((a, b) => key(b) - key(a));
+  const topCount = Math.max(1, Math.round((sorted.length * topPercent) / 100));
+  const top = sorted.slice(0, topCount);
+
+  const traits = computeTraits(all, top, [
+    {
+      id: 'area',
+      label: '전용면적대',
+      hint: '어느 평형에 프리미엄이 붙었는지 — 마이너스는 초소형에 몰립니다',
+      of: (r) => areaBand(r.area),
+    },
+    {
+      id: 'presalePrice',
+      label: '분양권 매입가대',
+      hint: '싸게 산 분양권이 더 올랐는지',
+      of: (r) => priceBand(r.presalePrice),
+    },
+    {
+      id: 'presaleYear',
+      label: '분양권 매입 시기',
+      hint: '언제 산 분양권이 더 올랐는지 — 시장 국면이 그대로 드러납니다',
+      of: (r) => yearOf(r.presaleQ),
+    },
+    {
+      id: 'hold',
+      label: '보유 기간',
+      hint: '총 프리미엄 모드에서는 동어반복이 됩니다 — 연환산으로 보세요',
+      of: (r) => holdBand(r.quarterGap),
+    },
+    {
+      id: 'district',
+      label: '시군구',
+      hint: '지역이 갈리는지',
+      of: (r) => r.districtLabel,
+    },
+    {
+      id: 'umd',
+      label: '법정동 (생활권)',
+      hint: '같은 구 안에서도 동별로 갈리는지',
+      of: (r) => r.umd || '미상',
+    },
+  ]);
+
+  const caveats = [
+    `분양권 마지막 거래와 그 이후 매매를 짝지었습니다. 시차 중위 ${summary.medianQuarterGap}분기 — 그 기간 시장 전체가 오른 몫이 섞여 있습니다.`,
+    '양 끝 거래가 2건 미만인 건은 제외했습니다. 개별 물건 한 채의 가격이라서요.',
+    mode === 'annualized'
+      ? '연환산 모드 — 시차로 나눠 같은 자로 쟀습니다. 보유 기간 공통점은 이 모드에서 의미가 약합니다.'
+      : '총 프리미엄 모드 — 오래 들고 있을수록 커집니다. "보유 기간" 공통점은 동어반복이니 연환산과 같이 보세요.',
+    '과거에 그랬다는 것이지 앞으로도 그렇다는 뜻이 아닙니다. 속성 여섯 개를 동시에 봤으므로 그중 몇은 우연히 겹칩니다.',
+  ];
+
+  return { mode, topPercent, universe: all.length, topCount: top.length, entries: top, traits, summary, caveats };
+}
+
+/** 인사이트 리포트 — 논의 자리에 그대로 올릴 수 있게 */
+export function premiumReport(result: PremiumInsightResult, scopeLabel: string): string {
+  const pct = (v: number, d = 1) => `${(v * 100).toFixed(d)}%`;
+  const eok = (v: number) => `${(v / 1e8).toFixed(2)}억`;
+  const L: string[] = [];
+
+  L.push(`# 청약·분양권 프리미엄 공통점 — ${scopeLabel}`);
+  L.push('');
+  L.push(
+    `- 기준: ${result.mode === 'annualized' ? '연환산 프리미엄' : '총 프리미엄'} 상위 ${result.topPercent}%` +
+      ` (짝지어진 ${result.universe}건 중 ${result.topCount}건)`
+  );
+  L.push(
+    `- 전체 프리미엄 중위 ${pct(result.summary.median)} · 사분위 ${pct(result.summary.p25)}~${pct(result.summary.p75)}`
+  );
+  L.push(`- 준공 후가 더 쌌던 비율 ${pct(result.summary.lossRatio, 0)}`);
+  L.push(`- 출처: ${PRESALE.source.name} · 기준일 ${PRESALE.asOf}`);
+  L.push('');
+
+  L.push('## 공통점');
+  for (const g of result.traits) {
+    const shown = g.buckets.filter((b) => b.topCount >= TRAIT_MIN_BUCKET).slice(0, 5);
+    if (!shown.length) continue;
+    L.push('');
+    L.push(`### ${g.label}`);
+    L.push(`> ${g.hint}`);
+    L.push('');
+    L.push('| 구분 | 상위권 | 상위 비중 | 전체 비중 | 배수 |');
+    L.push('|---|---|---|---|---|');
+    for (const b of shown) {
+      L.push(`| ${b.key} | ${b.topCount}건 | ${pct(b.topShare, 0)} | ${pct(b.allShare, 0)} | ${b.lift.toFixed(2)}배 |`);
+    }
+  }
+
+  L.push('');
+  L.push('## 상위 물건');
+  L.push('');
+  L.push('| 단지 | 법정동 | 전용 | 분양권 | 매매 | 총 프리미엄 | 연환산 | 기간 |');
+  L.push('|---|---|---|---|---|---|---|---|');
+  for (const r of result.entries.slice(0, 30)) {
+    L.push(
+      `| ${r.name} | ${r.umd} | ${r.area}㎡ | ${eok(r.presalePrice)} | ${eok(r.salePrice)} | ` +
+        `${pct(r.premiumRatio)} | ${pct(annualizedPremium(r), 2)} | ${premiumPeriod(r)} |`
+    );
+  }
+
+  L.push('');
+  L.push('## 읽을 때 주의');
+  for (const c of result.caveats) L.push(`- ${c}`);
+
+  return L.join('\n');
+}
