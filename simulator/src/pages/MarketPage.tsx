@@ -67,11 +67,15 @@ function Series({
 }
 
 /**
- * 분포를 하나의 띠로 보여줍니다.
+ * 분포를 띠 하나로 — 가이드 04.
  *
- * 중위·하위25%·최악을 숫자 네 개로 늘어놓으면 서로의 간격이 안 보입니다. 정작
- * 의사결정에 쓰이는 건 **간격**입니다 — 진입시점을 못 고른다면 하위 구간이 실질
- * 기대치이고, 그게 기준선(대출금리 등)을 넘는지가 실행 여부를 가릅니다.
+ * 예전에는 값을 축 라벨로 아래에 늘어놓고 판정을 배지로 옆에 뒀는데, 정작
+ * 읽어야 할 것은 **판정 문장**이었습니다. 문장을 띠 위로 올리고, 값은 축이
+ * 아니라 띠에 직접 붙입니다.
+ *
+ * 표본이 얇으면 띠 자체를 흐리게 죽입니다 — "읽지 말라"고 그림으로 말하는
+ * 편이 경고 문구보다 강합니다. 진입시점이 하나뿐이면 분포라 부를 수 없으므로
+ * 띠를 아예 그리지 않습니다.
  */
 function DistributionRow({
   label,
@@ -93,73 +97,127 @@ function DistributionRow({
     );
   }
 
+  // 진입시점이 하나면 분포가 아닙니다 — 사분위가 전부 같은 값으로 뭉개집니다.
+  if (dist.count < 2) {
+    return (
+      <div className="rounded-lg border border-slate-800/60 bg-slate-950/30 px-3.5 py-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-slate-400">{label}</span>
+          <TierBadge tier="cond" label={`표본 ${dist.count}개 · 분포 아님`} />
+        </div>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
+          진입시점이 하나뿐이라 분포라 부를 수 없습니다.{' '}
+          <span className="text-slate-300">{percent(dist.median, 1)}</span>는 한 사례의
+          결과입니다.
+        </p>
+      </div>
+    );
+  }
+
   const margin = safetyMargin(dist, reference);
-  // 축은 최악·최고·기준선을 모두 담고 양쪽에 여백을 줍니다.
   const lo = Math.min(dist.worst, reference, 0) - 0.01;
   const hi = Math.max(dist.best, reference, 0) + 0.01;
   const x = (v: number) => `${((v - lo) / (hi - lo)) * 100}%`;
   const width = (a: number, b: number) => `${((b - a) / (hi - lo)) * 100}%`;
 
-  const tone =
-    margin.verdict === 'safe'
-      ? { badge: 'good' as const, text: '최악도 기준 위' }
-      : margin.verdict === 'thin'
-        ? { badge: 'warn' as const, text: '하위 25%는 기준 위' }
-        : { badge: 'bad' as const, text: '하위 25%가 기준 아래' };
+  /*
+   * 판정 문장은 실제 비율에서 뽑습니다. "넷 중 하나꼴"처럼 고정 문구를 쓰면
+   * 2건 중 2건이 못 미쳤는데 "절반 가까이"라고 적히는 일이 생깁니다.
+   */
+  const missCount = Math.round(dist.count * (1 - margin.beatRatio));
+  const verdict =
+    missCount === 0
+      ? '어느 시점에 들어갔어도 기준선을 넘었습니다.'
+      : missCount === dist.count
+        ? `${dist.count}개 진입시점 전부가 기준선에 못 미쳤습니다.`
+        : `진입시점 ${dist.count}개 중 ${missCount}개(${percent(
+            1 - margin.beatRatio,
+            0
+          )})가 기준선에 못 미쳤습니다.`;
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3.5 py-3">
+    <div
+      className={`rounded-lg border px-3.5 py-3 ${
+        dist.thin
+          ? 'border-slate-800/60 bg-slate-950/20 opacity-55'
+          : 'border-slate-800 bg-slate-950/40'
+      }`}
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-slate-300">{label}</span>
-          <Badge tone={tone.badge}>{tone.text}</Badge>
-          {dist.thin && <Badge tone="warn">표본 {dist.count}개</Badge>}
+          {dist.thin && <TierBadge tier="warn" label={`표본 ${dist.count}개 — 얇음`} />}
         </div>
-        <span className="text-[11px] text-slate-500">진입시점 {dist.count}개</span>
+        <span className="text-[10px] text-slate-600">진입시점 {dist.count}개</span>
       </div>
 
-      {/* 분포 띠 — 최악 ├ 하위25% ▓ 중위 ▓ 상위25% ┤ 최고 */}
-      <div className="relative mt-3 h-9">
-        {/* 손실 구간 음영 */}
+      {/* 판정 문장이 주인공입니다 */}
+      <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+        언제 들어갔느냐로 연{' '}
+        <span className="text-slate-200">{percent(dist.worst, 1)}</span> ~{' '}
+        <span className="text-slate-200">{percent(dist.best, 1)}</span> 까지 갈렸습니다.{' '}
+        <span className={missCount > dist.count / 4 ? 'text-amber-300' : 'text-slate-400'}>
+          {verdict}
+        </span>
+      </p>
+
+      {/* 값은 축 라벨이 아니라 띠에 직접 붙습니다 */}
+      <div className="relative mt-4 mb-5 h-8">
         {lo < 0 && (
           <div
             className="absolute inset-y-0 rounded-l bg-rose-500/10"
             style={{ left: 0, width: width(lo, Math.min(0, hi)) }}
           />
         )}
-        {/* 전체 범위 */}
         <div
           className="absolute top-4 h-px bg-slate-700"
           style={{ left: x(dist.worst), width: width(dist.worst, dist.best) }}
         />
-        {/* 사분위 상자 */}
         <div
-          className="absolute top-2 h-5 rounded bg-sky-500/25 ring-1 ring-sky-500/40"
+          className="absolute top-2 h-5 rounded bg-slate-600/40 ring-1 ring-slate-500/50"
           style={{ left: x(dist.p25), width: width(dist.p25, dist.p75) }}
         />
-        {/* 중위 */}
-        <div className="absolute top-1.5 h-6 w-0.5 bg-sky-300" style={{ left: x(dist.median) }} />
-        {/* 기준선 */}
+        <div className="absolute top-1.5 h-6 w-0.5 bg-slate-100" style={{ left: x(dist.median) }} />
         <div
           className="absolute inset-y-0 w-px border-l border-dashed border-amber-400"
           style={{ left: x(reference) }}
         />
-        {/* 양 끝 수염 */}
         {[dist.worst, dist.best].map((v, i) => (
           <div key={i} className="absolute top-2.5 h-3 w-px bg-slate-500" style={{ left: x(v) }} />
         ))}
+
+        {/* 띠에 직접 붙는 값 */}
+        <span
+          className="absolute top-full mt-0.5 -translate-x-1/2 text-[9px] tabular-nums text-slate-500"
+          style={{ left: x(dist.worst) }}
+        >
+          {percent(dist.worst, 1)}
+        </span>
+        <span
+          className="absolute top-full mt-0.5 -translate-x-1/2 text-[9px] font-semibold tabular-nums text-slate-200"
+          style={{ left: x(dist.median) }}
+        >
+          중위 {percent(dist.median, 1)}
+        </span>
+        <span
+          className="absolute top-full mt-0.5 -translate-x-1/2 text-[9px] tabular-nums text-slate-500"
+          style={{ left: x(dist.best) }}
+        >
+          {percent(dist.best, 1)}
+        </span>
+        <span
+          className="absolute -top-3.5 -translate-x-1/2 text-[9px] tabular-nums text-amber-400"
+          style={{ left: x(reference) }}
+        >
+          기준 {percent(reference, 1)}
+        </span>
       </div>
 
-      <div className="flex justify-between text-[10px] tabular-nums text-slate-500">
-        <span className="text-rose-300">최악 {percent(dist.worst, 1)}</span>
-        <span className="text-amber-300">하위25% {percent(dist.p25, 1)}</span>
-        <span className="text-sky-200">중위 {percent(dist.median, 1)}</span>
-        <span className="text-slate-400">최고 {percent(dist.best, 1)}</span>
-      </div>
-
-      <div className="mt-2 grid grid-cols-3 gap-2 border-t border-slate-800/70 pt-2">
-        <div>
-          <div className="text-[10px] text-slate-600">안전마진 (하위25% − 기준)</div>
+      <div className="grid grid-cols-3 gap-2 border-t border-slate-800/70 pt-2">
+        <div title="진입시점을 고를 수 없다면 하위 구간이 실질 기대치입니다. 이 값이 기준선을 넘는지가 실행 여부를 가릅니다.">
+          <div className="text-[10px] text-slate-600">
+            안전마진 (하위25% − 기준) <span className="text-slate-700">ⓘ</span>
+          </div>
           <div
             className={`text-sm font-semibold tabular-nums ${
               margin.marginAtP25 >= 0 ? 'text-emerald-300' : 'text-rose-300'
@@ -386,11 +444,11 @@ export function MarketPage() {
         >
           <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-500">
             <span className="flex items-center gap-1">
-              <span className="inline-block h-2.5 w-4 rounded bg-sky-500/25 ring-1 ring-sky-500/40" />
+              <span className="inline-block h-2.5 w-4 rounded bg-slate-600/40 ring-1 ring-slate-500/50" />
               사분위 (하위25%~상위25%)
             </span>
             <span className="flex items-center gap-1">
-              <span className="inline-block h-3 w-0.5 bg-sky-300" /> 중위
+              <span className="inline-block h-3 w-0.5 bg-slate-100" /> 중위
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-block h-3 w-px border-l border-dashed border-amber-400" />{' '}
