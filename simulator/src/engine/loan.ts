@@ -96,6 +96,9 @@ export function calcLoan(
     monthlyPayment: 0,
     totalInterest: 0,
     dtiRatio: 0,
+    regulatoryRatio: 0,
+    regulatoryCap: 0,
+    regulatoryKind: 'DSR',
     downPayment: property.price,
     costs,
     requiredCash: property.price + costs.total,
@@ -252,6 +255,17 @@ export function calcLoan(
       ? (monthly * 12 + profile.existingMonthlyDebt * 12) / scenario.assessedIncome
       : 0;
 
+  /*
+   * 규제 비율은 **스트레스 금리로 잰 값**입니다. 실제 금리로 잰 dtiRatio 보다
+   * 높고, 한도를 깎는 것도 이쪽입니다. 둘을 같이 보여줘야 "부담 20%인데 왜
+   * 한도가 막혔나"가 설명됩니다.
+   */
+  const stressedMonthly = monthlyPayment(limit, appliedRateForLimit, profile.termYears);
+  const regulatoryRatio =
+    scenario.assessedIncome > 0
+      ? (stressedMonthly * 12 + profile.existingMonthlyDebt * 12) / scenario.assessedIncome
+      : 0;
+
   const feasible = requiredCash <= scenario.availableCash;
   const tight =
     feasible && requiredCash > scenario.availableCash * RULES.defaults.cashTightRatio;
@@ -290,6 +304,9 @@ export function calcLoan(
     monthlyPayment: monthly,
     totalInterest: interest,
     dtiRatio,
+    regulatoryRatio,
+    regulatoryCap: ratioForRepay,
+    regulatoryKind: dsrExempt ? 'DTI' : 'DSR',
     downPayment,
     costs,
     requiredCash,

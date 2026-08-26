@@ -101,7 +101,20 @@ export interface LoanResult {
   rate: number;
   monthlyPayment: number;
   totalInterest: number;
+  /** 실제 금리 기준 상환부담률 — 실제로 통장에서 나가는 비율 */
   dtiRatio: number;
+  /**
+   * 규제 기준 상환비율. 은행 상품은 **스트레스 금리(+1.5%p)** 로 계산한 DSR,
+   * DSR 면제 정책상품은 DTI 입니다.
+   *
+   * 실제 금리로 잰 `dtiRatio` 보다 항상 높습니다 — 그래서 "부담 20%"만 보고
+   * 규제선(40%)에 여유가 있다고 판단하면 틀립니다. 한도를 실제로 깎는 것은
+   * 이쪽입니다.
+   */
+  regulatoryRatio: number;
+  /** 그 상품에 적용되는 규제 상한 (DSR 40% / DTI 60%) */
+  regulatoryCap: number;
+  regulatoryKind: 'DSR' | 'DTI';
   downPayment: number;
   costs: CostBreakdown;
   requiredCash: number;

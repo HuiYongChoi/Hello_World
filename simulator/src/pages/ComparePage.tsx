@@ -381,7 +381,24 @@ function MatrixCell({
           value={`LTV ${(r.appliedLtv * 100).toFixed(0)}%`}
           title={constraintAdvice(r, property)}
         />
-        <TierBadge tier="cond" label="부담" value={percent(r.dtiRatio, 0)} />
+        {/*
+          규제 비율은 스트레스 금리로 잰 값이라 실제 부담률보다 높습니다.
+          한도를 깎는 건 이쪽이므로 규제선 대비로 보여줍니다.
+        */}
+        <TierBadge
+          tier={r.regulatoryRatio > r.regulatoryCap * 0.9 ? 'warn' : 'cond'}
+          label={r.regulatoryKind}
+          value={`${percent(r.regulatoryRatio, 0)}/${percent(r.regulatoryCap, 0)}`}
+          title={`${r.regulatoryKind} ${percent(r.regulatoryRatio, 1)} — 규제 상한 ${percent(
+            r.regulatoryCap,
+            0
+          )} 대비. ${
+            r.regulatoryKind === 'DSR'
+              ? '스트레스 금리(+1.5%p)를 얹어 계산한 값이라 실제 부담률보다 높습니다. 한도를 깎는 것은 이 값입니다.'
+              : 'DSR 면제 상품이라 DTI 로 봅니다.'
+          } 실제 금리로 통장에서 나가는 부담률은 ${percent(r.dtiRatio, 1)} 입니다.`}
+        />
+        <TierBadge tier="cond" label="실부담" value={percent(r.dtiRatio, 0)} />
         <TierBadge tier="cond" label="현금" value={money(r.requiredCash)} />
       </div>
       <ProvenanceChip footnote={footnote}>{limitDerivation(r, property)}</ProvenanceChip>

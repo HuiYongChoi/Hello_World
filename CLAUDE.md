@@ -22,6 +22,8 @@ src/rules/2026-08.json   ← 모든 정책 수치. 코드엔 로직만.
 src/data/regions.json    ← 수집 대상·후보군과 그 이유 (수집 스크립트가 읽음)
 src/data/market-YYYY-MM.json ← 매매 실거래 스냅샷 (빌드 타임 수집, 손대지 말 것)
 src/data/rent-YYYY-MM.json   ← 전월세에서 잰 전세가율·전환율
+src/data/presale-YYYY-MM.json ← 분양권전매 실거래 스냅샷
+src/data/index-*.json · rates-*.json ← KRX·FRED·ECOS 지수와 금리
 src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상.
   rules.ts       룰셋 로더, 지역·규제지역 판정
   finance.ts     원리금균등 (PMT / PV)
@@ -37,6 +39,7 @@ src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상
   rent.ts        전세가율·전월세전환율 실측치 (자리표시자 대체)
   regions.ts     시군구 목록·후보군 + 시군구명 → 법정동코드 조회
   ranking.ts     수익률 상위권 추출 + 공통점(lift) + 리포트 생성
+  presale.ts     분양권 프리미엄 (분양권 전매가 vs 준공 후 매매가)
   scoring.ts     입지 지표 정규화 + 지역별 가중치 프리셋
   matrix.ts      매트릭스 조립 + 3축 산점도 데이터
 src/state/store.tsx      React 상태 + localStorage
@@ -85,7 +88,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 195건)
+npm test                 # 엔진 단위 테스트 (현재 240건)
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
 npm run standalone       # dist/standalone.html — 골격 없는 조각 (아티팩트 호스트용)
@@ -93,6 +96,7 @@ npm run fetch:market     # 국토부 매매 실거래가 → src/data/market-*.j
 npm run fetch:rent       # 국토부 전월세 실거래가 → src/data/rent-*.json
 npm run fetch:index      # KRX 코스피·채권지수 → src/data/index-*.json
 npm run fetch:rates      # FRED 해외지수 + ECOS 금리·물가 → src/data/rates-*.json
+npm run fetch:presale    # 국토부 분양권전매 실거래가 → src/data/presale-*.json
 node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 룰셋
 ```
 
@@ -179,7 +183,9 @@ node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 
    있었다는 뜻입니다.
 
    남은 소스:
-   - 국토부 **분양권전매** 실거래가 — 청약 축에 필요
+   - ~~국토부 **분양권전매** 실거래가~~ — **완료**. `presale.ts` 가 같은 단지·평형끼리
+     짝지어 프리미엄을 냅니다. 분양권 자료에는 `aptSeq` 가 없어 단지명·법정동·평형으로
+     조인하고, **매매가 분양권 거래 이후인 건만** 씁니다 — 순서가 뒤집히면 비교가 아닙니다.
    - ~~한국은행 ECOS~~ · ~~KRX~~ · ~~FRED~~ — **완료**. 전세자금대출 금리·CPI·코스피·채권·
      S&P500·나스닥100 이 실측으로 들어왔습니다.
 

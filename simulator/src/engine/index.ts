@@ -11,6 +11,7 @@ export * from './affordability';
 export * from './tax';
 export * from './regions';
 export * from './ranking';
+export * from './presale';
 export * from './indexes';
 export * from './rent';
 export * from './market';

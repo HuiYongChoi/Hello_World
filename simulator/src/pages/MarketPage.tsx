@@ -23,6 +23,7 @@ import {
   THIN_DEAL_COUNT,
   type MarketPoint,
 } from '../engine/market';
+import { PremiumCard } from './PremiumCard';
 
 /** 중위가 추이 스파크라인. 거래가 얇은 분기는 점을 비워 표시합니다. */
 function Series({
@@ -481,6 +482,8 @@ export function MarketPage() {
         방법론 세 줄은 위 카드의 접이식으로 옮겼습니다 (가이드 05 — 지우지 않고 위치만 이동).
         여기는 "이 수치로 무엇을 하면 안 되는가"만 남깁니다.
       */}
+      <PremiumCard />
+
       <Card title="이 숫자가 아닌 것">
         <ul className="space-y-1.5">
           {[

@@ -244,3 +244,41 @@ describe('한도 근거 문장 (가이드 03)', () => {
     expect(limitFootnote(r, property)).toContain(money(r.limit));
   });
 });
+
+describe('규제 상환비율 (DSR/DTI)', () => {
+  const scenario = deriveScenario(baseProfile, ALL_SCENARIO_AXES.find((a) => a.id === 'before-sole')!);
+
+  it('은행 상품은 DSR, DSR 면제 정책상품은 DTI 로 판정한다', () => {
+    const bank = calcLoan(getProduct('bank_mortgage'), baseProfile, scenario, makeProperty());
+    const policy = calcLoan(getProduct('bogeumjari_first'), baseProfile, scenario, makeProperty());
+
+    expect(bank.regulatoryKind).toBe('DSR');
+    expect(policy.regulatoryKind).toBe('DTI');
+    expect(bank.regulatoryCap).toBe(0.4);
+    expect(policy.regulatoryCap).toBe(0.6);
+  });
+
+  it('스트레스 금리를 얹으므로 규제 DSR 은 실제 부담률보다 높다', () => {
+    const bank = calcLoan(getProduct('bank_mortgage'), baseProfile, scenario, makeProperty());
+    expect(bank.regulatoryRatio).toBeGreaterThan(bank.dtiRatio);
+  });
+
+  it('스트레스가 없는 정책상품은 규제 비율과 실제 부담률이 같다', () => {
+    const policy = calcLoan(getProduct('bogeumjari_first'), baseProfile, scenario, makeProperty());
+    expect(policy.regulatoryRatio).toBeCloseTo(policy.dtiRatio, 10);
+  });
+
+  it('규제 비율이 상한을 넘지 않는다 — 넘으면 한도가 그만큼 깎였어야 합니다', () => {
+    for (const id of ['bank_mortgage', 'bogeumjari_first']) {
+      const r = calcLoan(getProduct(id), baseProfile, scenario, makeProperty());
+      if (!r.eligible) continue;
+      expect(r.regulatoryRatio).toBeLessThanOrEqual(r.regulatoryCap + 0.001);
+    }
+  });
+
+  it('부적격이어도 필드가 비어 있지 않다', () => {
+    const r = calcLoan(getProduct('sinsaenga_special'), baseProfile, scenario, makeProperty());
+    expect(r.eligible).toBe(false);
+    expect(r.regulatoryKind).toBeDefined();
+  });
+});
