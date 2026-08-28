@@ -20,7 +20,7 @@
  * 그리고 여기서 나온 공통점은 **과거에 그랬다**일 뿐, 앞으로도 그렇다는 뜻이 아닙니다.
  */
 
-import { subjectParticle, topicParticle } from './format';
+import { topicParticle } from './format';
 import { MARKET, quarterLabel, type MarketComplex, type MarketPoint } from './market';
 import { DISTRICTS } from './regions';
 
@@ -50,10 +50,20 @@ export interface PerformerEntry {
 
 export interface TraitBucket {
   key: string;
+  /** 상위권 중 이 구간에 든 건수 */
   topCount: number;
+  /** 전체 중 이 구간에 든 건수 — 표본 크기라 화면에 반드시 같이 냅니다 */
+  allCount: number;
   topShare: number;
   allShare: number;
-  /** topShare ÷ allShare. 1보다 크면 상위권에 더 몰려 있습니다. */
+  /**
+   * **이 구간을 고르면 상위권에 들 확률** = topCount ÷ allCount.
+   *
+   * 기준선은 전체 상위권 진입률(= 상위 몇 %를 뽑았는지)이라 고정입니다.
+   * 상위 20% 를 뽑았으면 아무거나 골라도 20%, 그보다 높으면 유리했다는 뜻입니다.
+   */
+  hitRate: number;
+  /** hitRate ÷ 기준선. topShare ÷ allShare 와 같은 값입니다 (베이즈). */
   lift: number;
 }
 
@@ -154,11 +164,28 @@ export function computeTraits<T>(
     for (const e of all) allCount.set(g.of(e), (allCount.get(g.of(e)) ?? 0) + 1);
     for (const e of top) topCount.set(g.of(e), (topCount.get(g.of(e)) ?? 0) + 1);
 
+    /*
+     * `hitRate` 가 이 계산의 결론입니다.
+     *
+     * `topShare`(상위권 중 이 특성의 비율)는 방향이 뒤집혀 있습니다 — 사람은
+     * "상위권 중 몇 %가 중동인가" 를 묻지 않고 "중동을 고르면 상위권에 들
+     * 확률이 얼마인가" 를 묻습니다. 베이즈로 같은 배수가 나오지만 후자는
+     * **기준선이 상위 비율 하나로 고정**돼 있어 외울 것이 하나뿐입니다.
+     */
     const buckets: TraitBucket[] = [...topCount.entries()]
       .map(([key, n]) => {
+        const inAll = allCount.get(key) ?? 0;
         const topShare = n / Math.max(1, top.length);
-        const allShare = (allCount.get(key) ?? 0) / Math.max(1, all.length);
-        return { key, topCount: n, topShare, allShare, lift: allShare > 0 ? topShare / allShare : 0 };
+        const allShare = inAll / Math.max(1, all.length);
+        return {
+          key,
+          topCount: n,
+          allCount: inAll,
+          topShare,
+          allShare,
+          hitRate: inAll > 0 ? n / inAll : 0,
+          lift: allShare > 0 ? topShare / allShare : 0,
+        };
       })
       .sort((a, b) => b.lift - a.lift || b.topCount - a.topCount);
 
@@ -212,11 +239,28 @@ function traitsOf(all: PerformerEntry[], top: PerformerEntry[]): TraitGroup[] {
     for (const e of all) allCount.set(g.of(e), (allCount.get(g.of(e)) ?? 0) + 1);
     for (const e of top) topCount.set(g.of(e), (topCount.get(g.of(e)) ?? 0) + 1);
 
+    /*
+     * `hitRate` 가 이 계산의 결론입니다.
+     *
+     * `topShare`(상위권 중 이 특성의 비율)는 방향이 뒤집혀 있습니다 — 사람은
+     * "상위권 중 몇 %가 중동인가" 를 묻지 않고 "중동을 고르면 상위권에 들
+     * 확률이 얼마인가" 를 묻습니다. 베이즈로 같은 배수가 나오지만 후자는
+     * **기준선이 상위 비율 하나로 고정**돼 있어 외울 것이 하나뿐입니다.
+     */
     const buckets: TraitBucket[] = [...topCount.entries()]
       .map(([key, n]) => {
+        const inAll = allCount.get(key) ?? 0;
         const topShare = n / Math.max(1, top.length);
-        const allShare = (allCount.get(key) ?? 0) / Math.max(1, all.length);
-        return { key, topCount: n, topShare, allShare, lift: allShare > 0 ? topShare / allShare : 0 };
+        const allShare = inAll / Math.max(1, all.length);
+        return {
+          key,
+          topCount: n,
+          allCount: inAll,
+          topShare,
+          allShare,
+          hitRate: inAll > 0 ? n / inAll : 0,
+          lift: allShare > 0 ? topShare / allShare : 0,
+        };
       })
       .sort((a, b) => b.lift - a.lift || b.topCount - a.topCount);
 
@@ -345,6 +389,8 @@ export interface Insight {
 export function rankingInsights(result: RankingResult): Insight[] {
   const out: Insight[] = [];
   const pct = (v: number) => `${(v * 100).toFixed(0)}%`;
+  // 상위 몇 %를 뽑았는지가 곧 기준선입니다 — 아무거나 골랐을 때의 상위권 진입률.
+  const baseRate = result.topCount / Math.max(1, result.universe);
 
   for (const g of result.traits) {
     // 시군구는 절대 모드에서 동어반복이라 인사이트로 만들지 않습니다.
@@ -355,16 +401,16 @@ export function rankingInsights(result: RankingResult): Insight[] {
 
       if (b.lift >= LIFT_STRONG) {
         out.push({
-          headline: `${g.label}: ${subjectParticle(b.key)} 상위권에 몰렸습니다`,
-          evidence: `상위권 ${pct(b.topShare)}(${b.topCount}건) vs 전체 ${pct(b.allShare)} — 상위권에 ${b.lift.toFixed(1)}배 자주`,
+          headline: `${g.label}: ${topicParticle(b.key)} 고르면 상위권 확률이 ${pct(baseRate)} → ${pct(b.hitRate)}`,
+          evidence: `${b.key} ${b.allCount}건 중 ${b.topCount}건이 상위권 = ${pct(b.hitRate)} (아무거나 골랐을 때 ${pct(baseRate)})`,
           topCount: b.topCount,
           lift: b.lift,
           strength: b.topCount >= 5 ? 'strong' : 'weak',
         });
       } else if (b.lift <= LIFT_WEAK) {
         out.push({
-          headline: `${g.label}: ${topicParticle(b.key)} 오히려 상위권에서 빠졌습니다`,
-          evidence: `상위권 ${pct(b.topShare)}(${b.topCount}건) vs 전체 ${pct(b.allShare)} — 상위권에 ${b.lift.toFixed(1)}배로 오히려 드묾`,
+          headline: `${g.label}: ${topicParticle(b.key)} 고르면 상위권 확률이 ${pct(baseRate)} → ${pct(b.hitRate)} 로 떨어집니다`,
+          evidence: `${b.key} ${b.allCount}건 중 ${b.topCount}건만 상위권 = ${pct(b.hitRate)} (아무거나 골랐을 때 ${pct(baseRate)})`,
           topCount: b.topCount,
           lift: b.lift,
           strength: b.topCount >= 5 ? 'strong' : 'weak',
@@ -479,11 +525,11 @@ export function rankingReport(result: RankingResult, scopeLabel: string): string
     lines.push(`### ${g.label}`);
     lines.push(`> ${g.hint}`);
     lines.push('');
-    lines.push('| 구분 | 상위권 건수 | 상위권 비중 | 전체 비중 | 상위권에 몇 배 자주 |');
+    lines.push('| 구분 | 이 구간 전체 | 그중 상위권 | 상위권에 들 확률 | 기준선 대비 |');
     lines.push('|---|---|---|---|---|');
     for (const b of shown) {
       lines.push(
-        `| ${b.key} | ${b.topCount}건 | ${pct(b.topShare, 1)} | ${pct(b.allShare, 1)} | ${b.lift.toFixed(2)}배 자주 |`
+        `| ${b.key} | ${b.allCount}건 | ${b.topCount}건 | ${pct(b.hitRate, 1)} | ${b.lift.toFixed(2)}배 |`
       );
     }
   }

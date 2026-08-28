@@ -326,10 +326,10 @@ export function premiumReport(result: PremiumInsightResult, scopeLabel: string):
     L.push(`### ${g.label}`);
     L.push(`> ${g.hint}`);
     L.push('');
-    L.push('| 구분 | 상위권 건수 | 상위권 비중 | 전체 비중 | 상위권에 몇 배 자주 |');
+    L.push('| 구분 | 이 구간 전체 | 그중 상위권 | 상위권에 들 확률 | 기준선 대비 |');
     L.push('|---|---|---|---|---|');
     for (const b of shown) {
-      L.push(`| ${b.key} | ${b.topCount}건 | ${pct(b.topShare, 0)} | ${pct(b.allShare, 0)} | ${b.lift.toFixed(2)}배 자주 |`);
+      L.push(`| ${b.key} | ${b.allCount}건 | ${b.topCount}건 | ${pct(b.hitRate, 0)} | ${b.lift.toFixed(2)}배 |`);
     }
   }
 

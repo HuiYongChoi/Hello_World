@@ -144,7 +144,9 @@ describe('인사이트', () => {
       expect(i.headline.length).toBeGreaterThan(0);
       expect(i.evidence.length).toBeGreaterThan(0);
       // 배수는 "가격이 몇 배" 로 오독되기 쉬워 문장에 반드시 "자주"·"드묾" 이 붙습니다.
-      expect(i.evidence).toMatch(/자주|드묾/);
+      // 근거는 "○○건 중 ○○건이 상위권" 이라는 확률 형태여야 합니다 — 배수 단독은
+      // 부동산 화면에서 가격 배수로 오독됩니다.
+      expect(i.evidence).toMatch(/건 중 \d+건.*상위권/);
     }
   });
 
@@ -193,6 +195,41 @@ describe('인사이트', () => {
   });
 });
 
+describe('상위권 진입 확률', () => {
+  const r = rankPerformers({ ...base, mode: 'excess' });
+  const buckets = r.traits.flatMap((g) => g.buckets);
+  const baseRate = r.topCount / r.universe;
+
+  it('기준선은 상위 몇 %를 뽑았는지와 같습니다 — 외울 기준이 하나입니다', () => {
+    expect(baseRate).toBeCloseTo(r.topPercent / 100, 2);
+  });
+
+  it('hitRate ÷ 기준선 = topShare ÷ allShare — 방향만 뒤집었을 뿐 같은 값입니다 (베이즈)', () => {
+    expect(buckets.length).toBeGreaterThan(0);
+    for (const b of buckets) {
+      if (b.allCount === 0) continue;
+      expect(b.hitRate).toBeCloseTo(b.topCount / b.allCount, 10);
+      expect(b.hitRate / baseRate).toBeCloseTo(b.lift, 8);
+    }
+  });
+
+  it('상위권 건수는 그 구간 전체 건수를 넘을 수 없습니다', () => {
+    for (const b of buckets) {
+      expect(b.topCount).toBeLessThanOrEqual(b.allCount);
+      expect(b.hitRate).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('구간별 전체 건수의 합은 전체 표본과 같습니다 — 분모가 새면 확률이 거짓말합니다', () => {
+    for (const g of r.traits) {
+      const sum = g.buckets.reduce((s, b) => s + b.allCount, 0);
+      // buckets 는 상위권에 하나라도 든 구간만 담으므로 전체 이하입니다.
+      expect(sum).toBeLessThanOrEqual(r.universe);
+      expect(g.buckets.reduce((s, b) => s + b.topCount, 0)).toBeLessThanOrEqual(r.topCount);
+    }
+  });
+});
+
 describe('조사 처리', () => {
   it('받침 유무에 따라 은/는, 이/가를 가려 붙인다', () => {
     expect(topicParticle('1990년대')).toBe('1990년대는');
@@ -218,7 +255,7 @@ describe('조사 처리', () => {
     const checked: string[] = [];
 
     for (const i of rankingInsights(r)) {
-      const m = i.headline.match(/([가-힣])([은는이가]) (?:상위권에|오히려)/);
+      const m = i.headline.match(/([가-힣])([은는이가]) 고르면/);
       if (!m) continue;
       const [, prev, particle] = m;
       const expected =

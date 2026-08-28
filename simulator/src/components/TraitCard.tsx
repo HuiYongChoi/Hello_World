@@ -1,82 +1,93 @@
 import { percent } from '../engine/format';
-import { TRAIT_LIFT_STRONG, TRAIT_LIFT_WEAK, TRAIT_MIN_BUCKET, type TraitBucket, type TraitGroup } from '../engine/ranking';
+import {
+  TRAIT_LIFT_STRONG,
+  TRAIT_LIFT_WEAK,
+  TRAIT_MIN_BUCKET,
+  type TraitBucket,
+  type TraitGroup,
+} from '../engine/ranking';
 
 /**
- * 공통점 카드 — 상위권과 전체의 **구성비**를 비교합니다.
+ * 공통점 카드 — **그 특성을 고르면 상위권에 들 확률**을 봅니다.
  *
- * ## 왜 "배" 를 그대로 쓰면 안 되나
+ * ## 왜 방향을 뒤집었나
  *
- * 부동산 화면에서 "2.77배" 는 거의 자동으로 **가격이 2.77배 올랐다**로 읽힙니다.
- * 실제 뜻은 전혀 다릅니다 — "이 특성이 상위권에 2.77배 자주 나타난다" 입니다.
- * 수익률과 빈도가 같은 단위로 보이면 숫자가 클수록 좋은 것처럼 오독됩니다.
- * 그래서 이 화면에서는 배수를 단독으로 두지 않고 **항상 "잦음" 을 붙이고**,
- * 그 근거인 두 비율(상위 76% vs 전체 28%)을 **같은 축 위에 아래위로** 놓습니다.
- * 좌우로 나란히 두면 두 막대가 서로 다른 자로 그려진 것처럼 보입니다.
+ * 원래 지표는 "상위권 중 76%가 중동" 이었습니다. 그런데 사람은 그렇게 묻지
+ * 않습니다 — "중동을 고르면 상위권에 들 확률이 얼마인가" 를 묻습니다.
+ * 베이즈로 배수는 같지만 뒤집은 쪽이 세 가지를 얻습니다.
+ *
+ * 1. **기준선이 하나로 고정**됩니다. 상위 20% 를 뽑았으니 아무거나 골라도
+ *    20% 입니다. 구간마다 다른 "전체 비중" 을 매번 읽을 필요가 없습니다.
+ * 2. **배수를 안 써도 강도가 보입니다.** 20% → 62% 는 그 자체로 읽힙니다.
+ *    "3.1배" 는 부동산 화면에서 거의 자동으로 가격 배수로 오독됩니다.
+ * 3. **표본 크기가 분모로 드러납니다.** "8건 중 5건" 은 62% 가 8건짜리
+ *    이야기라는 걸 숨길 수 없습니다. 이전 표기(`5/86 · 6%`)로는 8건이라는
+ *    사실이 아예 안 보였습니다.
  */
 
-function liftLabel(lift: number): { text: string; strong: boolean; rare: boolean } {
-  if (lift >= TRAIT_LIFT_STRONG) return { text: `${lift.toFixed(1)}배 자주`, strong: true, rare: false };
-  if (lift <= TRAIT_LIFT_WEAK) return { text: `${lift.toFixed(1)}배 — 오히려 드묾`, strong: false, rare: true };
-  return { text: '차이 없음', strong: false, rare: false };
-}
+/** 분모가 이보다 작으면 확률이 튑니다 — 숫자는 내되 흐리게 냅니다. */
+const THIN_SAMPLE = 10;
 
 function BucketRow({
   bucket: b,
-  topCount,
-  universe,
+  baseRate,
 }: {
   bucket: TraitBucket;
-  topCount: number;
-  universe: number;
+  baseRate: number;
 }) {
-  const lift = liftLabel(b.lift);
-  const allCount = Math.round(b.allShare * universe);
-  // 두 막대를 같은 자로 그립니다 — 큰 쪽을 100%로 잡으면 축이 흔들려서 비교가 안 됩니다.
-  const w = (share: number) => `${Math.min(100, share * 100)}%`;
+  const strong = b.lift >= TRAIT_LIFT_STRONG;
+  const rare = b.lift <= TRAIT_LIFT_WEAK;
+  const thin = b.allCount < THIN_SAMPLE;
+  // 확률 막대는 0~100% 고정 축입니다. 최대값에 맞춰 늘이면 기준선이 흔들립니다.
+  const w = `${Math.min(100, b.hitRate * 100)}%`;
 
   return (
     <div
       className="rounded-lg px-2 py-1.5 transition hover:bg-slate-900/50"
       title={
         `${b.key}\n` +
-        `상위권 ${topCount}건 중 ${b.topCount}건 = ${percent(b.topShare, 1)}\n` +
-        `전체 ${universe}건 중 ${allCount}건 = ${percent(b.allShare, 1)}\n` +
-        // 표시용 반올림이라 나눗셈이 딱 떨어지지 않습니다 — ≈ 로 그 사실을 드러냅니다.
-        `${percent(b.topShare, 1)} ÷ ${percent(b.allShare, 1)} ≈ ${b.lift.toFixed(2)}배 자주\n\n` +
-        '가격 배수가 아니라 "얼마나 자주 나타나는가"의 배수입니다.'
+        `이 구간 ${b.allCount}건 중 ${b.topCount}건이 상위권 = ${percent(b.hitRate, 1)}\n` +
+        `아무거나 골랐을 때 = ${percent(baseRate, 1)}\n` +
+        `→ ${(b.hitRate / Math.max(1e-9, baseRate)).toFixed(2)}배\n\n` +
+        (thin ? `표본이 ${b.allCount}건뿐이라 한두 건에 크게 흔들립니다.\n` : '')
       }
     >
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[11px] font-medium text-slate-200">{b.key}</span>
         <span
           className={`shrink-0 text-[10px] tabular-nums ${
-            lift.strong ? 'font-semibold text-slate-100' : 'text-slate-500'
+            thin ? 'text-amber-500/70' : 'text-slate-500'
           }`}
         >
-          {lift.rare && <span className="mr-0.5">↓</span>}
-          {lift.text}
+          {b.allCount}건 중 {b.topCount}건
         </span>
       </div>
 
-      <div className="mt-1 space-y-0.5">
-        <div className="flex items-center gap-2">
-          <span className="w-10 shrink-0 text-[9px] text-slate-400">상위권</span>
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800/70">
-            <div className="h-full rounded-full bg-slate-200" style={{ width: w(b.topShare) }} />
-          </div>
-          <span className="w-[68px] shrink-0 text-right text-[9px] tabular-nums text-slate-300">
-            {b.topCount}/{topCount} · {percent(b.topShare, 0)}
-          </span>
+      <div className="mt-1 flex items-center gap-2">
+        <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-slate-800/70">
+          {/*
+            * 표본이 얇으면 강조보다 그쪽이 이깁니다. 8건 중 5건짜리 63% 를
+            * 40건짜리 63% 와 같은 밝기로 그리면, 강조가 곧 신뢰로 읽힙니다.
+            */}
+          <div
+            className={`h-full rounded-full ${
+              thin ? 'bg-slate-500' : strong ? 'bg-slate-200' : rare ? 'bg-slate-700' : 'bg-slate-500'
+            }`}
+            style={{ width: w }}
+          />
+          {/* 고정 기준선 — 이 선을 넘었는지가 판단의 전부입니다. */}
+          <div
+            className="absolute inset-y-0 w-px bg-amber-400/70"
+            style={{ left: `${Math.min(100, baseRate * 100)}%` }}
+          />
         </div>
-        <div className="flex items-center gap-2">
-          <span className="w-10 shrink-0 text-[9px] text-slate-500">전체</span>
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800/70">
-            <div className="h-full rounded-full bg-slate-600" style={{ width: w(b.allShare) }} />
-          </div>
-          <span className="w-[68px] shrink-0 text-right text-[9px] tabular-nums text-slate-500">
-            {allCount}/{universe} · {percent(b.allShare, 0)}
-          </span>
-        </div>
+        <span
+          className={`w-9 shrink-0 text-right text-[11px] tabular-nums ${
+            thin ? 'text-slate-500' : strong ? 'font-semibold text-slate-100' : 'text-slate-300'
+          }`}
+        >
+          {percent(b.hitRate, 0)}
+        </span>
       </div>
     </div>
   );
@@ -93,9 +104,10 @@ export function TraitCard({
   universe: number;
   maxBuckets?: number;
 }) {
-  // 표본이 한 자리면 배수가 커도 우연입니다. 기준 미만은 아예 내지 않습니다.
+  // 표본이 한 자리면 확률이 커도 우연입니다. 기준 미만은 아예 내지 않습니다.
   const shown = group.buckets.filter((b) => b.topCount >= TRAIT_MIN_BUCKET).slice(0, maxBuckets);
   if (shown.length === 0) return null;
+  const baseRate = topCount / Math.max(1, universe);
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3.5">
@@ -103,7 +115,7 @@ export function TraitCard({
       <p className="mt-0.5 text-[10px] leading-relaxed text-slate-600">{group.hint}</p>
       <div className="mt-2 space-y-1">
         {shown.map((b) => (
-          <BucketRow key={b.key} bucket={b} topCount={topCount} universe={universe} />
+          <BucketRow key={b.key} bucket={b} baseRate={baseRate} />
         ))}
       </div>
     </div>
@@ -113,32 +125,32 @@ export function TraitCard({
 /**
  * 카드 격자 위에 한 번만 놓는 읽는 법.
  *
- * 카드마다 반복하면 여섯 번 같은 문장을 읽게 됩니다 — 한 번만 말하고,
- * 자세한 계산은 각 줄의 호버에 둡니다.
+ * 기준선이 고정이라 설명도 한 문장이면 끝납니다 — 카드마다 반복할 이유가
+ * 없습니다. 자세한 나눗셈은 각 줄의 호버에 둡니다.
  */
 export function TraitLegend({ topCount, universe }: { topCount: number; universe: number }) {
+  const baseRate = topCount / Math.max(1, universe);
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/30 px-3.5 py-3">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <span className="text-xs font-semibold text-slate-200">읽는 법</span>
         <span className="text-[11px] leading-relaxed text-slate-400">
-          <span className="inline-block h-2 w-2 translate-y-px rounded-full bg-slate-200" />{' '}
-          <b className="text-slate-200">상위권</b> {topCount}건과{' '}
-          <span className="inline-block h-2 w-2 translate-y-px rounded-full bg-slate-600" />{' '}
-          <b className="text-slate-300">전체</b> {universe}건에서 그 특성이 차지하는 비율을
-          같은 자로 겹쳐 봅니다.
+          막대는 <b className="text-slate-200">그 특성을 고르면 상위권에 들 확률</b>입니다.
         </span>
       </div>
       <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
-        <b className="text-slate-300">“2.8배 자주”</b> 는 값이 2.8배 올랐다는 뜻이{' '}
-        <b className="text-slate-300">아닙니다</b>. 상위권에서 그 특성이 나타나는 비율이 전체보다
-        2.8배 높다는 뜻입니다 (상위 비율 ÷ 전체 비율). 각 줄에 마우스를 올리면 나눗셈이 그대로
-        나옵니다.
+        전체 {universe}건 중 상위 {topCount}건을 뽑았으니,{' '}
+        <b className="text-slate-300">아무거나 골라도 {percent(baseRate, 0)}</b>는 상위권입니다.
+        막대 위{' '}
+        <span className="inline-block h-2.5 w-px translate-y-0.5 bg-amber-400/70 align-middle" />{' '}
+        <span className="text-amber-300/80">노란 선</span>이 그 {percent(baseRate, 0)} 자리입니다
+        — 선을 얼마나 넘었는지가 판단의 전부입니다. 외울 기준은 이 하나뿐입니다.
       </p>
       <p className="mt-1 text-[10px] leading-relaxed text-slate-600">
-        상위권 {TRAIT_MIN_BUCKET}건 미만인 구간은 배수가 커도 우연이라 표시하지 않습니다.
-        구간을 여러 개로 쪼개면 그중 몇 개는 우연히 상위와 겹칩니다 — 배수 하나만 보고 이야기를
-        만들지 마세요.
+        분모(&quot;○○건 중&quot;)를 같이 봐 주세요. {THIN_SAMPLE}건 미만이면 한두 건에 확률이
+        크게 흔들려 흐리게 냈습니다. 상위권 {TRAIT_MIN_BUCKET}건 미만인 구간은 아예 표시하지
+        않습니다. 구간을 여러 개로 쪼개면 그중 몇 개는 우연히 상위와 겹칩니다 — 확률 하나만
+        보고 이야기를 만들지 마세요.
       </p>
     </div>
   );
