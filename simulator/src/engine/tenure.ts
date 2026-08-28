@@ -39,7 +39,7 @@ import { RULES } from './rules';
 import { capitalGainsTax, leaseBrokerageFee, propertyTax } from './tax';
 import type { LoanResult, Property, RegionId } from './types';
 
-export type TenureKind = 'buy' | 'jeonse' | 'wolse';
+export type TenureKind = 'buy' | 'jeonse' | 'wolse' | 'subscription';
 
 export interface TenureAssumptions {
   /** 비교 기간 (년) */
@@ -155,6 +155,7 @@ const LABEL: Record<TenureKind, string> = {
   buy: '매수',
   jeonse: '전세',
   wolse: '월세',
+  subscription: '청약',
 };
 
 /**
@@ -211,7 +212,7 @@ function renewalRaise(a: TenureAssumptions, renewalIndex: number): number {
 }
 
 /** 매달 나가는 돈의 성격별 분해 — 저축인지 순비용인지 갈라야 합니다 */
-interface CashBreakdown {
+export interface CashBreakdown {
   principalRepaid: number;
   interestPaid: number;
   rentPaid: number;
@@ -220,8 +221,13 @@ interface CashBreakdown {
   netCost: number;
 }
 
-/** 한 갈래의 월별 현금흐름 계획 */
-interface LegPlan {
+/**
+ * 한 갈래의 월별 현금흐름 계획.
+ *
+ * 밖에서도 만들 수 있게 공개합니다. 청약 갈래는 `subscription.ts` 가 이 모양으로
+ * 빚어서 넘깁니다 — 여기서 청약을 import 하면 순환 참조가 되기 때문입니다.
+ */
+export interface LegPlan {
   kind: TenureKind;
   initialOutlay: number;
   /** 월별 주거비 (경상 지출) */
@@ -497,10 +503,18 @@ function runLegs(plans: LegPlan[], equity: number, a: TenureAssumptions): Tenure
 export interface TenureInput {
   property: Property;
   loan: LoanResult;
-  /** 세 갈래가 공통으로 출발하는 자기자본 */
+  /** 갈래들이 공통으로 출발하는 자기자본 */
   equity: number;
   termYears: number;
   assumptions: TenureAssumptions;
+  /**
+   * 세 갈래 외에 같이 세울 갈래 — 지금은 청약뿐입니다.
+   *
+   * 갈래를 하나 더 넣으면 기준예산(그 달 가장 많이 쓰는 쪽)이 올라갈 수 있습니다.
+   * 다만 올라간 만큼이 **모든 갈래에 똑같이** 더해지므로 갈래 사이의 격차와
+   * 순위는 그대로입니다 — 기준예산 불변성이 그대로 성립합니다.
+   */
+  extraPlans?: LegPlan[];
 }
 
 function compute(input: TenureInput): TenureLeg[] {
@@ -510,6 +524,7 @@ function compute(input: TenureInput): TenureLeg[] {
       buyPlan(property, loan, a, termYears),
       jeonsePlan(property, a, equity),
       wolsePlan(property, a),
+      ...(input.extraPlans ?? []),
     ],
     equity,
     a
@@ -524,7 +539,12 @@ function findBreakEven(input: TenureInput): number | null {
   const gap = (g: number): number => {
     const legs = compute({ ...input, assumptions: { ...input.assumptions, priceGrowthRate: g } });
     const buy = legs.find((l) => l.kind === 'buy')!;
-    const rent = legs.filter((l) => l.kind !== 'buy');
+    /*
+     * 청약은 임차안이 아닙니다 — 그쪽도 집을 삽니다. 손익분기는 "몇 % 올라야
+     * 매수가 임차를 이기나" 라는 질문이므로 임차 두 갈래만 상대로 잽니다.
+     * 청약을 섞으면 둘 다 가격상승률에 노출돼 있어 분기점이 사라집니다.
+     */
+    const rent = legs.filter((l) => l.kind === 'jeonse' || l.kind === 'wolse');
     return buy.terminalWealth - Math.max(...rent.map((l) => l.terminalWealth));
   };
 
@@ -551,12 +571,20 @@ function findBreakEven(input: TenureInput): number | null {
 }
 
 const CAVEATS = [
-  '세 갈래 모두 같은 자기자본에서 출발해 같은 기간 뒤 남는 돈을 비교합니다.',
+  '모든 갈래가 같은 자기자본에서 출발해 같은 기간 뒤 남는 돈을 비교합니다.',
   '임차 쪽 적립액은 매수의 원리금 상환과 대칭입니다 — 이걸 빼면 임차가 부당하게 불리해집니다.',
   '가격상승률·투자수익률·전세가율·전월세전환율은 가정값입니다. 예측치가 아닙니다.',
   '매수만 가격상승률에 노출됩니다. 손익분기 상승률을 함께 보세요.',
   '연환산 수익률은 주거비를 쓰고 남은 자기자본 기준입니다 — 순수 투자수익률이 아니라 “같은 집에 살면서 자본이 얼마나 불었나”입니다.',
   '거주 만족도·이사 비용·직장 이동 같은 비금전 요소는 들어 있지 않습니다.',
+];
+
+/** 청약 갈래가 붙었을 때만 덧붙는 단서 — 이 갈래만 다른 집에 삽니다. */
+export const SUBSCRIPTION_CAVEATS = [
+  '청약만 사는 집이 다릅니다. 나머지 셋은 같은 집인데 청약은 입주 전까지 다른 집에 임차로 살고, 입주 후에는 분양 단지에 삽니다 — 종료자산만 놓고 우열을 말할 수 없습니다.',
+  '분양가·입주 시기·중도금 조건은 직접 넣은 값입니다. 실거래로 검증된 수치가 아닙니다.',
+  '당첨을 전제로 계산합니다. 당첨 확률은 들어 있지 않으므로, 이 갈래가 이겨도 "되면 낫다"까지입니다.',
+  '전매제한 기간에는 팔 수 없습니다. 종료자산에는 안 들어가는 유동성 제약입니다.',
 ];
 
 export interface CostItem {
@@ -607,6 +635,62 @@ export function housingCostBreakdown(leg: TenureLeg): CostItem[] {
         amount: leg.detail.capitalGainsTax,
         reducesCost: false,
         help: '1세대1주택 비과세 한도를 넘거나 보유 2년을 못 채운 경우에만 붙습니다.',
+      });
+    }
+  } else if (leg.kind === 'subscription') {
+    /*
+     * 청약은 두 국면이 붙어 있습니다 — 대기 중엔 임차, 입주 후엔 자가.
+     * 한 덩어리로 "이자" 라고 적으면 중도금 이자가 주담대 이자에 섞여
+     * "기다리는 데 든 돈" 이 안 보입니다. 국면별로 갈라 놓습니다.
+     */
+    items.push({
+      label: '취득비용',
+      amount: leg.detail.acquisitionCost,
+      reducesCost: false,
+      help: '분양은 중개보수가 없어 취득세·법무비만 듭니다.',
+    });
+    items.push({
+      label: '중도금 이자',
+      amount: leg.detail.interimInterest,
+      reducesCost: false,
+      help: '입주까지 기다리는 데 든 돈입니다. 이자후불제면 입주 때 한꺼번에 냅니다.',
+    });
+    items.push({
+      label: '대기 중 전세이자',
+      amount: leg.rentPaid,
+      reducesCost: false,
+      help: '입주 전까지 다른 집에 살아야 해서 드는 돈입니다. 나머지 세 갈래에는 없는 비용입니다.',
+    });
+    items.push({
+      label: '대기 중 임대차 중개보수',
+      amount: leg.detail.waitBrokerage,
+      reducesCost: false,
+      help: '입주 전 살 집을 구할 때 드는 중개보수입니다. 청약만 이 집을 한 번 더 구해야 합니다.',
+    });
+    items.push({
+      label: '주담대 이자',
+      amount: leg.interestPaid - leg.detail.interimInterest,
+      reducesCost: false,
+      help: '입주 후 원리금 중 이자분입니다. 원금은 돌려받으므로 여기 없습니다.',
+    });
+    items.push({
+      label: '재산세·수선유지',
+      amount: leg.carryCost,
+      reducesCost: false,
+      help: '입주 후 보유하는 동안 매년 나가는 돈입니다.',
+    });
+    items.push({
+      label: '매도 중개보수',
+      amount: leg.detail.sellingFee,
+      reducesCost: false,
+      help: '팔 때 내는 중개보수입니다.',
+    });
+    if (leg.detail.capitalGainsTax > 0) {
+      items.push({
+        label: '양도세',
+        amount: leg.detail.capitalGainsTax,
+        reducesCost: false,
+        help: '입주 후 보유 2년을 못 채우면 붙습니다. 대기 기간은 보유로 안 쳐 줍니다.',
       });
     }
   } else {

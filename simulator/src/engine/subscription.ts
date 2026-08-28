@@ -27,7 +27,7 @@ import { brokerageFee } from './costs';
 import { monthlyPayment } from './finance';
 import { RULES } from './rules';
 import { capitalGainsTax, leaseBrokerageFee, propertyTax } from './tax';
-import { loanBalance, type TenureAssumptions } from './tenure';
+import { loanBalance, type LegPlan, type TenureAssumptions } from './tenure';
 import type { RegionId } from './types';
 
 /** 사용자가 입력하는 분양 단지 정보 */
@@ -98,6 +98,15 @@ export interface SubscriptionResult {
   recovered: number;
   /** 주거 순비용 — 돌려받지 못한 돈 */
   netHousingCost: number;
+  acquisitionCost: number;
+  sellingFee: number;
+  capitalGainsTax: number;
+  /** 대기 중 살 집의 임대차 중개보수 — 이 갈래에만 있는 비용입니다 */
+  waitBrokerage: number;
+  /** 대기 중 어떻게 사는가 — 계약금을 내고 남은 돈으로 전세가 안 되면 월세입니다 */
+  waitMode: 'jeonse' | 'wolse';
+  /** 월세일 때의 월 임차료 (전세면 0) */
+  waitMonthlyRent: number;
   /** 매달 나간 돈 (월별) — 3-way 와 같은 기준예산에 태우기 위해 */
   outflow: number[];
   /** 월별 일시 지출 (계약금 외) */
@@ -126,20 +135,40 @@ export function subscriptionPlan(
   const notes: string[] = [];
   const warnings: string[] = [];
 
-  // ── 계약: 계약금 + 대기용 전세 ──────────────────────────────
+  // ── 계약: 계약금 + 대기 중 살 집 ────────────────────────────
   const downPayment = plan.price * plan.downPaymentRatio;
-  // 대기 중 살 집은 분양가 수준의 전세라고 봅니다.
-  const waitDeposit = plan.price * a.jeonseRatio;
   const afterDown = Math.max(0, equity - downPayment);
-  const waitBrokerage = leaseBrokerageFee(waitDeposit, 0);
   const jeonseCfg = RULES.tenure.jeonseLoan;
-  const waitLoanNeed = Math.max(0, waitDeposit + waitBrokerage - afterDown);
-  const waitLoan = Math.min(waitLoanNeed, waitDeposit * jeonseCfg.ltvCap, jeonseCfg.absoluteCap);
-  const waitDepositOwn = waitDeposit - waitLoan + waitBrokerage;
+
+  /*
+   * 대기 중 살 집은 분양가 수준의 전세로 봅니다. 다만 계약금을 먼저 낸 뒤라
+   * **전세보증금을 못 채우는 일이 흔합니다** — 청약의 진짜 문턱이 여기입니다.
+   *
+   * 예전에는 그 경우 경고만 띄우고 숫자는 전세 그대로였습니다. 구할 수 없는
+   * 집의 주거비로 계산한 셈이라, 실제로 나갈 돈보다 싸게 나옵니다. 3-way 와
+   * 같은 방식으로 **전세에서 월세를 파생**시켜 떨어뜨립니다.
+   */
+  const jeonseDeposit = plan.price * a.jeonseRatio;
+  const jeonseBrokerage = leaseBrokerageFee(jeonseDeposit, 0);
+  const maxJeonseLoan = Math.min(jeonseDeposit * jeonseCfg.ltvCap, jeonseCfg.absoluteCap);
+  const jeonseNeed = Math.max(0, jeonseDeposit + jeonseBrokerage - afterDown);
+  const canJeonse = jeonseNeed <= maxJeonseLoan;
+
+  const waitMode: 'jeonse' | 'wolse' = canJeonse ? 'jeonse' : 'wolse';
+  const waitDepositFull = canJeonse ? jeonseDeposit : jeonseDeposit * a.wolseDepositRatio;
+  // 월세는 전세보증금 차액 × 전월세전환율에서 나옵니다 — 독립 가정값이 아닙니다.
+  const monthlyRent = canJeonse
+    ? 0
+    : ((jeonseDeposit - waitDepositFull) * a.conversionRate) / 12;
+  const waitBrokerage = leaseBrokerageFee(waitDepositFull, monthlyRent);
+  const waitLoan = canJeonse ? Math.min(jeonseNeed, maxJeonseLoan) : 0;
+  const waitDepositOwn = waitDepositFull - waitLoan + waitBrokerage;
 
   const initialOutlay = downPayment + waitDepositOwn;
-  if (waitLoanNeed > waitLoan) {
-    warnings.push('대기 기간에 살 전세보증금을 전세대출로도 못 채웁니다 — 월세로 살아야 합니다.');
+  if (!canJeonse) {
+    warnings.push(
+      '계약금을 낸 뒤 남는 돈으로는 대기 중 전세보증금을 전세대출로도 못 채웁니다 — 월세로 사는 것으로 계산했습니다.'
+    );
   }
 
   // ── 중도금 ────────────────────────────────────────────────
@@ -169,7 +198,8 @@ export function subscriptionPlan(
 
   const mortgageMonths = Math.round(termYears * 12);
   const mortgageMonthly = monthlyPayment(mortgage, plan.mortgageRate, termYears);
-  const waitJeonseMonthly = (waitLoan * a.jeonseLoanRate) / 12;
+  // 대기 중 주거비 — 전세면 대출이자, 월세면 월세. 둘 다 돌려받지 못합니다.
+  const waitMonthlyHousing = canJeonse ? (waitLoan * a.jeonseLoanRate) / 12 : monthlyRent;
   const monthlyInterimInterest = plan.interimDeferred
     ? 0
     : waitMonths > 0
@@ -179,7 +209,7 @@ export function subscriptionPlan(
   for (let m = 0; m < months; m++) {
     if (m < waitMonths) {
       // 대기 중 — 전세 이자 + (이자선납이면) 중도금 이자
-      outflow[m] = waitJeonseMonthly + monthlyInterimInterest;
+      outflow[m] = waitMonthlyHousing + monthlyInterimInterest;
     } else {
       const sinceMoveIn = m - waitMonths;
       const year = Math.floor(sinceMoveIn / 12);
@@ -192,7 +222,7 @@ export function subscriptionPlan(
 
   // 입주 시 목돈이 한꺼번에 나갑니다. 보증금은 돌려받아 상쇄됩니다.
   if (waitMonths < months) {
-    lumps[waitMonths] += moveInCash - (waitDeposit - waitLoan);
+    lumps[waitMonths] += moveInCash - (waitDepositFull - waitLoan);
   }
 
   // ── 종료 ──────────────────────────────────────────────────
@@ -213,9 +243,13 @@ export function subscriptionPlan(
   const mortgagePrincipalRepaid = mortgage - remainingLoan;
   const carryCost =
     outflow.slice(waitMonths).reduce((s, v) => s + v, 0) - totalInstallment;
-  const waitRentCost = waitJeonseMonthly * waitMonths;
+  const waitRentCost = waitMonthlyHousing * waitMonths;
 
-  notes.push(cfg.waitTenureNote);
+  notes.push(
+    canJeonse
+      ? `${cfg.waitTenureNote} 여기서는 전세로 봤습니다.`
+      : `${cfg.waitTenureNote} 여기서는 월세(월 ${Math.round(monthlyRent / 10000).toLocaleString('ko-KR')}만)로 봤습니다.`
+  );
   notes.push(
     plan.interimDeferred
       ? `중도금 이자 ${Math.round(interimInterest / 10000).toLocaleString('ko-KR')}만은 이자후불제라 입주 때 한꺼번에 냅니다.`
@@ -233,6 +267,7 @@ export function subscriptionPlan(
   }
 
   const recovered = endPrice - remainingLoan - sellingFee - cgt.total;
+
   const netHousingCost =
     acquisitionCost + interimInterest + waitRentCost + waitBrokerage +
     (totalInstallment - mortgagePrincipalRepaid) + carryCost + sellingFee + cgt.total;
@@ -250,6 +285,12 @@ export function subscriptionPlan(
     mortgage,
     recovered,
     netHousingCost,
+    acquisitionCost,
+    sellingFee,
+    capitalGainsTax: cgt.total,
+    waitBrokerage,
+    waitMode,
+    waitMonthlyRent: monthlyRent,
     outflow,
     lumps,
     notes,
@@ -319,4 +360,53 @@ export function paymentSchedule(plan: SubscriptionPlan): PaymentStep[] {
     note: '주담대로 못 채운 나머지. 대기 중 전세보증금을 돌려받아 충당합니다.',
   });
   return steps;
+}
+
+/**
+ * 청약 결과를 tenure 엔진이 먹는 모양으로 빚습니다.
+ *
+ * 방향이 **subscription → tenure** 여야 합니다. tenure 가 청약을 알면 순환
+ * 참조가 되고, 무엇보다 청약은 선택 갈래라 엔진의 기본 축이 아닙니다.
+ *
+ * 원금상환 대칭은 그대로 성립합니다 — 주담대 원금은 `netHousingCost` 에서
+ * 빠져 있고, 종료 시 `recovered` 로 돌아옵니다.
+ */
+export function subscriptionLegPlan(
+  plan: SubscriptionPlan,
+  a: TenureAssumptions,
+  equity: number,
+  termYears: number
+): LegPlan {
+  const r = subscriptionPlan(plan, a, equity, termYears);
+  return {
+    kind: 'subscription',
+    initialOutlay: r.initialOutlay,
+    outflow: r.outflow,
+    lumps: r.lumps,
+    recovered: r.recovered,
+    breakdown: {
+      principalRepaid: r.mortgagePrincipalRepaid,
+      interestPaid: r.mortgageInterest + r.interimInterest,
+      rentPaid: r.waitRentCost,
+      carryCost: r.carryCost,
+      netCost: r.netHousingCost,
+    },
+    detail: {
+      planPrice: plan.price,
+      acquisitionCost: r.acquisitionCost,
+      sellingFee: r.sellingFee,
+      capitalGainsTax: r.capitalGainsTax,
+      waitBrokerage: r.waitBrokerage,
+      waitMode: r.waitMode === 'jeonse' ? 1 : 0,
+      waitMonthlyRent: r.waitMonthlyRent,
+      downPayment: r.downPayment,
+      waitDeposit: r.waitDeposit,
+      waitYears: plan.waitYears,
+      interimInterest: r.interimInterest,
+      moveInCash: r.moveInCash,
+      mortgage: r.mortgage,
+      resaleBanMonths: plan.resaleBanMonths,
+    },
+    notes: [...r.warnings, ...r.notes],
+  };
 }

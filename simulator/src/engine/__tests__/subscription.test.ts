@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RULES } from '../rules';
-import { emptyPlan, paymentSchedule, subscriptionPlan } from '../subscription';
-import { defaultAssumptions } from '../tenure';
+import { emptyPlan, paymentSchedule, subscriptionLegPlan, subscriptionPlan } from '../subscription';
+import { defaultAssumptions, housingCostBreakdown, type TenureLeg } from '../tenure';
 
 const a = defaultAssumptions('changwon');
 const base = { ...emptyPlan('t1'), price: 500000000, waitYears: 2.5 };
@@ -110,5 +110,86 @@ describe('청약 현금흐름', () => {
     expect(r.netHousingCost).toBeGreaterThan(0);
     const withPrincipal = r.netHousingCost + r.mortgagePrincipalRepaid;
     expect(r.netHousingCost).toBeLessThan(withPrincipal);
+  });
+});
+
+describe('대기 중 어디서 사나', () => {
+  it('돈이 넉넉하면 전세로 봅니다', () => {
+    const r = subscriptionPlan(base, a, 400000000, 30);
+    expect(r.waitMode).toBe('jeonse');
+    expect(r.waitMonthlyRent).toBe(0);
+  });
+
+  it('계약금을 내고 나면 전세보증금을 못 채우는 일이 흔합니다 — 그때는 월세입니다', () => {
+    const r = subscriptionPlan(base, a, 60000000, 30);
+    expect(r.waitMode).toBe('wolse');
+    expect(r.waitMonthlyRent).toBeGreaterThan(0);
+    expect(r.warnings.some((w) => w.includes('월세로 사는 것으로 계산'))).toBe(true);
+  });
+
+  it('월세로 떨어지면 초기 지출은 줄고 대기 주거비는 늘어납니다', () => {
+    const rich = subscriptionPlan(base, a, 400000000, 30);
+    const poor = subscriptionPlan(base, a, 60000000, 30);
+    expect(poor.waitDeposit).toBeLessThan(rich.waitDeposit);
+    expect(poor.waitRentCost).toBeGreaterThan(rich.waitRentCost);
+  });
+
+  it('월세는 전세보증금 차액 × 전월세전환율에서 나옵니다 — 독립 가정값이 아닙니다', () => {
+    const r = subscriptionPlan(base, a, 60000000, 30);
+    const jeonse = base.price * a.jeonseRatio;
+    const expected = ((jeonse - jeonse * a.wolseDepositRatio) * a.conversionRate) / 12;
+    expect(r.waitMonthlyRent).toBeCloseTo(expected, -2);
+  });
+
+  it('전환율이 높을수록 대기 월세가 비싸집니다', () => {
+    const low = subscriptionPlan(base, { ...a, conversionRate: 0.04 }, 60000000, 30);
+    const high = subscriptionPlan(base, { ...a, conversionRate: 0.07 }, 60000000, 30);
+    expect(high.waitRentCost).toBeGreaterThan(low.waitRentCost);
+  });
+});
+
+describe('tenure 4번째 갈래로 붙이기', () => {
+  const lp = subscriptionLegPlan(base, a, 200000000, 30);
+
+  it('LegPlan 모양을 갖춥니다', () => {
+    expect(lp.kind).toBe('subscription');
+    expect(lp.outflow).toHaveLength(Math.round(a.years * 12));
+    expect(lp.lumps).toHaveLength(lp.outflow.length);
+  });
+
+  it('원금상환은 주거 순비용에 안 들어갑니다 — 원금상환 대칭이 유지됩니다', () => {
+    expect(lp.breakdown.principalRepaid).toBeGreaterThan(0);
+    expect(lp.breakdown.netCost).toBeLessThan(
+      lp.breakdown.netCost + lp.breakdown.principalRepaid
+    );
+  });
+
+  it('비용 항목 합계가 주거 순비용과 정확히 맞습니다', () => {
+    const leg = {
+      kind: 'subscription',
+      interestPaid: lp.breakdown.interestPaid,
+      rentPaid: lp.breakdown.rentPaid,
+      carryCost: lp.breakdown.carryCost,
+      detail: lp.detail,
+    } as unknown as TenureLeg;
+    const sum = housingCostBreakdown(leg).reduce(
+      (s, i) => s + (i.reducesCost ? -i.amount : i.amount),
+      0
+    );
+    expect(sum).toBeCloseTo(lp.breakdown.netCost, -2);
+  });
+
+  it('중도금 이자와 대기 전세이자를 갈라 냅니다 — 기다린 값이 보여야 합니다', () => {
+    const leg = {
+      kind: 'subscription',
+      interestPaid: lp.breakdown.interestPaid,
+      rentPaid: lp.breakdown.rentPaid,
+      carryCost: lp.breakdown.carryCost,
+      detail: lp.detail,
+    } as unknown as TenureLeg;
+    const labels = housingCostBreakdown(leg).map((i) => i.label);
+    expect(labels).toContain('중도금 이자');
+    expect(labels).toContain('대기 중 전세이자');
+    expect(labels).toContain('주담대 이자');
   });
 });

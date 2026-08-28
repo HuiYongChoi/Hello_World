@@ -12,6 +12,7 @@ import {
   type TenureComparison,
   type TenureKind,
 } from '../tenure';
+import { emptyPlan, subscriptionLegPlan } from '../subscription';
 import { baseProfile, makeProperty } from './fixtures';
 
 const axis = (id: string) => ALL_SCENARIO_AXES.find((a) => a.id === id)!;
@@ -548,6 +549,113 @@ describe('주거 순비용 분해', () => {
   it('모든 항목에 설명이 붙어 있다', () => {
     for (const l of compare().legs) {
       for (const i of housingCostBreakdown(l)) expect(i.help.length).toBeGreaterThan(10);
+    }
+  });
+});
+
+describe('청약 — 4번째 갈래', () => {
+  const plan = { ...emptyPlan('s1'), price: 450000000, waitYears: 2.5 };
+  const withSub = (over: Partial<TenureAssumptions> = {}, equity = EQUITY) => {
+    const a = defaultAssumptions(property.region, over);
+    return compareTenures({
+      property,
+      loan,
+      equity,
+      termYears: 30,
+      assumptions: a,
+      extraPlans: [subscriptionLegPlan(plan, a, equity, 30)],
+    })!;
+  };
+
+  it('넣으면 네 갈래가 되고, 안 넣으면 그대로 셋입니다', () => {
+    expect(withSub().legs).toHaveLength(4);
+    expect(compare().legs).toHaveLength(3);
+  });
+
+  it('갈래를 더해도 나머지 셋의 격차와 순위는 그대로입니다 — 기준예산 불변성', () => {
+    const three = compare();
+    const four = withSub();
+    const gap = (c: TenureComparison, x: TenureKind, y: TenureKind) =>
+      leg(c, x).terminalWealth - leg(c, y).terminalWealth;
+
+    expect(gap(four, 'buy', 'jeonse')).toBeCloseTo(gap(three, 'buy', 'jeonse'), -2);
+    expect(gap(four, 'buy', 'wolse')).toBeCloseTo(gap(three, 'buy', 'wolse'), -2);
+    expect(gap(four, 'jeonse', 'wolse')).toBeCloseTo(gap(three, 'jeonse', 'wolse'), -2);
+  });
+
+  it('손익분기 상승률은 청약을 빼고 잽니다 — 청약도 집을 사므로 분기점이 사라집니다', () => {
+    expect(withSub().breakEvenPriceGrowth).toBeCloseTo(compare().breakEvenPriceGrowth!, 6);
+  });
+
+  it('같은 자기자본에서 출발합니다', () => {
+    const c = withSub();
+    for (const l of c.legs) {
+      expect(l.initialOutlay + l.initialInvestment).toBeCloseTo(EQUITY, -2);
+    }
+  });
+
+  it('종료자산 = 회수액 + 투자잔고', () => {
+    const s = leg(withSub(), 'subscription');
+    expect(s.terminalWealth).toBeCloseTo(s.recovered + s.investmentEnd, -2);
+  });
+
+  it('자기자본이 계약금·대기 보증금에 못 미치면 실행 불가로 잡힙니다', () => {
+    const s = leg(withSub({}, 30000000), 'subscription');
+    expect(s.feasible).toBe(false);
+    expect(s.shortfall).toBeGreaterThan(0);
+  });
+
+  it('분양가가 오르면 청약 갈래의 종료자산이 커집니다', () => {
+    const a = defaultAssumptions(property.region);
+    const run = (growth: number) => {
+      const aa = { ...a, priceGrowthRate: growth };
+      return leg(
+        compareTenures({
+          property,
+          loan,
+          equity: EQUITY,
+          termYears: 30,
+          assumptions: aa,
+          extraPlans: [subscriptionLegPlan(plan, aa, EQUITY, 30)],
+        })!,
+        'subscription'
+      ).terminalWealth;
+    };
+    expect(run(0.03)).toBeGreaterThan(run(0));
+  });
+
+  it('입주가 늦어질수록 종료자산이 줄어듭니다 — 기다리는 값이 있습니다', () => {
+    const a = defaultAssumptions(property.region);
+    const run = (waitYears: number) =>
+      leg(
+        compareTenures({
+          property,
+          loan,
+          equity: EQUITY,
+          termYears: 30,
+          assumptions: a,
+          extraPlans: [subscriptionLegPlan({ ...plan, waitYears }, a, EQUITY, 30)],
+        })!,
+        'subscription'
+      ).terminalWealth;
+    expect(run(1)).toBeGreaterThan(run(4));
+  });
+
+  it('수익률 민감도 표에도 네 갈래가 다 실립니다', () => {
+    const a = defaultAssumptions(property.region);
+    const scenarios = compareAcrossReturns(
+      {
+        property,
+        loan,
+        equity: EQUITY,
+        termYears: 30,
+        assumptions: a,
+        extraPlans: [subscriptionLegPlan(plan, a, EQUITY, 30)],
+      },
+      RULES.tenure.investmentPresets.items
+    );
+    for (const sc of scenarios) {
+      expect(sc.terminal.subscription).toBeTypeOf('number');
     }
   });
 });

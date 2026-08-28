@@ -21,6 +21,7 @@ import {
   type TenureAssumptions,
   type TenureKind,
   type TenureLeg,
+  SUBSCRIPTION_CAVEATS,
 } from '../engine/tenure';
 import {
   INDEXES,
@@ -32,6 +33,7 @@ import {
 } from '../engine/indexes';
 import { RENT, isMeasured } from '../engine/rent';
 import { propertyThesis } from '../engine/thesis';
+import { subscriptionLegPlan } from '../engine/subscription';
 import { useStore } from '../state/store';
 
 /**
@@ -99,12 +101,27 @@ function RateField({
  * "선택됨"·"충족"·"경고"를 뜻합니다. 색이 두 가지를 뜻하면 둘 다 못 읽힙니다.
  * 계열 구분은 무채색 3단계로 옮기고, 색은 판정과 상태에만 남깁니다.
  */
-const LEG_LABEL: Record<TenureKind, string> = { buy: '매수', jeonse: '전세', wolse: '월세' };
+const LEG_LABEL: Record<TenureKind, string> = {
+  buy: '매수',
+  jeonse: '전세',
+  wolse: '월세',
+  subscription: '청약',
+};
 
+/*
+ * 청약은 무채색 4단계에 끼우지 않고 **점선 테두리**로 갈라 둡니다.
+ * 나머지 셋은 같은 집이고 청약만 다른 집이라, 명도를 하나 더 늘려 나란히
+ * 세우면 "같은 줄에 놓고 비교해도 되는 것" 처럼 읽힙니다.
+ */
 const TONE: Record<TenureKind, { bar: string; text: string; ring: string }> = {
   buy: { bar: 'bg-slate-100', text: 'text-slate-100', ring: 'border-slate-500 bg-slate-800/40' },
   jeonse: { bar: 'bg-slate-400', text: 'text-slate-300', ring: 'border-slate-600 bg-slate-800/30' },
   wolse: { bar: 'bg-slate-600', text: 'text-slate-400', ring: 'border-slate-700 bg-slate-800/20' },
+  subscription: {
+    bar: 'bg-slate-500',
+    text: 'text-slate-300',
+    ring: 'border-dashed border-slate-600 bg-slate-800/20',
+  },
 };
 
 function Row({
@@ -217,8 +234,21 @@ function LegCard({
       <Stage n="①" title={`목돈 ${money(equity)}을 어디에 두나`} />
       <Row
         label="주거에 묶임"
-        hint={leg.kind === 'buy' ? '(자기부담금+취득비용)' : '(보증금+중개보수)'}
+        hint={
+          leg.kind === 'buy'
+            ? '(자기부담금+취득비용)'
+            : leg.kind === 'subscription'
+              ? '(계약금+대기 중 보증금)'
+              : '(보증금+중개보수)'
+        }
         value={money(leg.initialOutlay)}
+        help={
+          leg.kind === 'subscription'
+            ? `계약금 ${money(leg.detail.downPayment)} 과 입주까지 살 집의 보증금·중개보수 ${money(
+                leg.detail.waitDeposit
+              )} 입니다. 계약금은 대출이 안 되고, 그 집은 분양 단지가 아닌 다른 집입니다 — 청약의 진짜 문턱이 여기입니다.`
+            : undefined
+        }
       />
       <Row
         label="투자에 남김"
@@ -240,7 +270,9 @@ function LegCard({
             ? '원리금(원금+이자) + 재산세 + 수선유지비의 합입니다. 이 중 원금은 비용이 아니라 저축이라 아래에서 갈라 놨습니다.'
             : leg.kind === 'jeonse'
               ? '전세자금대출 이자만 나갑니다. 대출이 없으면 0원입니다.'
-              : '월세만 나갑니다. 돌려받지 못하는 순비용입니다.'
+              : leg.kind === 'subscription'
+                ? '입주 전에는 대기 중 주거비와 중도금 이자, 입주 후에는 원리금과 보유비가 나갑니다. 두 국면이 이어져 있어 월 평균은 참고치입니다.'
+                : '월세만 나갑니다. 돌려받지 못하는 순비용입니다.'
         }
       />
       {leg.principalRepaid > 0 && (
@@ -261,17 +293,27 @@ function LegCard({
           help={
             leg.kind === 'buy'
               ? '주택담보대출 이자입니다. 돌려받지 못합니다.'
-              : '전세자금대출 이자입니다. 돌려받지 못합니다.'
+              : leg.kind === 'subscription'
+                ? '중도금 이자와 입주 후 주담대 이자의 합입니다. 아래 “주거 순비용”을 펼치면 갈라서 볼 수 있습니다.'
+                : '전세자금대출 이자입니다. 돌려받지 못합니다.'
           }
         />
       )}
       {leg.rentPaid > 0 && (
         <Row
           indent
-          label="└ 월세 (순비용)"
+          label={leg.kind === 'subscription' ? '└ 대기 중 주거비 (순비용)' : '└ 월세 (순비용)'}
           value={money(leg.rentPaid)}
           tone="text-slate-400"
-          help="집주인에게 낸 월세 누계입니다. 돌려받지 못합니다."
+          help={
+            leg.kind === 'subscription'
+              ? leg.detail.waitMode === 1
+                ? '입주 전까지 다른 집에 살며 낸 전세대출 이자입니다. 나머지 세 갈래에는 없는 비용입니다.'
+                : `계약금을 낸 뒤 남는 돈으로 전세보증금을 못 채워 월세로 계산했습니다. 월 ${money(
+                    leg.detail.waitMonthlyRent
+                  )} 입니다.`
+              : '집주인에게 낸 월세 누계입니다. 돌려받지 못합니다.'
+          }
         />
       )}
       {leg.carryCost > 0 && (
@@ -283,14 +325,21 @@ function LegCard({
           help="소유자만 부담합니다. 재산세와 연 수선유지비(가정값)의 합이고, 집값이 오르면 재산세도 같이 오릅니다."
         />
       )}
-      {leg.depositTopUp > 0 && (
+      {leg.kind === 'subscription' && Math.abs(leg.depositTopUp) > 1 ? (
+        <Row
+          label={leg.depositTopUp > 0 ? '입주 때 목돈 나감' : '입주 때 목돈 돌아옴'}
+          value={money(Math.abs(leg.depositTopUp))}
+          tone="text-slate-300"
+          help="입주일에 잔금·취득비를 내고 대기 중 살던 집의 보증금을 돌려받아 정산한 순액입니다. 돌려받는 보증금이 더 크면 오히려 돈이 남습니다. 갱신 증액이 아니라 한 시점의 정산이라 별도로 셉니다."
+        />
+      ) : leg.depositTopUp > 0 ? (
         <Row
           label="갱신 때 보증금 더 넣음"
           value={money(leg.depositTopUp)}
           tone="text-slate-300"
           help="2년마다 갱신하며 오른 보증금입니다. 투자자산을 헐어 넣으므로 적립액이 그만큼 줄지만, ③에서 돌려받는 보증금에 그대로 얹힙니다. 처음 넣은 목돈보다 돌려받는 돈이 큰 이유가 이것입니다."
         />
-      )}
+      ) : null}
       <Row
         label="투자에 추가 적립"
         hint={`(월 ${money(monthlySaving)})`}
@@ -298,22 +347,26 @@ function LegCard({
         tone={leg.netContribution > 0 ? 'text-slate-200' : 'text-slate-600'}
         help={
           leg.kind === 'buy'
-            ? '세 갈래 중 가장 많이 쓰는 쪽을 매달 기준예산으로 잡습니다. 매수가 보통 가장 많이 쓰므로 남는 돈이 없어 0원이 됩니다.'
+            ? '갈래 중 가장 많이 쓰는 쪽을 매달 기준예산으로 잡습니다. 매수가 보통 가장 많이 쓰므로 남는 돈이 없어 0원이 됩니다.'
             : '배당 재투자가 아닙니다. 매수자가 매달 쓰는 금액을 기준으로 잡고, 내가 덜 쓴 차액을 투자에 넣은 누계입니다. 배당·이자 수익은 위 “대체투자 기대수익률”에 이미 포함돼 있습니다.'
         }
       />
 
       <Stage n="③" title={`${years}년 뒤 손에 남는 것`} />
       <Row
-        label={leg.kind === 'buy' ? '집 팔고 받는 돈' : '보증금 돌려받음'}
-        hint={leg.kind === 'buy' ? '(대출·세금·수수료 뺀 뒤)' : undefined}
+        label={
+          leg.kind === 'buy' || leg.kind === 'subscription' ? '집 팔고 받는 돈' : '보증금 돌려받음'
+        }
+        hint={
+          leg.kind === 'buy' || leg.kind === 'subscription' ? '(대출·세금·수수료 뺀 뒤)' : undefined
+        }
         value={money(leg.recovered)}
         help={
           leg.kind === 'buy'
             ? '매도가에서 잔여대출·매도중개보수·양도세를 뺀 금액입니다. ②에서 갚은 원금이 잔여대출을 줄여 여기에 남습니다.'
-            : `최종 보증금 ${money(
-                leg.recovered + (leg.kind === 'jeonse' ? 0 : 0)
-              )}에서 임차대출을 갚고 남는 돈입니다. ①에서 넣은 목돈보다 큰 이유는 ②에서 갱신 때 보증금을 더 넣었기 때문입니다.`
+            : leg.kind === 'subscription'
+              ? '분양 단지를 팔아 잔여대출·중개보수·양도세를 뺀 금액입니다. 매수 갈래와 달리 보유 기간이 입주 후부터라 짧습니다 — 비과세 2년을 못 채우면 양도세가 붙습니다.'
+              : `최종 보증금에서 임차대출을 갚고 남는 돈입니다. ①에서 넣은 목돈보다 큰 이유는 ②에서 갱신 때 보증금을 더 넣었기 때문입니다.`
         }
       />
       <Row
@@ -377,9 +430,11 @@ function LegCard({
 }
 
 export function TenurePage() {
-  const { properties, matrix, profile } = useStore();
+  const { properties, matrix, profile, plans } = useStore();
 
   const [propertyId, setPropertyId] = useState('');
+  /** 청약 갈래로 세울 단지. 빈 문자열이면 3갈래 그대로입니다. */
+  const [planId, setPlanId] = useState('');
   const [scenarioId, setScenarioId] = useState('');
   const [over, setOver] = useState<Partial<TenureAssumptions>>({});
   /** 순비용 내역을 펼친 갈래 */
@@ -401,6 +456,16 @@ export function TenurePage() {
     [property, profile.priceGrowthRate, over]
   );
 
+  const plan = plans.find((p) => p.id === planId) ?? null;
+  /** 갈래 수에 따라 문구가 달라집니다 — "세 갈래" 가 넷일 때 남으면 거짓말입니다. */
+  const legWord = plan ? '네 갈래' : '세 갈래';
+
+  /** 청약 갈래는 단지를 고른 경우에만 붙습니다 — 안 고르면 화면이 그대로 셋입니다. */
+  const extraPlans = useMemo(() => {
+    if (!plan || !scenario || !assumptions) return undefined;
+    return [subscriptionLegPlan(plan, assumptions, scenario.availableCash, profile.termYears)];
+  }, [plan, scenario, assumptions, profile.termYears]);
+
   const result = useMemo(() => {
     if (!property || !scenario || !loan || !assumptions) return null;
     return compareTenures({
@@ -409,8 +474,9 @@ export function TenurePage() {
       equity: scenario.availableCash,
       termYears: profile.termYears,
       assumptions,
+      extraPlans,
     });
-  }, [property, scenario, loan, assumptions, profile.termYears]);
+  }, [property, scenario, loan, assumptions, profile.termYears, extraPlans]);
 
   const patch = (p: Partial<TenureAssumptions>) => setOver((o) => ({ ...o, ...p }));
 
@@ -419,10 +485,17 @@ export function TenurePage() {
   const scenarios = useMemo(() => {
     if (!property || !scenario || !loan || !assumptions) return [];
     return compareAcrossReturns(
-      { property, loan, equity: scenario.availableCash, termYears: profile.termYears, assumptions },
+      {
+        property,
+        loan,
+        equity: scenario.availableCash,
+        termYears: profile.termYears,
+        assumptions,
+        extraPlans,
+      },
       investmentOptions()
     );
-  }, [property, scenario, loan, assumptions, profile.termYears]);
+  }, [property, scenario, loan, assumptions, profile.termYears, extraPlans]);
 
   const flipsAcrossReturns = new Set(scenarios.map((s) => s.best)).size > 1;
   const provenanceOf = (id: string) =>
@@ -441,8 +514,12 @@ export function TenurePage() {
   return (
     <div className="space-y-5">
       <Card
-        title="3-way 거주형태 비교"
-        subtitle="매수 · 전세 · 월세가 같은 자기자본에서 출발해 같은 기간 뒤 손에 남는 돈을 비교합니다. 임차 쪽은 매수의 원리금 상환과 대칭이 되도록 차액을 적립투자합니다."
+        title={plan ? '4-way 거주형태 비교' : '3-way 거주형태 비교'}
+        subtitle={
+          plan
+            ? '매수 · 전세 · 월세 · 청약이 같은 자기자본에서 출발해 같은 기간 뒤 손에 남는 돈을 비교합니다. 임차 쪽은 매수의 원리금 상환과 대칭이 되도록 차액을 적립투자합니다.'
+            : '매수 · 전세 · 월세가 같은 자기자본에서 출발해 같은 기간 뒤 손에 남는 돈을 비교합니다. 임차 쪽은 매수의 원리금 상환과 대칭이 되도록 차액을 적립투자합니다.'
+        }
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="물건">
@@ -460,6 +537,28 @@ export function TenurePage() {
               value={scenario?.id ?? ''}
               onChange={setScenarioId}
               options={matrix.scenarios.map((s) => ({ value: s.id, label: s.label }))}
+            />
+          </Field>
+          <Field
+            label="청약 단지 (선택)"
+            hint={
+              plans.length === 0
+                ? '＋ 탭에서 단지를 넣으면 4번째 갈래가 생깁니다'
+                : plan
+                  ? '이 갈래만 사는 집이 다릅니다'
+                  : '고르면 4번째 갈래로 같이 세웁니다'
+            }
+          >
+            <Select
+              value={planId}
+              onChange={setPlanId}
+              options={[
+                { value: '', label: plans.length === 0 ? '— 등록된 단지 없음' : '— 세우지 않음' },
+                ...plans.map((p) => ({
+                  value: p.id,
+                  label: `${p.name || '이름 없음'} · ${money(p.price)}`,
+                })),
+              ]}
             />
           </Field>
           <Field label="비교 기간" hint="이 기간 끝에 매도·이사한다고 봅니다">
@@ -536,8 +635,21 @@ export function TenurePage() {
                 가정한 {percent(result.assumptions.priceGrowthRate, 2)}가 손익분기{' '}
                 {percent(result.breakEvenPriceGrowth, 2)}
                 {result.assumptions.priceGrowthRate >= result.breakEvenPriceGrowth
-                  ? '보다 높아 매수가 앞섭니다. 가정을 손익분기 아래로 낮추면 결론이 뒤집힙니다.'
-                  : '보다 낮아 임차가 앞섭니다. 매수가 이기려면 그만큼은 올라야 합니다.'}
+                  ? '보다 높아 매수가 임차보다 앞섭니다. 가정을 손익분기 아래로 낮추면 결론이 뒤집힙니다.'
+                  : '보다 낮아 임차가 매수보다 앞섭니다. 매수가 이기려면 그만큼은 올라야 합니다.'}
+                {plan && ' 청약은 그쪽도 집을 사므로 이 분기점 밖에 있습니다 — 따로 보세요.'}
+              </p>
+            )}
+            {/*
+              청약이 1등이어도 "청약해라" 가 아닙니다. 당첨을 전제로 했고, 사는 집도
+              다릅니다. 숫자가 이겼다는 사실과 그 숫자의 조건을 같이 놓습니다.
+            */}
+            {plan && result.best === 'subscription' && (
+              <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200">
+                종료자산은 청약이 가장 큽니다 — 다만 <b>당첨을 전제</b>로 했고, 이 갈래만{' '}
+                <b>사는 집이 다릅니다</b>. 입주까지 {plan.waitYears}년은 다른 집에 임차로 살고,
+                {plan.resaleBanMonths > 0 && ` 전매제한 ${plan.resaleBanMonths}개월 동안은 팔 수도 없습니다.`}{' '}
+                "되면 낫다"까지가 이 숫자가 말할 수 있는 전부입니다.
               </p>
             )}
           </Card>
@@ -572,7 +684,18 @@ export function TenurePage() {
                     const open = openCost === l.kind;
                     return [
                       <tr key={l.kind} className="border-b border-slate-800/50">
-                        <td className="py-1.5 text-[11px] text-slate-300">{l.label}</td>
+                        <td className="py-1.5 text-[11px] text-slate-300">
+                          {l.label}
+                          {/* 자금 부족이면 투자 원금이 음수가 됩니다 — 표에서도 그 사실이 보여야 합니다. */}
+                          {!l.feasible && (
+                            <span
+                              className="ml-1.5 text-[9px] text-rose-300"
+                              title={`초기 자금이 ${money(l.shortfall)} 모자랍니다. 아래 숫자는 그 돈을 어디선가 빌려 왔다고 보고 계산한 값이라, 투자 원금이 음수로 나옵니다.`}
+                            >
+                              자금 부족
+                            </span>
+                          )}
+                        </td>
                         <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
                           {money(l.totalCashOut)}
                         </td>
@@ -658,7 +781,7 @@ export function TenurePage() {
           */}
           <Card
             title="차액을 어디에 굴리느냐 — 대체투자 수익률별 우열"
-            subtitle="매수와 임차의 차액을 굴리는 수익률을 바꿔 가며 종료자산을 다시 계산합니다. 세 갈래 모두 영향을 받습니다 — 매수도 목돈을 다 쓰지 않고 남긴 만큼은 굴리기 때문입니다."
+            subtitle={`매수와 임차의 차액을 굴리는 수익률을 바꿔 가며 종료자산을 다시 계산합니다. ${legWord} 모두 영향을 받습니다 — 매수도 목돈을 다 쓰지 않고 남긴 만큼은 굴리기 때문입니다.`}
             action={
               <Badge tone={measuredCount > 0 ? 'good' : 'warn'}>
                 {measuredCount > 0 ? `${measuredCount}/${scenarios.length} 실측` : '전부 가정값'}
@@ -772,11 +895,15 @@ export function TenurePage() {
           {/* ── 갈래별 상세 ──────────────────────────────────── */}
           <Card
             title="자금 흐름 — 같은 목돈을 어디에 두느냐의 차이"
-            subtitle={`세 갈래 모두 자기자본 ${money(
+            subtitle={`${legWord} 모두 자기자본 ${money(
               result.equity
             )}에서 출발합니다. 주거에 묶는 만큼 투자에 남길 돈이 줄고, 매달 주거비를 덜 쓰는 만큼 투자에 더 넣습니다. 매수자가 갚는 원금은 소비가 아니라 저축이므로, 임차 쪽에도 그 차액만큼 투자시켜야 비교가 성립합니다.`}
           >
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div
+              className={`grid gap-4 ${
+                result.legs.length > 3 ? 'sm:grid-cols-2 xl:grid-cols-4' : 'lg:grid-cols-3'
+              }`}
+            >
               {result.legs.map((leg) => (
                 <LegCard
                   key={leg.kind}
@@ -900,6 +1027,13 @@ export function TenurePage() {
                   · {c}
                 </li>
               ))}
+              {/* 청약을 세웠을 때만 붙는 단서 — 이 갈래만 사는 집이 다릅니다. */}
+              {plan &&
+                SUBSCRIPTION_CAVEATS.map((c) => (
+                  <li key={c} className="text-xs leading-relaxed text-amber-300/80">
+                    · {c}
+                  </li>
+                ))}
             </ul>
           </Card>
         </>
