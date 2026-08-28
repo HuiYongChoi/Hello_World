@@ -615,7 +615,7 @@
       ]
     },
     "assumptionDefaults": {
-      "note": "시장 가정값 자리표시자. 로드맵 2단계의 data/market-YYYY-MM.json 으로 대체될 예정입니다.",
+      "note": "시장 가정값. 전세가율·전월세전환율은 실측(rent-*.json)으로 대체됐고, 집값 상승률은 화면에서 실측 앵커(growth.ts)를 옆에 놓습니다. 아래 basis 에 남은 가정값의 근거를 적습니다 — 근거 없는 숫자와 근거 있는 가정은 다릅니다.",
       "years": 10,
       "investmentReturnRate": 0.06,
       "depositGrowthRate": 0.02,
@@ -635,6 +635,40 @@
           "jeonseRatio": 0.68,
           "conversionRate": 0.06,
           "wolseDepositRatio": 0.25
+        }
+      },
+      "basis": {
+        "note": "실측으로 대체할 수 없는 값들. 무엇을 근거로 찍었고, 무엇이 있으면 실측이 되는지 적습니다.",
+        "maintenanceRate": {
+          "value": 0.005,
+          "label": "연 수선유지비 (주택가격 대비)",
+          "basis": "장기수선충당금과 자가 수선비의 합을 주택가격의 0.5%로 잡은 통상값입니다. 실측이 아닙니다.",
+          "wouldSettle": "공동주택관리정보시스템(K-apt) 의 단지별 장기수선충당금·수선비 공개자료. data.go.kr 활용신청이 따로 필요합니다.",
+          "sensitivity": "매수·청약 갈래만 부담합니다. 0.5%p 움직이면 10년 보유 기준 주택가격의 5%가 오갑니다."
+        },
+        "investmentReturnRate": {
+          "value": 0.06,
+          "label": "대체투자 기대수익률 (기본값)",
+          "basis": "화면에서 실측 지수(코스피·채권·S&P500·나스닥100)로 갈아 끼울 수 있는 출발점입니다. 이 값 자체는 실측이 아닙니다.",
+          "wouldSettle": "이미 대체 가능합니다 — 민감도 표에서 실측 지수별로 우열이 뒤집히는지 봅니다.",
+          "sensitivity": "모든 갈래에 적용되지만 임차 쪽 잔고가 커서 임차에 유리하게 작용합니다."
+        },
+        "depositGrowthRate": {
+          "value": 0.02,
+          "label": "보증금·월세 상승률",
+          "basis": "갱신 상한(5%)보다 낮게, 물가 상승률 수준으로 잡은 값입니다.",
+          "wouldSettle": "rent-*.json 을 여러 시점으로 쌓으면 같은 단지·평형의 보증금 변화를 실측할 수 있습니다. 지금은 스냅샷이 한 시점뿐입니다.",
+          "sensitivity": "임차 갈래만 부담합니다. 높을수록 임차가 불리해집니다."
+        },
+        "usDividendYield": {
+          "value": {
+            "SP500": 0.015,
+            "NASDAQ100": 0.008
+          },
+          "label": "미국 지수 배당수익률",
+          "basis": "FRED 에 S&P500·나스닥100 의 배당수익률도 총수익지수도 없습니다(확인함). 최근 10년 통상 범위에서 잡은 값입니다.",
+          "wouldSettle": "S&P Dow Jones Indices 또는 Nasdaq 의 총수익지수 접근권. 코스피는 ECOS 에 배당수익률이 있어 이미 실측으로 바꿨습니다.",
+          "sensitivity": "해외지수 총수익 근사에만 쓰입니다. 코스피는 영향이 없습니다."
         }
       }
     }

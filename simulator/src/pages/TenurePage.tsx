@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   Badge,
   Card,
@@ -11,8 +11,10 @@ import {
   TierBadge,
 } from '../components/ui';
 import { money, percent } from '../engine/format';
+import { growthSuggestion } from '../engine/growth';
 import { cellKey } from '../engine/matrix';
 import { RULES } from '../engine/rules';
+import type { RegionId } from '../engine/types';
 import {
   compareAcrossReturns,
   compareTenures,
@@ -51,6 +53,7 @@ function RateField({
   value,
   onChange,
   step = 0.1,
+  anchor,
 }: {
   label: string;
   /** 실측이면 출처, 가정이면 무엇을 근거로 찍었는지 */
@@ -61,6 +64,8 @@ function RateField({
   value: number;
   onChange: (v: number) => void;
   step?: number;
+  /** 입력칸 아래에 붙는 실측 앵커 — 가정값 옆에 근거를 놓습니다 */
+  anchor?: ReactNode;
 }) {
   return (
     <div>
@@ -90,6 +95,78 @@ function RateField({
         />
       </div>
       <span className="mt-1 block text-[10px] leading-relaxed text-slate-600">{source}</span>
+      {anchor}
+    </div>
+  );
+}
+
+/**
+ * 가정값 옆에 붙는 **실측 앵커**.
+ *
+ * 과거 CAGR 을 기본값으로 몰래 대입하지 않습니다 — 그러면 도구가 "이만큼
+ * 오릅니다" 라고 말하는 것이 됩니다. 옆에 놓고 가져다 쓰게 합니다.
+ *
+ * 단일 CAGR 만 내면 "언제 들어갔느냐" 가 감춰지므로 같은 보유기간의 분포를
+ * 같이 냅니다. 표본이 얇으면 얇다고 적습니다.
+ */
+function GrowthAnchor({
+  region,
+  years,
+  current,
+  onUse,
+}: {
+  region: RegionId;
+  years: number;
+  current: number;
+  onUse: (v: number) => void;
+}) {
+  const s = useMemo(() => growthSuggestion(region, years), [region, years]);
+  if (!s) return null;
+  const same = Math.abs(current - s.cagr) < 0.0001;
+  const d = s.distribution;
+
+  return (
+    <div className="mt-1.5 rounded-lg border border-slate-800 bg-slate-950/50 px-2 py-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[10px] text-slate-500">
+          실측 <span className="text-slate-300 tabular-nums">{percent(s.cagr, 2)}</span>
+          <span className="ml-1 text-slate-600">
+            ({s.years.toFixed(1)}년 · {s.cells.toLocaleString('ko-KR')}칸)
+          </span>
+        </span>
+        <button
+          type="button"
+          disabled={same}
+          onClick={() => onUse(s.cagr)}
+          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] transition no-print ${
+            same
+              ? 'text-slate-600'
+              : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100'
+          }`}
+        >
+          {same ? '적용됨' : '가져오기'}
+        </button>
+      </div>
+      {d && (
+        <div
+          className="mt-0.5 text-[9px] leading-relaxed text-slate-600"
+          title={`${years}년 보유를 ${d.count}개 진입시점에서 각각 계산한 분포입니다. 중위 ${percent(
+            d.median,
+            2
+          )} · 하위25% ${percent(d.p25, 2)} · 최악 ${percent(d.worst, 2)} · 최고 ${percent(d.best, 2)}.`}
+        >
+          {years}년 보유 중위 {percent(d.median, 1)} · 하위25% {percent(d.p25, 1)} · 최악{' '}
+          {percent(d.worst, 1)}
+          {d.thin && (
+            <span className="ml-1 text-amber-500/70">{' · '}
+              진입시점 {d.count}개뿐 — 분위수가 뭉개집니다
+            </span>
+          )}
+        </div>
+      )}
+      <div className="mt-0.5 text-[9px] leading-relaxed text-slate-600">
+        과거 실측일 뿐 예측이 아닙니다. 구간을 어디서 끊느냐로 크게 달라집니다.
+      </div>
     </div>
   );
 }
@@ -573,9 +650,19 @@ export function TenurePage() {
             label="주택 가격상승률"
             help="집값이 매년 오르는 비율입니다. **매수 갈래만 여기에 노출됩니다** — 전세·월세의 회수액은 집값과 무관합니다. 이 값이 손익분기 상승률보다 높으면 매수가, 낮으면 임차가 앞섭니다."
             assumed
-            source="자리표시자 · 매수 갈래만 여기에 노출됩니다"
+            source="매수·청약 갈래만 여기에 노출됩니다"
             value={assumptions?.priceGrowthRate ?? 0}
             onChange={(v) => patch({ priceGrowthRate: v })}
+            anchor={
+              property && assumptions ? (
+                <GrowthAnchor
+                  region={property.region}
+                  years={assumptions.years}
+                  current={assumptions.priceGrowthRate}
+                  onUse={(v) => patch({ priceGrowthRate: v })}
+                />
+              ) : undefined
+            }
           />
         </div>
       </Card>
@@ -864,11 +951,17 @@ export function TenurePage() {
               </p>
               <p className="text-[10px] leading-relaxed text-slate-600">
                 코스피·채권은 KRX 실측입니다 ({INDEXES.range.from.slice(0, 4)}~
-                {INDEXES.range.to.slice(0, 4)}년 {INDEXES.range.years}년 구간). 다만 KRX 에
-                코스피 <strong className="text-slate-400">총수익지수가 없어</strong> 배당{' '}
-                {(INDEXES.kospi.dividendYieldAssumed * 100).toFixed(1)}%는 가정을 더한
-                근사입니다. 채권만 총수익지수 실측이라 근사가 아닙니다. 해외지수는 소스가
-                없어 통념치입니다.
+                {INDEXES.range.to.slice(0, 4)}년 {INDEXES.range.years}년 구간). KRX 에 코스피{' '}
+                <strong className="text-slate-400">총수익지수가 없어</strong> 가격지수에 배당을
+                더해 근사하는데, 그 배당{' '}
+                {(INDEXES.kospi.dividendYieldMeasured * 100).toFixed(2)}%도{' '}
+                <strong className="text-slate-400">이제 실측</strong>입니다 (ECOS 배당수익률
+                20년 평균). 두 항 모두 실측이지만 재투자 시점이 안 들어가 여전히 근사입니다.
+                채권만 총수익지수 실측이라 근사가 아닙니다.
+                <br />
+                해외지수는 <strong className="text-slate-400">가격지수만 FRED 실측</strong>이고
+                배당은 가정입니다 — FRED 에 이 지수들의 배당수익률도 총수익지수도 없다는 것을
+                확인했습니다. 같은 “실측+가정” 이라도 코스피와 근거 수준이 다릅니다.
               </p>
               {measuredInflation() !== null && (
                 <p className="text-[10px] leading-relaxed text-slate-600">

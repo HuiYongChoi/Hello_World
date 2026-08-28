@@ -137,6 +137,16 @@ export interface Ruleset {
     };
     assumptionDefaults: {
       note: string;
+      /**
+       * 실측으로 대체할 수 없는 값들의 근거.
+       *
+       * 근거 없는 숫자와 근거 있는 가정은 다릅니다. 무엇을 보고 찍었고 무엇이
+       * 있어야 실측이 되는지를 데이터로 남겨, 화면이 그대로 읽어 보여줍니다.
+       */
+      basis: {
+        note: string;
+        [key: string]: unknown;
+      };
       years: number;
       investmentReturnRate: number;
       depositGrowthRate: number;

@@ -24,8 +24,19 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASE = 'http://data-dbg.krx.co.kr/svc/apis';
 
-/** 코스피 배당수익률 가정 — 실측이 아니라 총수익 근사에 쓰는 값입니다. */
-const DIVIDEND_YIELD = 0.02;
+/*
+ * 배당수익률은 **실측**입니다 — `scripts/fetch-dividend.mjs` 가 ECOS 에서 받아
+ * `src/data/dividend.json` 으로 굽습니다. 예전에는 여기 `0.02` 가 박혀 있었는데
+ * 실측 20년 평균은 1.60% 였습니다. 총수익 근사의 절반이 근거 없는 숫자였던 셈입니다.
+ *
+ * 다만 **여전히 근사**입니다. 평균 배당수익률을 가격 CAGR 에 더하는 것은 진짜
+ * 총수익지수와 같지 않습니다 — 재투자 시점과 복리가 반영되지 않습니다.
+ * 근사인 이유가 "배당을 몰라서" 에서 "재투자를 못 재서" 로 바뀐 것뿐입니다.
+ */
+const DIVIDEND = JSON.parse(
+  readFileSync(resolve(ROOT, 'simulator/src/data/dividend.json'), 'utf8')
+);
+const DIVIDEND_YIELD = DIVIDEND.mean;
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -109,12 +120,14 @@ async function main() {
       fromIndex: kFrom.value,
       toIndex: kTo.value,
       priceCagr: round4(kospiPrice),
-      dividendYieldAssumed: DIVIDEND_YIELD,
+      dividendYieldMeasured: DIVIDEND_YIELD,
+      dividendSource: `${DIVIDEND.source} · ${DIVIDEND.from}~${DIVIDEND.to} ${DIVIDEND.n}년 평균`,
       totalReturnApprox: round4(kospiPrice + DIVIDEND_YIELD),
-      measured: 'price-only',
+      measured: 'price-plus-measured-dividend',
       note:
-        '가격지수 실측 CAGR 에 배당수익률 가정을 더한 총수익 근사치입니다. ' +
-        'KRX 지수 API 에 코스피 총수익지수(TR)가 없어 근사가 불가피합니다.',
+        '가격지수 실측 CAGR 에 배당수익률 실측 평균을 더한 총수익 근사치입니다. ' +
+        'KRX 지수 API 에 코스피 총수익지수(TR)가 없어 근사가 불가피합니다 — ' +
+        '두 항 모두 실측이지만 재투자 시점과 복리는 반영되지 않아 여전히 근사입니다.',
     },
     bond: bFrom && bTo
       ? {
@@ -134,7 +147,7 @@ async function main() {
   console.log(`\n✓ ${path}\n`);
   console.log(
     `  코스피  ${kFrom.day} ${kFrom.value} → ${kTo.day} ${kTo.value}` +
-      `\n          가격 CAGR ${(kospiPrice * 100).toFixed(2)}% + 배당 가정 ${(DIVIDEND_YIELD * 100).toFixed(1)}%` +
+      `\n          가격 CAGR ${(kospiPrice * 100).toFixed(2)}% + 배당 실측 ${(DIVIDEND_YIELD * 100).toFixed(2)}%` +
       ` = 총수익 근사 ${(out.kospi.totalReturnApprox * 100).toFixed(2)}%`
   );
   if (out.bond) {

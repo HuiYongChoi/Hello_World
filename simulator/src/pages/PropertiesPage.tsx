@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { SUPPLY_CAVEATS, supplyFeedback } from '../engine/supply';
+import { normalize } from '../engine/scoring';
+import { useMemo, useState } from 'react';
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -293,6 +295,15 @@ function ScorePanel({
                             className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs tabular-nums text-slate-100 outline-none focus:border-sky-500"
                           />
                           <div className="mt-0.5 text-[10px] text-slate-600">{ind.hint}</div>
+                          {/*
+                            주관 입력 옆에 실측 신호를 놓습니다 — 대체하지 않습니다.
+                            내 판단이 실측 방향과 어긋나는지만 보이면 됩니다.
+                          */}
+                          <MetricFeedback
+                            indicatorId={ind.id}
+                            sigungu={property.sigungu}
+                            value={Number(raw)}
+                          />
                         </>
                       )}
                       {showWeights && presets[ind.id] !== w && (
@@ -386,6 +397,102 @@ function PenaltyPanel({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * 주관 점수 옆에 붙는 **실측 신호**.
+ *
+ * 입지 점수는 주관적 입력의 가중합이고 그건 설계상 그대로 둡니다 — 객관적
+ * 시세 예측이 아닙니다. 다만 실측할 수 있는 축이 하나 생겼습니다.
+ *
+ * 값을 덮어쓰지 않고 **어긋날 때만** 말합니다. 항상 떠 있으면 곧 배경이 되고,
+ * 자동 대입하면 주관 입력이라는 설계가 무너집니다.
+ */
+function MetricFeedback({
+  indicatorId,
+  sigungu,
+  value,
+}: {
+  indicatorId: string;
+  sigungu: string;
+  value: number;
+}) {
+  const fb = useMemo(
+    () => (indicatorId === 'futureSupply' ? supplyFeedback(sigungu) : null),
+    [indicatorId, sigungu]
+  );
+
+  if (indicatorId === 'populationTrend') {
+    return (
+      <div
+        className="mt-1 text-[9px] leading-relaxed text-slate-600"
+        title={
+          '시군구 인구 추이는 행정안전부 주민등록 인구통계(data.go.kr)에 있습니다.\n' +
+          '지금 키로는 "등록되지 않은 서비스키"가 돌아옵니다 — API 별 활용신청이 따로 필요합니다.\n' +
+          '승인되면 같은 자리에 실측이 붙습니다.'
+        }
+      >
+        실측 대기 — data.go.kr 활용신청 필요 ⓘ
+      </div>
+    );
+  }
+
+  if (!fb) return null;
+
+  /*
+   * 이 지표의 입력 단위는 세대 수인데 대리지표는 순위밖에 못 냅니다. 백분위를
+   * 세대로 되돌리면 없는 숫자를 지어내는 것이라 **가져오기를 두지 않습니다.**
+   * 대신 둘 다 0~100 점수로 바꿔 같은 자에서 방향만 비교합니다.
+   */
+  const ind = INDICATORS.find((i) => i.id === indicatorId);
+  const userScore = ind ? normalize(ind, value) : null;
+  const gap = userScore === null ? 0 : fb.suggestedScore - userScore;
+  const differs = Math.abs(gap) >= 30;
+
+  return (
+    <div className="mt-1 rounded border border-slate-800 bg-slate-900/40 px-1.5 py-1">
+      <div
+        className="text-[9px] leading-relaxed text-slate-500"
+        title={
+          `${fb.outlook.districtLabel} — 분양권 거래는 있는데 매매가 없는 단지 ${fb.outlook.pending}개.\n` +
+          `기존 재고 ${fb.outlook.marketComplexes}개 대비 ${(fb.outlook.pendingRatio * 100).toFixed(1)}%.\n` +
+          `같은 지역군 ${fb.peers}개 시군구 중 새 물량이 ${fb.rankBySupply}번째로 많습니다.\n` +
+          `점수로 환산하면 ${fb.suggestedScore}점 (100이 공급 적음).\n\n` +
+          SUPPLY_CAVEATS.map((c) => `· ${c}`).join('\n')
+        }
+      >
+        실측 대리지표 <span className="text-slate-600">상대점수</span>{' '}
+        <span className="text-slate-300 tabular-nums">{fb.suggestedScore}</span>
+        <span className="ml-1 text-slate-600">
+          (미준공 {fb.outlook.pending}개 · 재고 대비 {(fb.outlook.pendingRatio * 100).toFixed(0)}% ·{' '}
+          {fb.peers}개 중 {fb.rankBySupply}번째로 많음)
+        </span>
+      </div>
+      {userScore !== null && (
+        <div
+          className={`mt-0.5 text-[9px] leading-relaxed ${
+            differs ? 'text-amber-500/80' : 'text-slate-600'
+          }`}
+        >
+          내 입력 {value.toLocaleString('ko-KR')}세대 = {Math.round(userScore)}점
+          {differs
+            ? ` — 실측과 ${Math.abs(Math.round(gap))}점 어긋납니다. ${
+                gap > 0 ? '실측은 공급이 더 적다고 봅니다.' : '실측은 공급이 더 많다고 봅니다.'
+              }`
+            : ' — 실측과 같은 방향입니다.'}
+        </div>
+      )}
+      <div className="mt-0.5 text-[9px] leading-relaxed text-slate-600">
+        세대수가 아니라 단지 수이고, 전매제한 단지는 안 잡혀 하한입니다 — 값을 대신 넣지
+        않습니다.
+      </div>
+      {fb.thin && (
+        <div className="mt-0.5 text-[9px] text-slate-600">
+          재고 단지가 {fb.outlook.marketComplexes}개뿐이라 비율이 흔들립니다
+        </div>
+      )}
     </div>
   );
 }

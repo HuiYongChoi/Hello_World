@@ -45,7 +45,9 @@ interface RawIndexSnapshot {
     fromIndex: number;
     toIndex: number;
     priceCagr: number;
-    dividendYieldAssumed: number;
+    /** 배당수익률 **실측** — ECOS 901Y014. 예전엔 여기 0.02 가 박혀 있었습니다. */
+    dividendYieldMeasured: number;
+    dividendSource: string;
     totalReturnApprox: number;
     note: string;
   };
@@ -112,8 +114,10 @@ export function investmentOptions(): InvestmentOption[] {
       provenance: 'approx',
       note:
         `${period} 가격지수 실측 CAGR ${(INDEXES.kospi.priceCagr * 100).toFixed(2)}% ` +
-        `+ 배당 가정 ${(INDEXES.kospi.dividendYieldAssumed * 100).toFixed(1)}%. ` +
-        'KRX 에 코스피 총수익지수가 없어 배당은 가정입니다.',
+        `+ 배당수익률 실측 ${(INDEXES.kospi.dividendYieldMeasured * 100).toFixed(2)}% ` +
+        `(${INDEXES.kospi.dividendSource}). ` +
+        'KRX 에 코스피 총수익지수가 없어 두 항을 더해 근사합니다 — ' +
+        '두 항 모두 실측이지만 재투자 시점과 복리는 반영되지 않습니다.',
     },
   ];
 
@@ -127,7 +131,12 @@ export function investmentOptions(): InvestmentOption[] {
     });
   }
 
-  // 해외지수도 FRED 실측입니다. 다만 가격지수라 배당은 코스피와 같은 방식으로 가정합니다.
+  /*
+   * 해외지수도 FRED 실측입니다. 다만 **배당은 여전히 가정**입니다 — FRED 에
+   * S&P500·나스닥100 의 배당수익률도 총수익지수도 없다는 것을 확인했습니다.
+   * 코스피는 ECOS 에 배당수익률이 있어 실측으로 바꿨으므로, 이제 같은 `approx`
+   * 라도 코스피와 해외지수의 근거 수준이 다릅니다. 문구로 갈라 둡니다.
+   */
   const foreign: [string, string][] = [
     ['SP500', 'S&P 500'],
     ['NASDAQ100', '나스닥 100'],
@@ -143,6 +152,8 @@ export function investmentOptions(): InvestmentOption[] {
       note:
         `${x.from}~${x.to} (${x.years}년) 가격지수 실측 CAGR ${(x.priceCagr * 100).toFixed(2)}% ` +
         `+ 배당 가정 ${(x.dividendYieldAssumed * 100).toFixed(1)}%. ` +
+        'FRED 에 이 지수의 배당수익률도 총수익지수도 없어 배당은 가정입니다 — ' +
+        '배당까지 실측인 코스피와 근거 수준이 다릅니다. ' +
         '달러 기준이라 원화로 환산하면 환율 변동이 더해집니다.',
     });
   }

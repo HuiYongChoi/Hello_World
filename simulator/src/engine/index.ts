@@ -16,6 +16,8 @@ export * from './subscription';
 export * from './indexes';
 export * from './rent';
 export * from './market';
+export * from './growth';
+export * from './supply';
 export * from './tenure';
 export * from './matrix';
 export * from './format';
