@@ -6,6 +6,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { PropertiesPage } from './pages/PropertiesPage';
 import { ReportPage } from './pages/ReportPage';
 import { ScenarioPage } from './pages/ScenarioPage';
+import { SubscriptionPage } from './pages/SubscriptionPage';
 import { MarketPage } from './pages/MarketPage';
 import { PremiumDrawer } from './pages/PremiumDrawer';
 import { RankingDrawer } from './pages/RankingDrawer';
@@ -16,6 +17,7 @@ type TabId =
   | 'profile'
   | 'scenarios'
   | 'properties'
+  | 'subscription'
   | 'compare'
   | 'tenure'
   | 'market'
@@ -34,6 +36,8 @@ const TAB_GROUPS: { label: string; tabs: { id: TabId; label: string; step: strin
       { id: 'profile', label: '가구 프로필', step: '1' },
       { id: 'scenarios', label: '시나리오', step: '2' },
       { id: 'properties', label: '물건 · 입지', step: '3' },
+      // 청약은 선택입니다 — 비워 두면 나머지 화면은 그대로 돌아갑니다.
+      { id: 'subscription', label: '청약 단지 (선택)', step: '＋' },
     ],
   },
   {
@@ -143,6 +147,7 @@ export function App() {
         {tab === 'profile' && <ProfilePage />}
         {tab === 'scenarios' && <ScenarioPage />}
         {tab === 'properties' && <PropertiesPage />}
+        {tab === 'subscription' && <SubscriptionPage />}
         {tab === 'compare' && <ComparePage />}
         {tab === 'tenure' && <TenurePage />}
         {tab === 'market' && <MarketPage />}

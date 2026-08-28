@@ -326,8 +326,12 @@ const MIN_BUCKET = 3;
 export interface Insight {
   /** 한 줄 결론 */
   headline: string;
-  /** 근거가 되는 수치 */
+  /** 근거가 되는 수치 — 사람이 읽는 문장이라 문구가 바뀝니다. 검증은 아래 필드로 하세요. */
   evidence: string;
+  /** 상위권에서 이 구간에 든 건수 */
+  topCount: number;
+  /** topShare ÷ allShare — 상위권에 몇 배 자주 나타나는지 (가격 배수가 아닙니다) */
+  lift: number;
   strength: 'strong' | 'weak';
 }
 
@@ -352,13 +356,17 @@ export function rankingInsights(result: RankingResult): Insight[] {
       if (b.lift >= LIFT_STRONG) {
         out.push({
           headline: `${g.label}: ${subjectParticle(b.key)} 상위권에 몰렸습니다`,
-          evidence: `상위 ${b.topCount}건 (${pct(b.topShare)}) · 전체 ${pct(b.allShare)} · ${b.lift.toFixed(2)}배`,
+          evidence: `상위권 ${pct(b.topShare)}(${b.topCount}건) vs 전체 ${pct(b.allShare)} — 상위권에 ${b.lift.toFixed(1)}배 자주`,
+          topCount: b.topCount,
+          lift: b.lift,
           strength: b.topCount >= 5 ? 'strong' : 'weak',
         });
       } else if (b.lift <= LIFT_WEAK) {
         out.push({
           headline: `${g.label}: ${topicParticle(b.key)} 오히려 상위권에서 빠졌습니다`,
-          evidence: `상위 ${b.topCount}건 (${pct(b.topShare)}) · 전체 ${pct(b.allShare)} · ${b.lift.toFixed(2)}배`,
+          evidence: `상위권 ${pct(b.topShare)}(${b.topCount}건) vs 전체 ${pct(b.allShare)} — 상위권에 ${b.lift.toFixed(1)}배로 오히려 드묾`,
+          topCount: b.topCount,
+          lift: b.lift,
           strength: b.topCount >= 5 ? 'strong' : 'weak',
         });
       }
@@ -471,11 +479,11 @@ export function rankingReport(result: RankingResult, scopeLabel: string): string
     lines.push(`### ${g.label}`);
     lines.push(`> ${g.hint}`);
     lines.push('');
-    lines.push('| 구분 | 상위권 | 상위 비중 | 전체 비중 | 배수 |');
+    lines.push('| 구분 | 상위권 건수 | 상위권 비중 | 전체 비중 | 상위권에 몇 배 자주 |');
     lines.push('|---|---|---|---|---|');
     for (const b of shown) {
       lines.push(
-        `| ${b.key} | ${b.topCount}건 | ${pct(b.topShare, 1)} | ${pct(b.allShare, 1)} | ${b.lift.toFixed(2)}배 |`
+        `| ${b.key} | ${b.topCount}건 | ${pct(b.topShare, 1)} | ${pct(b.allShare, 1)} | ${b.lift.toFixed(2)}배 자주 |`
       );
     }
   }

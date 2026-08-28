@@ -142,7 +142,9 @@ describe('인사이트', () => {
     const ins = rankingInsights(r);
     for (const i of ins) {
       expect(i.headline.length).toBeGreaterThan(0);
-      expect(i.evidence).toMatch(/상위 \d+건/);
+      expect(i.evidence.length).toBeGreaterThan(0);
+      // 배수는 "가격이 몇 배" 로 오독되기 쉬워 문장에 반드시 "자주"·"드묾" 이 붙습니다.
+      expect(i.evidence).toMatch(/자주|드묾/);
     }
   });
 
@@ -150,8 +152,7 @@ describe('인사이트', () => {
     const r = rankPerformers({ ...base, mode: 'excess' });
     const ins = rankingInsights(r);
     for (const i of ins) {
-      const n = Number(i.evidence.match(/상위 (\d+)건/)![1]);
-      expect(n).toBeGreaterThanOrEqual(3);
+      expect(i.topCount).toBeGreaterThanOrEqual(3);
     }
   });
 
@@ -159,8 +160,7 @@ describe('인사이트', () => {
     const r = rankPerformers({ ...base, mode: 'excess' });
     const ins = rankingInsights(r);
     for (const i of ins) {
-      const n = Number(i.evidence.match(/상위 (\d+)건/)![1]);
-      expect(i.strength).toBe(n >= 5 ? 'strong' : 'weak');
+      expect(i.strength).toBe(i.topCount >= 5 ? 'strong' : 'weak');
     }
     const firstWeak = ins.findIndex((i) => i.strength === 'weak');
     if (firstWeak >= 0) {

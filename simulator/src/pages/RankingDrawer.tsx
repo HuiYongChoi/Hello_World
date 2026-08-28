@@ -8,8 +8,8 @@ import {
   rankingInsights,
   rankingReport,
   type RankingMode,
-  type TraitGroup,
 } from '../engine/ranking';
+import { TraitCard, TraitLegend } from '../components/TraitCard';
 import { DISTRICTS } from '../engine/regions';
 
 /**
@@ -72,55 +72,6 @@ const COLUMNS: {
       '양수면 같은 동네 평균보다 더 올랐다는 뜻이고, 음수면 덜 올랐다는 뜻입니다.',
   },
 ];
-
-function TraitCard({ group, topCount }: { group: TraitGroup; topCount: number }) {
-  // 표본이 한 자리면 배수가 커도 우연입니다. 3건 미만은 아예 내지 않습니다.
-  const shown = group.buckets.filter((b) => b.topCount >= 3).slice(0, 5);
-  if (shown.length === 0) return null;
-
-  return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-3.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <h4 className="text-xs font-semibold text-slate-200">{group.label}</h4>
-        <span className="text-[10px] text-slate-600">상위 {topCount}건 기준</span>
-      </div>
-      <p className="mt-0.5 text-[10px] leading-relaxed text-slate-600">{group.hint}</p>
-      <div className="mt-2 space-y-1.5">
-        {shown.map((b) => (
-          <div key={b.key}>
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[11px] text-slate-300">{b.key}</span>
-              <span className="text-[11px] tabular-nums text-slate-400">
-                {b.topCount}건 ·{' '}
-                <span className={b.lift >= 1.3 ? 'font-semibold text-slate-100' : 'text-slate-500'}>
-                  {b.lift.toFixed(2)}배
-                </span>
-              </span>
-            </div>
-            <div className="mt-0.5 flex h-1.5 gap-0.5">
-              <div className="flex-1 overflow-hidden rounded-full bg-slate-800">
-                <div
-                  className="h-full bg-slate-300"
-                  style={{ width: `${Math.min(100, b.topShare * 100)}%` }}
-                />
-              </div>
-              <div className="flex-1 overflow-hidden rounded-full bg-slate-800">
-                <div
-                  className="h-full bg-slate-700"
-                  style={{ width: `${Math.min(100, b.allShare * 100)}%` }}
-                />
-              </div>
-            </div>
-            <div className="mt-0.5 flex justify-between text-[9px] text-slate-600">
-              <span>상위 {percent(b.topShare, 0)}</span>
-              <span>전체 {percent(b.allShare, 0)}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function RankingDrawer() {
   const [open, setOpen] = useState(false);
@@ -215,7 +166,7 @@ export function RankingDrawer() {
         onClick={() => setOpen(false)}
         aria-hidden
       />
-      <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-slate-800 bg-slate-950 no-print">
+      <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-3xl flex-col border-l border-slate-800 bg-slate-950 no-print">
         <header className="flex items-start justify-between gap-3 border-b border-slate-800 px-5 py-4">
           <div>
             <h2 className="text-base font-semibold text-slate-100">수익률 상위권 공통점</h2>
@@ -315,9 +266,18 @@ export function RankingDrawer() {
               )}
 
               <h3 className="mt-5 mb-2 text-xs font-semibold text-slate-300">공통점</h3>
+              <div className="mb-2">
+                <TraitLegend topCount={result.topCount} universe={result.universe} />
+              </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {result.traits.map((g) => (
-                  <TraitCard key={g.id} group={g} topCount={result.topCount} />
+                  <TraitCard
+                    key={g.id}
+                    group={g}
+                    topCount={result.topCount}
+                    universe={result.universe}
+                    maxBuckets={5}
+                  />
                 ))}
               </div>
 

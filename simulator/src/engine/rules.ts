@@ -79,6 +79,18 @@ export interface Ruleset {
       changwon: { name: string; tier: number; note: string }[];
     };
   };
+  subscription: {
+    note: string;
+    downPaymentRatio: number;
+    interimRatio: number;
+    balanceRatio: number;
+    interimInstallments: number;
+    interimLoanRate: number;
+    interimNote: string;
+    defaultWaitYears: number;
+    defaultResaleBanMonths: number;
+    waitTenureNote: string;
+  };
   tenure: {
     note: string;
     leaseBrokerage: {

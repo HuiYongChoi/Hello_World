@@ -614,7 +614,6 @@
         }
       ]
     },
-
     "assumptionDefaults": {
       "note": "시장 가정값 자리표시자. 로드맵 2단계의 data/market-YYYY-MM.json 으로 대체될 예정입니다.",
       "years": 10,
@@ -646,5 +645,17 @@
     "dtiSafeLine": 0.35,
     "dtiWarnLine": 0.4,
     "cashTightRatio": 0.9
+  },
+  "subscription": {
+    "note": "청약·분양 납입 구조의 통상값. 단지마다 다르므로 화면에서 바꿀 수 있어야 합니다.",
+    "downPaymentRatio": 0.1,
+    "interimRatio": 0.6,
+    "balanceRatio": 0.3,
+    "interimInstallments": 6,
+    "interimLoanRate": 0.045,
+    "interimNote": "중도금은 보통 6회로 나눠 내고 집단대출로 충당합니다. 이자후불제면 입주 시 한꺼번에 정산합니다.",
+    "defaultWaitYears": 2.5,
+    "defaultResaleBanMonths": 12,
+    "waitTenureNote": "입주 전에는 다른 집에 임차로 삽니다 — 그 기간 주거비와 보증금이 따로 듭니다."
   }
 }

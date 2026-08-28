@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { ALL_SCENARIO_AXES } from '../engine/scenario';
 import { buildMatrix, type MatrixResult } from '../engine/matrix';
+import { emptyPlan, type SubscriptionPlan } from '../engine/subscription';
 import type { Objective, Profile, Property } from '../engine/types';
 import { DEFAULT_PROFILE, SAMPLE_PROPERTIES, emptyProperty } from './defaults';
 
@@ -17,6 +18,8 @@ const STORAGE_KEY = 'house-simulator-state-v1';
 interface PersistedState {
   profile: Profile;
   properties: Property[];
+  /** 청약 단지 — 선택 입력. 없으면 청약 축이 화면에 안 나옵니다. */
+  plans: SubscriptionPlan[];
   enabledScenarioIds: string[];
   objective: Objective;
 }
@@ -27,6 +30,9 @@ interface Store extends PersistedState {
   addProperty: () => string;
   updateProperty: (id: string, patch: Partial<Property>) => void;
   removeProperty: (id: string) => void;
+  addPlan: () => string;
+  updatePlan: (id: string, patch: Partial<SubscriptionPlan>) => void;
+  removePlan: (id: string) => void;
   toggleScenario: (id: string) => void;
   setObjective: (o: Objective) => void;
   loadSamples: () => void;
@@ -45,6 +51,7 @@ function initialState(): PersistedState {
           return {
             profile: { ...DEFAULT_PROFILE, ...parsed.profile },
             properties: parsed.properties,
+            plans: parsed.plans ?? [],
             enabledScenarioIds: parsed.enabledScenarioIds?.length
               ? parsed.enabledScenarioIds
               : ALL_SCENARIO_AXES.map((a) => a.id),
@@ -59,6 +66,7 @@ function initialState(): PersistedState {
   return {
     profile: DEFAULT_PROFILE,
     properties: SAMPLE_PROPERTIES,
+    plans: [],
     enabledScenarioIds: ALL_SCENARIO_AXES.map((a) => a.id),
     objective: 'monthly',
   };
@@ -96,6 +104,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, properties: s.properties.filter((p) => p.id !== id) }));
   }, []);
 
+  const addPlan = useCallback(() => {
+    const id = `sub-${Date.now().toString(36)}`;
+    setState((s) => ({ ...s, plans: [...s.plans, emptyPlan(id)] }));
+    return id;
+  }, []);
+
+  const updatePlan = useCallback((id: string, patch: Partial<SubscriptionPlan>) => {
+    setState((s) => ({
+      ...s,
+      plans: s.plans.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+    }));
+  }, []);
+
+  const removePlan = useCallback((id: string) => {
+    setState((s) => ({ ...s, plans: s.plans.filter((p) => p.id !== id) }));
+  }, []);
+
   const toggleScenario = useCallback((id: string) => {
     setState((s) => {
       const has = s.enabledScenarioIds.includes(id);
@@ -124,6 +149,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState({
       profile: DEFAULT_PROFILE,
       properties: SAMPLE_PROPERTIES,
+      plans: [],
       enabledScenarioIds: ALL_SCENARIO_AXES.map((a) => a.id),
       objective: 'monthly',
     });
@@ -141,6 +167,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addProperty,
     updateProperty,
     removeProperty,
+    addPlan,
+    updatePlan,
+    removePlan,
     toggleScenario,
     setObjective,
     loadSamples,
