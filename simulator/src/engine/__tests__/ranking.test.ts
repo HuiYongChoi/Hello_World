@@ -230,6 +230,52 @@ describe('상위권 진입 확률', () => {
   });
 });
 
+describe('구간 상세 — 어떤 물건이었나', () => {
+  const r = rankPerformers({ ...base, mode: 'excess' });
+
+  it('전체 행을 같이 내보냅니다 — 상위권 밖도 봐야 대조가 됩니다', () => {
+    expect(r.allEntries).toHaveLength(r.universe);
+    expect(r.entries.length).toBe(r.topCount);
+  });
+
+  it('인덱스 개수가 집계와 정확히 맞습니다', () => {
+    for (const g of r.traits) {
+      for (const b of g.buckets) {
+        expect(b.topIndices).toHaveLength(b.topCount);
+        expect(b.allIndices).toHaveLength(b.allCount);
+      }
+    }
+  });
+
+  it('인덱스가 가리키는 항목이 실제로 그 구간입니다 — 엉뚱한 물건을 보여주면 안 됩니다', () => {
+    const group = r.traits.find((g) => g.id === 'district')!;
+    for (const b of group.buckets) {
+      for (const i of b.allIndices) {
+        expect(r.allEntries[i].districtLabel).toBe(b.key);
+      }
+      for (const i of b.topIndices) {
+        expect(r.entries[i].districtLabel).toBe(b.key);
+      }
+    }
+  });
+
+  it('상위권 인덱스가 가리키는 항목은 전체 인덱스 집합 안에 있습니다', () => {
+    for (const g of r.traits) {
+      for (const b of g.buckets) {
+        const allIds = new Set(b.allIndices.map((i) => r.allEntries[i].id));
+        for (const i of b.topIndices) expect(allIds.has(r.entries[i].id)).toBe(true);
+      }
+    }
+  });
+
+  it('한 그룹의 인덱스는 전체를 빠짐없이 한 번씩 덮습니다', () => {
+    for (const g of r.traits) {
+      const seen = g.buckets.flatMap((b) => b.allIndices);
+      expect(new Set(seen).size).toBe(seen.length);
+    }
+  });
+});
+
 describe('조사 처리', () => {
   it('받침 유무에 따라 은/는, 이/가를 가려 붙인다', () => {
     expect(topicParticle('1990년대')).toBe('1990년대는');

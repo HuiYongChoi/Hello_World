@@ -4,12 +4,16 @@ import { money, percent } from '../engine/format';
 import {
   PRESALE,
   annualizedPremium,
+  type PremiumRow,
   premiumInsights,
   premiumPeriod,
   premiumReport,
+  type PremiumInsightResult,
   type PremiumMode,
 } from '../engine/presale';
 import { TraitCard, TraitLegend } from '../components/TraitCard';
+import { SortHeader, SortNote, useSortedRows, type SortColumn } from '../components/SortableTable';
+import type { TraitBucket, TraitGroup } from '../engine/ranking';
 
 /**
  * 청약·분양권 프리미엄 공통점 — 사이드 토글.
@@ -18,6 +22,184 @@ import { TraitCard, TraitLegend } from '../components/TraitCard';
  * 답합니다. 수익률 공통점 드로어와 같은 자리·같은 조작감을 씁니다 — 두 화면이
  * 같은 질문(오른 것들의 공통점)을 하므로 계산도 `computeTraits` 를 공유합니다.
  */
+
+/**
+ * 프리미엄 상위 물건 표의 열.
+ *
+ * `value` 가 있는 열만 정렬됩니다 — 분양권→매매는 두 값이 겹쳐 있어 어느 쪽으로
+ * 정렬할지가 모호하므로 분양권 매입가를 기준으로 둡니다.
+ */
+const PREMIUM_COLUMNS: SortColumn<PremiumRow>[] = [
+  { key: 'name', label: '단지 · 법정동', hint: '단지명 가나다순', value: (r) => r.name },
+  { key: 'area', label: '전용', align: 'right', hint: '전용면적', value: (r) => r.area },
+  {
+    key: 'presalePrice',
+    label: '분양권 → 매매',
+    align: 'right',
+    hint: '분양권 매입가 기준으로 정렬합니다. 싸게 산 것이 더 올랐는지 보세요',
+    value: (r) => r.presalePrice,
+  },
+  {
+    key: 'total',
+    label: '총',
+    align: 'right',
+    hint: '분양권 대비 매매가의 누적 변화율입니다. 오래 들고 있을수록 커지므로 연환산과 같이 보세요',
+    value: (r) => r.premiumRatio,
+  },
+  {
+    key: 'annualized',
+    label: '연환산',
+    align: 'right',
+    hint: '시차로 나눠 같은 자로 잰 값입니다. 보유 기간이 다른 건들을 비교하려면 이쪽입니다',
+    value: (r) => annualizedPremium(r),
+  },
+];
+
+/** 프리미엄 상위 물건 표 — 구간 상세에서도 같은 표를 재사용합니다. */
+function PremiumTable({
+  rows,
+  limit,
+  markTop,
+}: {
+  rows: PremiumRow[];
+  limit?: number;
+  /** 상위권에 든 행의 키 — 구간 상세에서 든 것과 못 든 것을 가릅니다 */
+  markTop?: Set<string>;
+}) {
+  const { sorted, sortKey, sortDesc, toggle } = useSortedRows(
+    rows,
+    PREMIUM_COLUMNS,
+    'annualized'
+  );
+  const shown = limit ? sorted.slice(0, limit) : sorted;
+  const label = PREMIUM_COLUMNS.find((c) => c.key === sortKey)?.label ?? '';
+
+  return (
+    <div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[500px] text-left">
+          <SortHeader
+            columns={PREMIUM_COLUMNS}
+            sortKey={sortKey}
+            sortDesc={sortDesc}
+            onToggle={toggle}
+          />
+          <tbody>
+            {shown.map((r) => {
+              const isTop = markTop?.has(r.key);
+              return (
+                <tr
+                  key={r.key}
+                  className={`border-b border-slate-800/50 ${
+                    markTop && !isTop ? 'opacity-45' : ''
+                  }`}
+                >
+                  <td className="py-1.5">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-[11px] font-medium text-slate-200">{r.name}</span>
+                      {markTop && (
+                        <span
+                          className={`shrink-0 text-[9px] ${
+                            isTop ? 'text-slate-300' : 'text-slate-600'
+                          }`}
+                        >
+                          {isTop ? '상위권' : '밖'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      {r.umd} · {r.districtLabel} · {premiumPeriod(r)}
+                    </div>
+                  </td>
+                  <td className="py-1.5 text-right text-[10px] tabular-nums text-slate-500">
+                    {r.area}㎡
+                  </td>
+                  <td className="py-1.5 text-right text-[10px] tabular-nums text-slate-400">
+                    {money(r.presalePrice)}
+                    <br />
+                    {money(r.salePrice)}
+                  </td>
+                  <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
+                    {percent(r.premiumRatio, 0)}
+                  </td>
+                  <td className="py-1.5 text-right text-[11px] font-semibold tabular-nums text-slate-100">
+                    {percent(annualizedPremium(r), 1)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <SortNote label={label} desc={sortDesc} />
+      {limit && sorted.length > limit && (
+        <p className="text-[10px] text-slate-600">
+          {sorted.length}건 중 {limit}건만 보여줍니다 — 정렬을 바꾸면 다른 {limit}건이 나옵니다.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 구간 상세 — "중형에 프리미엄이 붙었다" 다음에 오는 질문에 답합니다.
+ *
+ * 상위권에 든 것만 보여주면 반쪽입니다. **같은 구간인데 못 든 것**을 같이
+ * 놓아야 "왜 이건 되고 저건 안 됐나" 를 볼 수 있습니다. 못 든 것은 흐리게
+ * 깔고 정렬은 표에 그대로 둡니다.
+ */
+function BucketDetail({
+  group,
+  bucket,
+  result,
+  onClose,
+}: {
+  group: TraitGroup;
+  bucket: TraitBucket;
+  result: PremiumInsightResult;
+  onClose: () => void;
+}) {
+  const rows = bucket.allIndices.map((i) => result.allEntries[i]).filter(Boolean);
+  const topKeys = new Set(bucket.topIndices.map((i) => result.entries[i]?.key).filter(Boolean));
+  const baseRate = result.topCount / Math.max(1, result.universe);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-6 no-print">
+      <div className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-t-2xl border border-slate-800 bg-slate-950 sm:rounded-2xl">
+        <header className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+          <div>
+            <div className="text-[10px] text-slate-500">{group.label}</div>
+            <h3 className="text-sm font-semibold text-slate-100">{bucket.key}</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+              이 구간 <b className="text-slate-200">{bucket.allCount}건</b> 중{' '}
+              <b className="text-slate-200">{bucket.topCount}건</b>이 상위권 ={' '}
+              <b className="text-slate-100 tabular-nums">{percent(bucket.hitRate, 0)}</b>
+              <span className="text-slate-500">
+                {' '}
+                · 아무거나 골랐을 때 {percent(baseRate, 0)}
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 text-xs text-slate-500 transition hover:text-slate-200"
+          >
+            닫기
+          </button>
+        </header>
+        <div className="overflow-y-auto px-5 py-4">
+          <p className="mb-2 text-[10px] leading-relaxed text-slate-500">
+            상위권에 든 것과 <span className="text-slate-400">같은 구간인데 못 든 것</span>을
+            같이 놓았습니다 — 못 든 쪽은 흐리게 깔았습니다. 열 머리를 눌러 정렬하면 둘이 어디서
+            갈리는지 보입니다.
+          </p>
+          <PremiumTable rows={rows} markTop={topKeys} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const SCOPES = [
   { id: 'all', label: '전체', codes: [] as string[] },
@@ -31,6 +213,8 @@ export function PremiumDrawer() {
   const [scopeId, setScopeId] = useState('all');
   const [mode, setMode] = useState<PremiumMode>('annualized');
   const [copied, setCopied] = useState(false);
+  /** 열어 둔 구간 상세 — 어느 공통점의 어느 칸인지 */
+  const [detail, setDetail] = useState<{ group: TraitGroup; bucket: TraitBucket } | null>(null);
 
   const scope = SCOPES.find((s) => s.id === scopeId) ?? SCOPES[0];
   const result = useMemo(
@@ -163,6 +347,7 @@ export function PremiumDrawer() {
                     topCount={result.topCount}
                     universe={result.universe}
                     maxBuckets={4}
+                    onOpenBucket={(group, bucket) => setDetail({ group, bucket })}
                   />
                 ))}
               </div>
@@ -170,45 +355,7 @@ export function PremiumDrawer() {
               <h3 className="mt-5 mb-2 text-xs font-semibold text-slate-300">
                 프리미엄 상위 물건
               </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[500px] text-left">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-[10px] text-slate-500">
-                      <th className="pb-1.5">단지 · 법정동</th>
-                      <th className="pb-1.5 text-right">전용</th>
-                      <th className="pb-1.5 text-right">분양권 → 매매</th>
-                      <th className="pb-1.5 text-right">총</th>
-                      <th className="pb-1.5 text-right">연환산</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.entries.slice(0, 25).map((r) => (
-                      <tr key={r.key} className="border-b border-slate-800/50">
-                        <td className="py-1.5">
-                          <div className="text-[11px] font-medium text-slate-200">{r.name}</div>
-                          <div className="text-[10px] text-slate-500">
-                            {r.umd} · {r.districtLabel} · {premiumPeriod(r)}
-                          </div>
-                        </td>
-                        <td className="py-1.5 text-right text-[10px] tabular-nums text-slate-500">
-                          {r.area}㎡
-                        </td>
-                        <td className="py-1.5 text-right text-[10px] tabular-nums text-slate-400">
-                          {money(r.presalePrice)}
-                          <br />
-                          {money(r.salePrice)}
-                        </td>
-                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
-                          {percent(r.premiumRatio, 0)}
-                        </td>
-                        <td className="py-1.5 text-right text-[11px] font-semibold tabular-nums text-slate-100">
-                          {percent(annualizedPremium(r), 1)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <PremiumTable rows={result.entries} limit={25} />
 
               <div className="mt-5 rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2.5">
                 <div className="text-[11px] font-medium text-amber-200">읽을 때 주의</div>
@@ -238,6 +385,15 @@ export function PremiumDrawer() {
           </div>
         </footer>
       </aside>
+
+      {detail && result && (
+        <BucketDetail
+          group={detail.group}
+          bucket={detail.bucket}
+          result={result}
+          onClose={() => setDetail(null)}
+        />
+      )}
     </>
   );
 }

@@ -7,9 +7,14 @@ import {
   rankingInsightReport,
   rankingInsights,
   rankingReport,
+  type PerformerEntry,
   type RankingMode,
+  type RankingResult,
+  type TraitBucket,
+  type TraitGroup,
 } from '../engine/ranking';
 import { TraitCard, TraitLegend } from '../components/TraitCard';
+import { SortHeader, SortNote, useSortedRows, type SortColumn } from '../components/SortableTable';
 import { DISTRICTS } from '../engine/regions';
 
 /**
@@ -32,35 +37,32 @@ const SCOPES = [
   },
 ];
 
-type SortKey = 'name' | 'buildYear' | 'startPrice' | 'cagr' | 'excess';
 
 /**
  * 표 머리글. `hint` 는 마우스를 올렸을 때 뜨는 설명입니다.
  * 특히 "초과"는 이름만 봐서는 무엇 대비 초과인지 알 수 없어 반드시 필요합니다.
  */
-const COLUMNS: {
-  key: SortKey;
-  label: string;
-  align?: 'right';
-  hint: string;
-}[] = [
-  { key: 'name', label: '단지 · 법정동', hint: '이름순으로 정렬합니다' },
+const COLUMNS: SortColumn<PerformerEntry>[] = [
+  { key: 'name', label: '단지 · 법정동', hint: '이름순으로 정렬합니다', value: (e) => e.name },
   {
     key: 'buildYear',
     label: '준공/전용',
     hint: '준공연도 기준으로 정렬합니다. 재건축 기대가 붙는 연식대인지 보세요',
+    value: (e) => e.buildYear,
   },
   {
     key: 'startPrice',
     label: '진입 → 현재',
     align: 'right',
     hint: '진입 시점의 분기 중위가 기준으로 정렬합니다',
+    value: (e) => e.startPrice,
   },
   {
     key: 'cagr',
     label: '연복리',
     align: 'right',
     hint: '진입 시점부터 지금까지의 복리 연환산 수익률입니다. 시장 전체가 오른 효과가 포함돼 있습니다',
+    value: (e) => e.cagr,
   },
   {
     key: 'excess',
@@ -70,8 +72,153 @@ const COLUMNS: {
       '초과수익률 = 이 단지의 연복리 − 같은 시군구 단지들의 중위 연복리.\n' +
       '동네가 통째로 오른 효과를 빼고 남은 부분이라, "이 단지가 왜 더 올랐나"에 답합니다.\n' +
       '양수면 같은 동네 평균보다 더 올랐다는 뜻이고, 음수면 덜 올랐다는 뜻입니다.',
+    value: (e) => e.excess,
   },
 ];
+
+/** 상위 단지 표 — 구간 상세에서도 같은 표를 재사용합니다. */
+function PerformerTable({
+  rows,
+  limit,
+  markTop,
+}: {
+  rows: PerformerEntry[];
+  limit?: number;
+  /** 상위권에 든 행의 id — 구간 상세에서 든 것과 못 든 것을 가릅니다 */
+  markTop?: Set<string>;
+}) {
+  const { sorted, sortKey, sortDesc, toggle } = useSortedRows(rows, COLUMNS, 'excess');
+  const shown = limit ? sorted.slice(0, limit) : sorted;
+  const label = COLUMNS.find((c) => c.key === sortKey)?.label ?? '';
+
+  return (
+    <div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[520px] text-left">
+          <SortHeader
+            columns={COLUMNS}
+            sortKey={sortKey}
+            sortDesc={sortDesc}
+            onToggle={toggle}
+          />
+          <tbody>
+            {shown.map((e) => {
+              const isTop = markTop?.has(e.id);
+              return (
+                <tr
+                  key={e.id}
+                  className={`border-b border-slate-800/50 ${markTop && !isTop ? 'opacity-45' : ''}`}
+                >
+                  <td className="py-1.5">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-[11px] font-medium text-slate-200">{e.name}</span>
+                      {markTop && (
+                        <span
+                          className={`shrink-0 text-[9px] ${
+                            isTop ? 'text-slate-300' : 'text-slate-600'
+                          }`}
+                        >
+                          {isTop ? '상위권' : '밖'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      {e.umd} · {e.districtLabel}
+                    </div>
+                  </td>
+                  <td className="py-1.5 text-[10px] tabular-nums text-slate-400">
+                    {e.buildYear || '—'}
+                    <br />
+                    {e.area}㎡
+                  </td>
+                  <td className="py-1.5 text-right text-[10px] tabular-nums text-slate-400">
+                    {money(e.startPrice)}
+                    <br />
+                    {money(e.endPrice)}
+                  </td>
+                  <td className="py-1.5 text-right text-[11px] font-semibold tabular-nums text-slate-100">
+                    {percent(e.cagr, 1)}
+                  </td>
+                  <td
+                    className="py-1.5 text-right text-[11px] tabular-nums text-slate-300"
+                    title={`같은 시군구 중위 ${percent(e.cagr - e.excess, 2)} 대비 ${percent(
+                      e.excess,
+                      2
+                    )}p`}
+                  >
+                    {percent(e.excess, 1)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <SortNote label={label} desc={sortDesc} />
+      {limit && sorted.length > limit && (
+        <p className="text-[10px] text-slate-600">
+          {sorted.length}건 중 {limit}건만 보여줍니다 — 정렬을 바꾸면 다른 {limit}건이 나옵니다.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 구간 상세 — "2019년에 산 것이 더 올랐다" 다음에 오는 질문에 답합니다.
+ *
+ * 상위권에 든 것만 보여주면 반쪽입니다. **같은 구간인데 못 든 것**을 같이
+ * 놓아야 "왜 이건 되고 저건 안 됐나" 를 볼 수 있습니다.
+ */
+function BucketDetail({
+  group,
+  bucket,
+  result,
+  onClose,
+}: {
+  group: TraitGroup;
+  bucket: TraitBucket;
+  result: RankingResult;
+  onClose: () => void;
+}) {
+  const rows = bucket.allIndices.map((i) => result.allEntries[i]).filter(Boolean);
+  const topIds = new Set(bucket.topIndices.map((i) => result.entries[i]?.id).filter(Boolean));
+  const baseRate = result.topCount / Math.max(1, result.universe);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-6 no-print">
+      <div className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-t-2xl border border-slate-800 bg-slate-950 sm:rounded-2xl">
+        <header className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+          <div>
+            <div className="text-[10px] text-slate-500">{group.label}</div>
+            <h3 className="text-sm font-semibold text-slate-100">{bucket.key}</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+              이 구간 <b className="text-slate-200">{bucket.allCount}건</b> 중{' '}
+              <b className="text-slate-200">{bucket.topCount}건</b>이 상위권 ={' '}
+              <b className="text-slate-100 tabular-nums">{percent(bucket.hitRate, 0)}</b>
+              <span className="text-slate-500"> · 아무거나 골랐을 때 {percent(baseRate, 0)}</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 text-xs text-slate-500 transition hover:text-slate-200"
+          >
+            닫기
+          </button>
+        </header>
+        <div className="overflow-y-auto px-5 py-4">
+          <p className="mb-2 text-[10px] leading-relaxed text-slate-500">
+            상위권에 든 것과 <span className="text-slate-400">같은 구간인데 못 든 것</span>을
+            같이 놓았습니다 — 못 든 쪽은 흐리게 깔았습니다. 열 머리를 눌러 정렬하면 둘이 어디서
+            갈리는지 보입니다.
+          </p>
+          <PerformerTable rows={rows} markTop={topIds} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function RankingDrawer() {
   const [open, setOpen] = useState(false);
@@ -79,8 +226,8 @@ export function RankingDrawer() {
   const [years, setYears] = useState(5);
   const [mode, setMode] = useState<RankingMode>('excess');
   const [copied, setCopied] = useState(false);
-  const [sortKey, setSortKey] = useState<SortKey>('excess');
-  const [sortDesc, setSortDesc] = useState(true);
+  /** 열어 둔 구간 상세 — 어느 공통점의 어느 칸인지 */
+  const [detail, setDetail] = useState<{ group: TraitGroup; bucket: TraitBucket } | null>(null);
 
   const scope = SCOPES.find((s) => s.id === scopeId) ?? SCOPES[0];
 
@@ -88,43 +235,6 @@ export function RankingDrawer() {
     () => rankPerformers({ districtCodes: scope.codes, years, topPercent: 20, mode }),
     [scope, years, mode]
   );
-
-  /**
-   * 정렬은 **보여주는 순서만** 바꿉니다. 어떤 단지가 상위권에 드는지는 위의
-   * 모드(절대/초과)가 정하고, 여기서 열을 눌러도 그 선정은 달라지지 않습니다.
-   */
-  const sorted = useMemo(() => {
-    const by = (e: (typeof result.entries)[number]) => {
-      switch (sortKey) {
-        case 'name':
-          return e.name;
-        case 'buildYear':
-          return e.buildYear;
-        case 'startPrice':
-          return e.startPrice;
-        case 'excess':
-          return e.excess;
-        default:
-          return e.cagr;
-      }
-    };
-    return [...result.entries].sort((a, b) => {
-      const x = by(a);
-      const y = by(b);
-      const cmp = typeof x === 'string' ? x.localeCompare(y as string, 'ko') : (x as number) - (y as number);
-      return sortDesc ? -cmp : cmp;
-    });
-  }, [result.entries, sortKey, sortDesc]);
-
-  const toggleSort = (key: SortKey) => {
-    if (key === sortKey) {
-      setSortDesc((d) => !d);
-    } else {
-      setSortKey(key);
-      // 이름은 가나다순, 숫자는 큰 값부터가 자연스럽습니다.
-      setSortDesc(key !== 'name');
-    }
-  };
 
   const save = (md: string, suffix: string) => {
     const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
@@ -277,6 +387,7 @@ export function RankingDrawer() {
                     topCount={result.topCount}
                     universe={result.universe}
                     maxBuckets={5}
+                    onOpenBucket={(group, bucket) => setDetail({ group, bucket })}
                   />
                 ))}
               </div>
@@ -287,68 +398,7 @@ export function RankingDrawer() {
                   머리글을 누르면 정렬 · 상위 선정 기준은 그대로입니다
                 </span>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[520px] text-left">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-[10px] text-slate-500">
-                      {COLUMNS.map((c) => (
-                        <th
-                          key={c.key}
-                          className={`pb-1.5 ${c.align === 'right' ? 'text-right' : ''}`}
-                        >
-                          <button
-                            type="button"
-                            title={c.hint}
-                            onClick={() => toggleSort(c.key)}
-                            className={`inline-flex items-center gap-0.5 transition hover:text-slate-200 ${
-                              sortKey === c.key ? 'text-sky-300' : ''
-                            }`}
-                          >
-                            {c.label}
-                            <span className="text-[9px]">
-                              {sortKey === c.key ? (sortDesc ? '▼' : '▲') : '⇅'}
-                            </span>
-                          </button>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sorted.slice(0, 25).map((e) => (
-                      <tr key={e.id} className="border-b border-slate-800/50">
-                        <td className="py-1.5">
-                          <div className="text-[11px] font-medium text-slate-200">{e.name}</div>
-                          <div className="text-[10px] text-slate-500">
-                            {e.umd} · {e.districtLabel}
-                          </div>
-                        </td>
-                        <td className="py-1.5 text-[10px] tabular-nums text-slate-400">
-                          {e.buildYear || '—'}
-                          <br />
-                          {e.area}㎡
-                        </td>
-                        <td className="py-1.5 text-right text-[10px] tabular-nums text-slate-400">
-                          {money(e.startPrice)}
-                          <br />
-                          {money(e.endPrice)}
-                        </td>
-                        <td className="py-1.5 text-right text-[11px] font-semibold tabular-nums text-slate-100">
-                          {percent(e.cagr, 1)}
-                        </td>
-                        <td
-                          className="py-1.5 text-right text-[11px] tabular-nums text-slate-300"
-                          title={`같은 시군구 중위 ${percent(
-                            e.cagr - e.excess,
-                            2
-                          )} 대비 ${percent(e.excess, 2)}p`}
-                        >
-                          {percent(e.excess, 1)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <PerformerTable rows={result.entries} limit={25} />
 
               <h3 className="mt-5 mb-2 text-xs font-semibold text-slate-300">시군구 중위 수익률</h3>
               <div className="space-y-1">
@@ -407,6 +457,15 @@ export function RankingDrawer() {
           </p>
         </footer>
       </aside>
+
+      {detail && (
+        <BucketDetail
+          group={detail.group}
+          bucket={detail.bucket}
+          result={result}
+          onClose={() => setDetail(null)}
+        />
+      )}
     </>
   );
 }

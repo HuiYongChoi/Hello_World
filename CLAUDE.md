@@ -41,7 +41,7 @@ src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상
   subscription.ts 청약 납입 일정 + 4번째 갈래 LegPlan
   rent.ts        전세가율·전월세전환율 실측치 (자리표시자 대체)
   regions.ts     시군구 목록·후보군 + 시군구명 → 법정동코드 조회
-  ranking.ts     수익률 상위권 추출 + 공통점(lift) + 리포트 생성
+  ranking.ts     수익률 상위권 추출 + 공통점(상위권 진입 확률) + 리포트 생성
   presale.ts     분양권 프리미엄 (분양권 전매가 vs 준공 후 매매가)
   scoring.ts     입지 지표 정규화 + 지역별 가중치 프리셋
   matrix.ts      매트릭스 조립 + 3축 산점도 데이터

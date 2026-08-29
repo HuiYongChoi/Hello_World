@@ -65,6 +65,15 @@ export interface TraitBucket {
   hitRate: number;
   /** hitRate ÷ 기준선. topShare ÷ allShare 와 같은 값입니다 (베이즈). */
   lift: number;
+  /**
+   * 이 구간에 속한 항목의 인덱스.
+   *
+   * "중형에 프리미엄이 붙었다" 를 보고 나면 **그게 어떤 물건이었는지**를
+   * 묻게 됩니다. 숫자만 주고 물건을 못 보여주면 거기서 막힙니다.
+   * 배열 자체가 아니라 인덱스를 담아 결과 객체가 무거워지지 않게 합니다.
+   */
+  topIndices: number[];
+  allIndices: number[];
 }
 
 export interface TraitGroup {
@@ -81,6 +90,12 @@ export interface RankingResult {
   universe: number;
   topCount: number;
   entries: PerformerEntry[];
+  /**
+   * **전체** 단지·평형 행. 구간 상세에서 상위권 밖 항목까지 보여주려면 필요합니다.
+   * `TraitBucket.allIndices` 가 이 배열을 가리킵니다 — 정렬 순서가 같아야 하므로
+   * `traitsOf` 에 넘긴 것과 **같은 배열**을 그대로 내보냅니다.
+   */
+  allEntries: PerformerEntry[];
   traits: TraitGroup[];
   districtMedians: { code: string; label: string; median: number; n: number }[];
   caveats: string[];
@@ -161,8 +176,18 @@ export function computeTraits<T>(
   return groups.map((g) => {
     const allCount = new Map<string, number>();
     const topCount = new Map<string, number>();
-    for (const e of all) allCount.set(g.of(e), (allCount.get(g.of(e)) ?? 0) + 1);
-    for (const e of top) topCount.set(g.of(e), (topCount.get(g.of(e)) ?? 0) + 1);
+    const allIdx = new Map<string, number[]>();
+    const topIdx = new Map<string, number[]>();
+    all.forEach((e, i) => {
+      const k = g.of(e);
+      allCount.set(k, (allCount.get(k) ?? 0) + 1);
+      (allIdx.get(k) ?? allIdx.set(k, []).get(k)!).push(i);
+    });
+    top.forEach((e, i) => {
+      const k = g.of(e);
+      topCount.set(k, (topCount.get(k) ?? 0) + 1);
+      (topIdx.get(k) ?? topIdx.set(k, []).get(k)!).push(i);
+    });
 
     /*
      * `hitRate` 가 이 계산의 결론입니다.
@@ -185,6 +210,8 @@ export function computeTraits<T>(
           allShare,
           hitRate: inAll > 0 ? n / inAll : 0,
           lift: allShare > 0 ? topShare / allShare : 0,
+          topIndices: topIdx.get(key) ?? [],
+          allIndices: allIdx.get(key) ?? [],
         };
       })
       .sort((a, b) => b.lift - a.lift || b.topCount - a.topCount);
@@ -236,8 +263,18 @@ function traitsOf(all: PerformerEntry[], top: PerformerEntry[]): TraitGroup[] {
   return groups.map((g) => {
     const allCount = new Map<string, number>();
     const topCount = new Map<string, number>();
-    for (const e of all) allCount.set(g.of(e), (allCount.get(g.of(e)) ?? 0) + 1);
-    for (const e of top) topCount.set(g.of(e), (topCount.get(g.of(e)) ?? 0) + 1);
+    const allIdx = new Map<string, number[]>();
+    const topIdx = new Map<string, number[]>();
+    all.forEach((e, i) => {
+      const k = g.of(e);
+      allCount.set(k, (allCount.get(k) ?? 0) + 1);
+      (allIdx.get(k) ?? allIdx.set(k, []).get(k)!).push(i);
+    });
+    top.forEach((e, i) => {
+      const k = g.of(e);
+      topCount.set(k, (topCount.get(k) ?? 0) + 1);
+      (topIdx.get(k) ?? topIdx.set(k, []).get(k)!).push(i);
+    });
 
     /*
      * `hitRate` 가 이 계산의 결론입니다.
@@ -260,6 +297,8 @@ function traitsOf(all: PerformerEntry[], top: PerformerEntry[]): TraitGroup[] {
           allShare,
           hitRate: inAll > 0 ? n / inAll : 0,
           lift: allShare > 0 ? topShare / allShare : 0,
+          topIndices: topIdx.get(key) ?? [],
+          allIndices: allIdx.get(key) ?? [],
         };
       })
       .sort((a, b) => b.lift - a.lift || b.topCount - a.topCount);
@@ -347,7 +386,8 @@ export function rankPerformers(input: RankingInput): RankingResult {
     universe: sorted.length,
     topCount: top.length,
     entries: top,
-    traits: traitsOf(raw, top),
+    allEntries: sorted,
+    traits: traitsOf(sorted, top),
     districtMedians: [...medians.entries()]
       .map(([code, m]) => ({
         code,

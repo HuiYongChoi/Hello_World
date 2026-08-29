@@ -193,6 +193,14 @@ export interface PremiumInsightResult {
   universe: number;
   topCount: number;
   entries: PremiumRow[];
+  /**
+   * 짝지어진 **전체** 행.
+   *
+   * 구간 상세를 열면 상위권에 든 것뿐 아니라 **같은 구간인데 못 든 것**도
+   * 봐야 합니다 — "왜 이건 되고 저건 안 됐나" 가 거기서 나옵니다.
+   * `TraitBucket.allIndices` 가 이 배열을 가리킵니다.
+   */
+  allEntries: PremiumRow[];
   traits: TraitGroup[];
   summary: PremiumSummary;
   caveats: string[];
@@ -296,7 +304,17 @@ export function premiumInsights(
     '과거에 그랬다는 것이지 앞으로도 그렇다는 뜻이 아닙니다. 속성 여섯 개를 동시에 봤으므로 그중 몇은 우연히 겹칩니다.',
   ];
 
-  return { mode, topPercent, universe: all.length, topCount: top.length, entries: top, traits, summary, caveats };
+  return {
+    mode,
+    topPercent,
+    universe: all.length,
+    topCount: top.length,
+    entries: top,
+    allEntries: all,
+    traits,
+    summary,
+    caveats,
+  };
 }
 
 /** 인사이트 리포트 — 논의 자리에 그대로 올릴 수 있게 */

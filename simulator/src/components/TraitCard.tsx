@@ -31,9 +31,12 @@ const THIN_SAMPLE = 10;
 function BucketRow({
   bucket: b,
   baseRate,
+  onOpen,
 }: {
   bucket: TraitBucket;
   baseRate: number;
+  /** 이 구간의 물건 목록을 여는 손잡이. 없으면 상세를 못 봅니다. */
+  onOpen?: () => void;
 }) {
   const strong = b.lift >= TRAIT_LIFT_STRONG;
   const rare = b.lift <= TRAIT_LIFT_WEAK;
@@ -43,17 +46,28 @@ function BucketRow({
 
   return (
     <div
-      className="rounded-lg px-2 py-1.5 transition hover:bg-slate-900/50"
+      className={`group rounded-lg px-2 py-1.5 transition hover:bg-slate-900/50 ${
+        onOpen ? 'cursor-pointer' : ''
+      }`}
+      onClick={onOpen}
       title={
         `${b.key}\n` +
         `이 구간 ${b.allCount}건 중 ${b.topCount}건이 상위권 = ${percent(b.hitRate, 1)}\n` +
         `아무거나 골랐을 때 = ${percent(baseRate, 1)}\n` +
         `→ ${(b.hitRate / Math.max(1e-9, baseRate)).toFixed(2)}배\n\n` +
-        (thin ? `표본이 ${b.allCount}건뿐이라 한두 건에 크게 흔들립니다.\n` : '')
+        (thin ? `표본이 ${b.allCount}건뿐이라 한두 건에 크게 흔들립니다.\n` : '') +
+        (onOpen ? '\n눌러서 이 구간의 물건 목록을 봅니다.' : '')
       }
     >
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[11px] font-medium text-slate-200">{b.key}</span>
+        <span className="flex items-baseline gap-1 text-[11px] font-medium text-slate-200">
+          {b.key}
+          {onOpen && (
+            <span className="text-[10px] text-slate-600 transition group-hover:text-sky-300">
+              ▸
+            </span>
+          )}
+        </span>
         <span
           className={`shrink-0 text-[10px] tabular-nums ${
             thin ? 'text-amber-500/70' : 'text-slate-500'
@@ -98,11 +112,14 @@ export function TraitCard({
   topCount,
   universe,
   maxBuckets = 4,
+  onOpenBucket,
 }: {
   group: TraitGroup;
   topCount: number;
   universe: number;
   maxBuckets?: number;
+  /** 구간을 눌렀을 때 — 그 구간의 물건 목록을 여는 쪽이 붙입니다 */
+  onOpenBucket?: (group: TraitGroup, bucket: TraitBucket) => void;
 }) {
   // 표본이 한 자리면 확률이 커도 우연입니다. 기준 미만은 아예 내지 않습니다.
   const shown = group.buckets.filter((b) => b.topCount >= TRAIT_MIN_BUCKET).slice(0, maxBuckets);
@@ -115,7 +132,12 @@ export function TraitCard({
       <p className="mt-0.5 text-[10px] leading-relaxed text-slate-600">{group.hint}</p>
       <div className="mt-2 space-y-1">
         {shown.map((b) => (
-          <BucketRow key={b.key} bucket={b} baseRate={baseRate} />
+          <BucketRow
+            key={b.key}
+            bucket={b}
+            baseRate={baseRate}
+            onOpen={onOpenBucket ? () => onOpenBucket(group, b) : undefined}
+          />
         ))}
       </div>
     </div>
