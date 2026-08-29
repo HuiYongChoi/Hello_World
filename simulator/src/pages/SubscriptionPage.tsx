@@ -14,6 +14,7 @@ import {
 } from '../components/ui';
 import { money, percent } from '../engine/format';
 import { annualizedPremium, premiumRows } from '../engine/presale';
+import { OFFERING_CAVEATS, appraiseOffering } from '../engine/offering';
 import { collectedDistricts } from '../engine/regions';
 import { RULES } from '../engine/rules';
 import {
@@ -89,6 +90,13 @@ function PlanForm({
                 { value: '', label: '— 선택 안 함' },
                 ...districts.map((d) => ({ value: d.label, label: d.label })),
               ]}
+            />
+          </Field>
+          <Field label="법정동" hint="같은 동네끼리 안전마진을 잽니다 (선택)">
+            <TextInput
+              value={plan.umd ?? ''}
+              placeholder="예: 가음동"
+              onChange={(v) => onChange({ umd: v })}
             />
           </Field>
           <Field label="전용면적">
@@ -477,6 +485,13 @@ export function SubscriptionPage() {
           </Card>
 
           <Card
+            title="분양가가 싼가 — 안전마진"
+            subtitle="네 자로 재고 점수로 합치지 않습니다. 어긋나는 지점이 곧 봐야 할 곳입니다"
+          >
+            <SafetyMargin plan={current} />
+          </Card>
+
+          <Card
             title="이 단지를 하면 현금이 언제 얼마나 필요한가"
             subtitle="가용현금은 1번 가구 프로필, 전세가율·전세대출 금리는 실측치를 씁니다"
             action={
@@ -489,6 +504,132 @@ export function SubscriptionPage() {
           </Card>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * 안전마진 — **분양가가 싼가**를 네 자로 잽니다.
+ *
+ * 점수로 합치지 않습니다. 넷을 나란히 놓고 **어긋나는 지점**을 보여줍니다 —
+ * 주변 구축 대비 28% 싼데 신축치고는 7%밖에 안 싸다면, 그 간격이 곧
+ * "이 분양가가 신축 프리미엄을 얼마나 미리 당겨 받았나" 입니다.
+ */
+function SafetyMargin({ plan }: { plan: SubscriptionPlan }) {
+  const a = useMemo(
+    () =>
+      appraiseOffering({
+        region: plan.region,
+        sigungu: plan.sigungu,
+        umd: plan.umd,
+        price: plan.price,
+        areaSqm: plan.areaSqm,
+        waitYears: plan.waitYears,
+      }),
+    [plan]
+  );
+  if (!a) return null;
+
+  const withValue = a.benchmarks.filter((b) => b.value !== null);
+  if (withValue.length === 0) {
+    return (
+      <Empty>
+        같은 지역·평형의 실거래를 찾지 못했습니다. 전용면적이나 시군구를 확인하세요.
+      </Empty>
+    );
+  }
+
+  // 막대는 분양가를 0으로 둔 좌우 축입니다. 최대 마진에 맞춰 폭을 잡습니다.
+  const span = Math.max(0.1, ...withValue.map((b) => Math.abs(b.margin ?? 0)));
+
+  return (
+    <div className="space-y-4">
+      {/*
+        시군구가 비면 권역 전체 중위가와 비교하게 됩니다 — 창원이면 성산구와
+        마산이 섞여 숫자가 통째로 달라집니다. 호버에만 적으면 못 보고 지나칩니다.
+      */}
+      {!plan.sigungu.trim() && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
+          시군구를 고르지 않아 <b>권역 전체</b>와 비교하고 있습니다. 창원이면 성산구와 마산이
+          섞여 기준가가 통째로 달라집니다 — 위에서 시군구를 고르면 정확해집니다.
+        </div>
+      )}
+      <div className="space-y-2">
+        {a.benchmarks.map((b) => {
+          const m = b.margin;
+          const cheap = (m ?? 0) > 0;
+          return (
+            <div key={b.id} className="rounded-lg px-2 py-1.5 hover:bg-slate-900/40" title={b.note}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[11px] font-medium text-slate-200">
+                  {b.label}
+                  <span className={`ml-1.5 text-[9px] ${b.thin ? 'text-amber-500/70' : 'text-slate-600'}`}>
+                    n={b.n}
+                    {b.thin && ' 얇음'}
+                  </span>
+                </span>
+                <span className="shrink-0 text-[10px] tabular-nums text-slate-500">
+                  {b.value === null ? '표본 없음' : money(b.value)}
+                  {b.low !== undefined && b.high !== undefined && (
+                    <span className="ml-1 text-slate-600">
+                      ({money(b.low)}~{money(b.high)})
+                    </span>
+                  )}
+                </span>
+              </div>
+              {m !== null && (
+                <div className="mt-1 flex items-center gap-2">
+                  {/* 가운데가 분양가입니다. 오른쪽으로 뻗으면 기준보다 싸다는 뜻입니다. */}
+                  <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-slate-800/70">
+                    <div className="absolute inset-y-0 left-1/2 w-px bg-slate-600" />
+                    <div
+                      className={`absolute inset-y-0 rounded-full ${
+                        cheap ? 'bg-slate-200' : 'bg-slate-500'
+                      }`}
+                      style={{
+                        left: cheap ? '50%' : `${50 - (Math.abs(m) / span) * 50}%`,
+                        width: `${(Math.abs(m) / span) * 50}%`,
+                      }}
+                    />
+                  </div>
+                  <span
+                    className={`w-16 shrink-0 text-right text-[11px] tabular-nums ${
+                      b.thin ? 'text-slate-500' : cheap ? 'font-semibold text-slate-100' : 'text-slate-400'
+                    }`}
+                  >
+                    {cheap ? '−' : '+'}
+                    {percent(Math.abs(m), 1)}
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-[10px] leading-relaxed text-slate-600">
+        가운데 선이 분양가입니다. 막대가 <b className="text-slate-400">오른쪽</b>으로 뻗으면 그
+        기준보다 분양가가 <b className="text-slate-400">싸다</b>는 뜻입니다. 각 줄에 마우스를 올리면
+        그 기준이 무엇을 말하고 무엇을 못 말하는지 나옵니다.
+      </p>
+
+      {a.conflicted && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
+          <b>기준끼리 어긋납니다.</b> 어떤 자로는 싸고 어떤 자로는 비쌉니다 — 그 간격이 곧 봐야 할
+          곳입니다. 대개 주변 구축 대비로는 싸 보이는데 신축 하한과 견주면 아닌 경우이고, 그렇다면
+          분양가가 신축 프리미엄을 미리 당겨 받았다는 뜻입니다.
+        </div>
+      )}
+
+      <Foldable summary="이 판정이 못 하는 것" count={OFFERING_CAVEATS.length}>
+        <ul className="space-y-1">
+          {OFFERING_CAVEATS.map((c) => (
+            <li key={c} className="text-[10px] leading-relaxed text-slate-500">
+              · {c}
+            </li>
+          ))}
+        </ul>
+      </Foldable>
     </div>
   );
 }

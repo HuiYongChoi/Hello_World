@@ -20,6 +20,7 @@ export * from './growth';
 export * from './supply';
 export * from './population';
 export * from './repair';
+export * from './offering';
 export * from './tenure';
 export * from './matrix';
 export * from './format';

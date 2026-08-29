@@ -37,6 +37,8 @@ export interface SubscriptionPlan {
   region: RegionId;
   /** 시군구 — 실측 프리미엄 대조에 씁니다 */
   sigungu: string;
+  /** 법정동 — 있으면 같은 동네끼리 안전마진을 잽니다 */
+  umd?: string;
   /** 분양가 (원) */
   price: number;
   areaSqm: number;
