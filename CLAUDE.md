@@ -39,6 +39,7 @@ src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상
   growth.ts      지역 연쇄 가격지수 (집값 상승률 실측)
   supply.ts      향후 입주 물량 대리지표 (분양권 vs 매매)
   population.ts  권역 인구 추세 실측 (시도 단위)
+  repair.ts      장기수선충당금 실측 (수선유지비 하한 앵커)
   subscription.ts 청약 납입 일정 + 4번째 갈래 LegPlan
   rent.ts        전세가율·전월세전환율 실측치 (자리표시자 대체)
   regions.ts     시군구 목록·후보군 + 시군구명 → 법정동코드 조회
@@ -103,6 +104,7 @@ npm run fetch:rates      # FRED 해외지수 + ECOS 금리·물가 → src/data/
 npm run fetch:presale    # 국토부 분양권전매 실거래가 → src/data/presale-*.json
 npm run fetch:dividend   # ECOS 코스피 배당수익률 → src/data/dividend.json
 npm run fetch:population # 행안부 통계연보 지역별 인구 → src/data/population.json
+npm run fetch:repair     # K-apt 장기수선충당금 → src/data/repair.json
 node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 룰셋
 ```
 
@@ -278,7 +280,7 @@ CAGR 만 내면 진입시점이 감춰지므로 같은 보유기간의 분포를
 | 집값 상승률 | 실측 앵커 | `growth.ts` — 화면에서 가져다 쓰는 방식 |
 | 향후 공급 | 실측 대리지표 | `supply.ts` — 순위만, 세대수 아님 |
 | S&P500·나스닥 배당 | 가정 | FRED 에 배당수익률도 총수익지수도 **없음을 확인** |
-| 수선유지비 | 가정 | K-apt 장기수선충당금 자료가 있으면 실측 가능 (활용신청 필요) |
+| 수선유지비 | 하한만 실측 | `repair.ts` — 장기수선충당금 318개 단지. 세대 내부 수선은 여전히 가정 |
 | 인구 추이 | **실측** | `population.ts` — 행안부 통계연보, 다만 시도 단위 |
 
 남은 가정값의 근거는 룰셋 `tenure.assumptionDefaults.basis` 에 있습니다 —

@@ -12,6 +12,7 @@ import {
 } from '../components/ui';
 import { money, percent } from '../engine/format';
 import { growthSuggestion } from '../engine/growth';
+import { REPAIR, REPAIR_CAVEATS, repairAnchor } from '../engine/repair';
 import { cellKey } from '../engine/matrix';
 import { RULES } from '../engine/rules';
 import type { RegionId } from '../engine/types';
@@ -45,6 +46,64 @@ import { useStore } from '../state/store';
  * 가정값에는 **점선 밑줄과 "가정" 표식**을 붙이고 명도를 한 단 낮춥니다 —
  * 색이 아니라 획이라 흑백 인쇄와 색각 이상에서도 살아남습니다.
  */
+/**
+ * 수선유지비 실측 앵커 — **하한**입니다.
+ *
+ * 장기수선충당금만 잡히고 세대 내부 수선(도배·싱크대·보일러)은 빠져 있어서
+ * 이 값으로 가정을 낮추면 매수 갈래가 부당하게 유리해집니다. 그래서
+ * "가져오기" 를 두지 않고, 가정이 실측 하한의 **몇 배**인지만 보여줍니다.
+ * 나머지가 정말 그만큼인지는 사람이 판단할 몫입니다.
+ */
+function RepairAnchor({
+  region,
+  sigungu,
+  price,
+  areaSqm,
+  assumed,
+}: {
+  region: RegionId;
+  sigungu?: string;
+  price: number;
+  areaSqm: number;
+  assumed: number;
+}) {
+  const a = useMemo(
+    () => repairAnchor(region, sigungu, price, areaSqm, assumed),
+    [region, sigungu, price, areaSqm, assumed]
+  );
+  if (!a) return null;
+
+  return (
+    <div className="mt-1.5 rounded-lg border border-slate-800 bg-slate-950/50 px-2 py-1.5">
+      <div
+        className="text-[10px] leading-relaxed text-slate-500"
+        title={
+          `${a.scope} 기준 · 단지 ${a.stat.n}개 표본\n` +
+          `장기수선충당금 중위 ${a.stat.median}원/㎡/월 (사분위 ${a.stat.p25}~${a.stat.p75})\n` +
+          `이 물건 ㎡당 ${Math.round(a.pricePerSqm).toLocaleString('ko-KR')}원 기준으로 환산\n\n` +
+          REPAIR_CAVEATS.map((c) => `· ${c}`).join('\n')
+        }
+      >
+        실측 하한 <span className="text-slate-300 tabular-nums">{percent(a.measuredRate, 3)}</span>
+        <span className="ml-1 text-slate-600">
+          ({percent(a.lowRate, 3)}~{percent(a.highRate, 3)} · 단지 {a.stat.n}개)
+        </span>
+      </div>
+      <div className="mt-0.5 text-[9px] leading-relaxed text-slate-600">
+        지금 가정 {percent(assumed, 2)}는 그 하한의{' '}
+        <b className="text-slate-400">{a.ratioToAssumed.toFixed(1)}배</b>입니다. 실측은{' '}
+        <b className="text-slate-400">장기수선충당금만</b>이라 세대 내부 수선(도배·싱크대·보일러)이
+        빠져 있습니다 — 값을 대신 넣지 않습니다.
+      </div>
+      {a.thin && (
+        <div className="mt-0.5 text-[9px] text-amber-500/70">
+          표본이 {a.stat.n}개뿐이라 중위값이 흔들립니다
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RateField({
   label,
   source,
@@ -1081,10 +1140,21 @@ export function TenurePage() {
                 label="연 수선유지비"
                 help="집값 대비 연간 수선·유지 비용입니다. 소유자만 부담하며 매달 나가는 돈에 더해집니다. 임차인은 0입니다."
                 assumed
-                source="자리표시자 · 주택가격 대비, 매수자만 부담"
+                source={`주택가격 대비, 매수·청약만 부담 · K-apt ${REPAIR.searchDate.slice(0, 4)}년 ${REPAIR.searchDate.slice(4)}월`}
                 value={result.assumptions.maintenanceRate}
                 step={0.05}
                 onChange={(v) => patch({ maintenanceRate: v })}
+                anchor={
+                  property ? (
+                    <RepairAnchor
+                      region={property.region}
+                      sigungu={property.sigungu}
+                      price={property.price}
+                      areaSqm={property.areaSqm}
+                      assumed={result.assumptions.maintenanceRate}
+                    />
+                  ) : undefined
+                }
               />
               <RateField
                 label="전세자금대출 금리"
