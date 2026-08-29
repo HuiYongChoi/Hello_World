@@ -1,4 +1,5 @@
 import { SUPPLY_CAVEATS, supplyFeedback } from '../engine/supply';
+import { POPULATION, POPULATION_CAVEATS, populationFeedback } from '../engine/population';
 import { normalize } from '../engine/scoring';
 import { useMemo, useState } from 'react';
 import {
@@ -302,6 +303,7 @@ function ScorePanel({
                           <MetricFeedback
                             indicatorId={ind.id}
                             sigungu={property.sigungu}
+                            region={property.region}
                             value={Number(raw)}
                           />
                         </>
@@ -413,10 +415,12 @@ function PenaltyPanel({
 function MetricFeedback({
   indicatorId,
   sigungu,
+  region,
   value,
 }: {
   indicatorId: string;
   sigungu: string;
+  region: RegionId;
   value: number;
 }) {
   const fb = useMemo(
@@ -425,16 +429,44 @@ function MetricFeedback({
   );
 
   if (indicatorId === 'populationTrend') {
+    const pf = populationFeedback(region);
+    if (!pf) return null;
+    const pct = (v: number) => `${(v * 100).toFixed(2)}%`;
+    const gap = pf.suggested - value;
+    const differs = Math.abs(gap) >= 2;
+
     return (
-      <div
-        className="mt-1 text-[9px] leading-relaxed text-slate-600"
-        title={
-          '시군구 인구 추이는 행정안전부 주민등록 인구통계(data.go.kr)에 있습니다.\n' +
-          '지금 키로는 "등록되지 않은 서비스키"가 돌아옵니다 — API 별 활용신청이 따로 필요합니다.\n' +
-          '승인되면 같은 자리에 실측이 붙습니다.'
-        }
-      >
-        실측 대기 — data.go.kr 활용신청 필요 ⓘ
+      <div className="mt-1 rounded border border-slate-800 bg-slate-900/40 px-1.5 py-1">
+        <div
+          className="text-[9px] leading-relaxed text-slate-500"
+          title={
+            `${pf.stat.label} — 최근 10년 인구 ${pct(pf.stat.cagr10)}/년\n` +
+            `전국 ${pct(pf.nationalCagr10)}/년 대비 ${pct(pf.stat.excess10)}p\n` +
+            `${pf.stat.to}년 ${pf.stat.population.toLocaleString('ko-KR')}명\n\n` +
+            POPULATION_CAVEATS.map((c) => `· ${c}`).join('\n')
+          }
+        >
+          실측 <span className="text-slate-300">{pf.suggested}단계</span>
+          <span className="ml-1 text-slate-600">
+            ({pf.stat.label} 최근 10년 {pct(pf.stat.cagr10)}/년 · 전국 대비{' '}
+            {pct(pf.stat.excess10)}p)
+          </span>
+        </div>
+        <div
+          className={`mt-0.5 text-[9px] leading-relaxed ${
+            differs ? 'text-amber-500/80' : 'text-slate-600'
+          }`}
+        >
+          내 입력 {value}단계
+          {differs
+            ? ` — 실측과 ${Math.abs(gap)}단계 어긋납니다.`
+            : ' — 실측과 같은 방향입니다.'}
+        </div>
+        {/* 이 한계가 결정적입니다 — 같은 권역이면 물건이 달라도 값이 안 바뀝니다. */}
+        <div className="mt-0.5 text-[9px] leading-relaxed text-slate-600">
+          시도 단위라 같은 권역 시군구는 전부 같은 값입니다 ({POPULATION.granularity} · 행안부
+          통계연보).
+        </div>
       </div>
     );
   }

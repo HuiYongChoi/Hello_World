@@ -38,6 +38,7 @@ src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상
   market.ts      실거래 스냅샷 로더 + CAGR + 진입시점 분포
   growth.ts      지역 연쇄 가격지수 (집값 상승률 실측)
   supply.ts      향후 입주 물량 대리지표 (분양권 vs 매매)
+  population.ts  권역 인구 추세 실측 (시도 단위)
   subscription.ts 청약 납입 일정 + 4번째 갈래 LegPlan
   rent.ts        전세가율·전월세전환율 실측치 (자리표시자 대체)
   regions.ts     시군구 목록·후보군 + 시군구명 → 법정동코드 조회
@@ -101,11 +102,17 @@ npm run fetch:index      # KRX 코스피·채권지수 → src/data/index-*.json
 npm run fetch:rates      # FRED 해외지수 + ECOS 금리·물가 → src/data/rates-*.json
 npm run fetch:presale    # 국토부 분양권전매 실거래가 → src/data/presale-*.json
 npm run fetch:dividend   # ECOS 코스피 배당수익률 → src/data/dividend.json
+npm run fetch:population # 행안부 통계연보 지역별 인구 → src/data/population.json
 node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 룰셋
 ```
 
 수집 대상은 `src/data/regions.json` 의 `collect: true` 뿐입니다. 후보군과 제외 사유도
 같은 파일에 있어, 무엇을 왜 안 받는지가 코드가 아니라 데이터로 남습니다.
+`.env.local` 의 `MOLIT_API_KEY` 는 **Encoding 키**(`%` 포함)입니다. URL 에 그대로
+붙여야 하고 **한 번 더 인코딩하면 안 됩니다** — `%2B` 가 `%252B` 가 되어
+`SERVICE_KEY_IS_NOT_REGISTERED` 로 돌아옵니다. 이 오류 문구는 "키가 미등록" 이라고
+말하지만 실제로는 인코딩 사고인 경우가 있으니, **이미 되던 API 로 먼저 대조**하세요.
+
 **법정동코드는 행정구역 개편으로 바뀝니다** — 화성시 41590 은 폐지돼 동탄·병점·만세·
 효행으로 갈렸고, 26260 을 수영구로 적어 뒀다가 실제로는 동래구였던 적도 있습니다.
 폐지된 코드는 오류가 아니라 `totalCount=0` 으로 조용히 돌아오니, 수집 후 지역별
@@ -272,7 +279,7 @@ CAGR 만 내면 진입시점이 감춰지므로 같은 보유기간의 분포를
 | 향후 공급 | 실측 대리지표 | `supply.ts` — 순위만, 세대수 아님 |
 | S&P500·나스닥 배당 | 가정 | FRED 에 배당수익률도 총수익지수도 **없음을 확인** |
 | 수선유지비 | 가정 | K-apt 장기수선충당금 자료가 있으면 실측 가능 (활용신청 필요) |
-| 인구 추이 | 가정 | 행안부 주민등록 인구통계 (활용신청 필요) |
+| 인구 추이 | **실측** | `population.ts` — 행안부 통계연보, 다만 시도 단위 |
 
 남은 가정값의 근거는 룰셋 `tenure.assumptionDefaults.basis` 에 있습니다 —
 무엇을 보고 찍었고 무엇이 있어야 실측이 되는지를 데이터로 남깁니다.

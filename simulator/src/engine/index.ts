@@ -18,6 +18,7 @@ export * from './rent';
 export * from './market';
 export * from './growth';
 export * from './supply';
+export * from './population';
 export * from './tenure';
 export * from './matrix';
 export * from './format';

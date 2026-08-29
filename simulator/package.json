@@ -18,7 +18,8 @@
     "fetch:index": "node ../scripts/fetch-index.mjs",
     "fetch:rates": "node ../scripts/fetch-rates.mjs",
     "fetch:presale": "node ../scripts/fetch-presale.mjs",
-    "fetch:dividend": "node ../scripts/fetch-dividend.mjs"
+    "fetch:dividend": "node ../scripts/fetch-dividend.mjs",
+    "fetch:population": "node ../scripts/fetch-population.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
