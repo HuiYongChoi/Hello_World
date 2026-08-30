@@ -30,7 +30,15 @@
  * 판단할 수 있습니다.
  */
 
-import { MARKET, holdingDistribution, yearsBetween, type HoldingDistribution, type MarketPoint } from './market';
+import {
+  MARKET,
+  MIN_ENTRY_QUARTERS,
+  holdingDistribution,
+  holdingSamples,
+  yearsBetween,
+  type HoldingDistribution,
+  type MarketPoint,
+} from './market';
 import type { RegionId } from './types';
 
 /** 이보다 적은 칸으로 이은 분기는 중위 변화율이 한두 채에 흔들립니다. */
@@ -185,14 +193,51 @@ export function regionGrowthDistribution(
 }
 
 export interface GrowthSuggestion {
+  /**
+   * **제안값** — 같은 보유기간을 실제로 들고 있었던 단지·평형의 중위 CAGR.
+   *
+   * 연쇄 지수의 전체 구간 CAGR 이 아닙니다. 지수는 분기 중위 변화율을 곱해
+   * 이어 붙이면서 위로 치우치는데(연쇄 드리프트), 이 값은 양 끝을 직접 재므로
+   * 그 치우침이 없습니다.
+   */
   cagr: number;
-  years: number;
-  from: number;
-  to: number;
+  /** 실제로 잰 보유기간. 요청한 기간에 표본이 없으면 짧은 쪽으로 물러섭니다 */
+  holdYears: number;
+  /** 요청한 기간에 표본이 없어 물러섰는가 */
+  fellBack: boolean;
+  /** 표본 수 (칸 × 진입분기) */
+  samples: number;
+  /** 기여한 단지·평형 칸 수 */
   cells: number;
-  thin: boolean;
-  /** 비교 기간과 같은 보유기간의 분포 — 단일값 옆에 반드시 같이 놓습니다 */
+  /** 진입분기 수 — 적으면 특정 시기 한두 개만 본 것입니다 */
+  entryQuarters: number;
+  /** 같은 표본의 분포. 단일값 옆에 반드시 같이 놓습니다 */
   distribution: HoldingDistribution | null;
+  /** 참고 — 연쇄 지수의 전체 구간 CAGR */
+  indexCagr: number;
+  /** 지수가 이어 붙인 구간 (년) */
+  indexYears: number;
+  /**
+   * **같은 보유기간**을 지수 위에서 쟀을 때의 중위. 표본 중위와 견주려면
+   * 구간이 같아야 합니다 — 10.5년 지수 CAGR 과 5년 표본 중위를 견주면
+   * 드리프트가 아니라 기간 차이를 재게 됩니다.
+   */
+  indexMedian: number | null;
+  /** indexMedian − 제안값. 양수면 지수가 그만큼 높게 나온다는 뜻입니다 */
+  indexGap: number | null;
+  /** 진입분기가 얇아 시기 편향이 큰가 */
+  thin: boolean;
+}
+
+/** 이보다 적은 표본으로는 중위도 분포도 말할 수 없습니다. */
+const MIN_SAMPLES = 30;
+
+function quantile(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  const i = (sorted.length - 1) * p;
+  const lo = Math.floor(i);
+  const hi = Math.ceil(i);
+  return lo === hi ? sorted[lo] : sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
 }
 
 /**
@@ -201,17 +246,76 @@ export interface GrowthSuggestion {
  * **기본값으로 몰래 넣지 않습니다.** 과거 CAGR 을 미래 가정으로 자동 대입하면
  * 도구가 "이만큼 오릅니다" 라고 말하는 것이 됩니다. 옆에 놓고 사용자가
  * 가져다 쓰게 합니다.
+ *
+ * ## 지수가 아니라 표본에서 냅니다
+ *
+ * 예전에는 연쇄 지수의 전체 구간 CAGR 을 제안했는데, 그 값이 **전형적인 한
+ * 칸이 겪은 것보다 높았습니다.**
+ *
+ * ```
+ * 5년 보유 · 시장지수 진입시점 중위   8.06%
+ * 5년 보유 · 단지·평형 표본 중위      4.13%
+ * ```
+ *
+ * 지수는 분기마다 중위 변화율을 곱해 이어 붙입니다. 구성 변화는 막아 주지만
+ * 곱셈을 반복하는 동안 위로 치우칩니다(연쇄 드리프트). 지수는 **모양을 보는
+ * 데** 쓰고, 가져다 쓸 **숫자는 표본에서** 냅니다.
+ *
+ * ## 요청한 기간에 표본이 없으면 물러섭니다
+ *
+ * 스냅샷이 2016년부터라 30년 보유 표본은 아예 없습니다. 그때 지수 CAGR 로
+ * 슬쩍 바꿔치기하면 화면에는 30년처럼 보이는 다른 숫자가 뜹니다. 그러지 않고
+ * **표본이 있는 가장 긴 기간으로 물러서고 그 사실을 같이 냅니다.**
  */
 export function growthSuggestion(region: RegionId, holdYears: number): GrowthSuggestion | null {
   const idx = regionGrowthIndex(region);
   if (!idx) return null;
+
+  // 요청 기간부터 시작해 표본이 잡힐 때까지 1년씩 물러섭니다.
+  const wanted = Math.max(1, Math.round(holdYears));
+  let used = 0;
+  let rows: ReturnType<typeof holdingSamples> = [];
+  for (let y = wanted; y >= 1; y--) {
+    const found = holdingSamples(y, { regions: [region] });
+    if (found.length >= MIN_SAMPLES) {
+      used = y;
+      rows = found;
+      break;
+    }
+  }
+  if (used === 0) return null;
+
+  // 드리프트는 **같은 보유기간끼리** 재야 합니다.
+  const indexDist = regionGrowthDistribution(region, used);
+
+  const cagrs = rows.map((r) => r.cagr).sort((a, b) => a - b);
+  const cells = new Set(rows.map((r) => `${r.complex.id}|${r.area}`));
+  const entryQuarters = new Set(rows.map((r) => r.entryQ));
+  const median = quantile(cagrs, 0.5);
+
   return {
-    cagr: idx.cagr,
-    years: idx.years,
-    from: idx.points[0].q,
-    to: idx.points[idx.points.length - 1].q,
-    cells: idx.cells,
-    thin: idx.thin,
-    distribution: regionGrowthDistribution(region, holdYears),
+    cagr: median,
+    holdYears: used,
+    fellBack: used !== wanted,
+    samples: rows.length,
+    cells: cells.size,
+    entryQuarters: entryQuarters.size,
+    distribution: {
+      holdYears: used,
+      samples: cagrs,
+      count: cagrs.length,
+      median,
+      p25: quantile(cagrs, 0.25),
+      p75: quantile(cagrs, 0.75),
+      worst: cagrs[0],
+      best: cagrs[cagrs.length - 1],
+      lossRatio: cagrs.filter((c) => c < 0).length / cagrs.length,
+      thin: entryQuarters.size < MIN_ENTRY_QUARTERS,
+    },
+    indexCagr: idx.cagr,
+    indexYears: idx.years,
+    indexMedian: indexDist ? indexDist.median : null,
+    indexGap: indexDist ? indexDist.median - median : null,
+    thin: entryQuarters.size < MIN_ENTRY_QUARTERS,
   };
 }

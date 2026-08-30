@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MIN_LINKED_PAIRS, growthSuggestion, regionGrowthDistribution, regionGrowthIndex } from '../growth';
-import { MARKET } from '../market';
+import { MARKET, holdingSamples } from '../market';
 import type { RegionId } from '../types';
 
 const REGIONS: RegionId[] = ['changwon', 'busan', 'gyeonggi'];
@@ -86,5 +86,76 @@ describe('제안값', () => {
 
   it('실측 창원은 기본 가정 3% 보다 낮습니다 — 가정이 결론을 만들고 있었습니다', () => {
     expect(growthSuggestion('changwon', 10)!.cagr).toBeLessThan(0.03);
+  });
+
+  /**
+   * 제안값은 **지수가 아니라 표본**에서 옵니다. 지수는 분기 중위 변화율을 곱해
+   * 이어 붙이면서 위로 치우치므로(연쇄 드리프트), 그 값을 가져다 쓰면 전형적인
+   * 한 칸이 겪은 것보다 높은 상승률로 3-way 를 돌리게 됩니다.
+   */
+  it('제안값은 같은 보유기간 표본의 중위입니다', () => {
+    for (const r of REGIONS) {
+      const s = growthSuggestion(r, 10)!;
+      const rows = holdingSamples(s.holdYears, { regions: [r] });
+      const sorted = rows.map((x) => x.cagr).sort((a, b) => a - b);
+      const i = (sorted.length - 1) / 2;
+      const med =
+        Number.isInteger(i)
+          ? sorted[i]
+          : (sorted[Math.floor(i)] + sorted[Math.ceil(i)]) / 2;
+      expect(s.samples).toBe(rows.length);
+      expect(s.cagr).toBeCloseTo(med, 10);
+      expect(s.distribution!.median).toBeCloseTo(s.cagr, 12);
+    }
+  });
+
+  /**
+   * 드리프트는 **같은 보유기간끼리** 재야 합니다. 10.5년 지수 CAGR 과 5년 표본
+   * 중위를 견주면 드리프트가 아니라 기간 차이를 재게 됩니다 — 실제로 그렇게
+   * 재면 창원은 부호까지 뒤집힙니다.
+   */
+  it('연쇄 지수는 참고로만 남고, 같은 기간으로 견줍니다', () => {
+    for (const r of REGIONS) {
+      for (const y of [5, 10]) {
+        const s = growthSuggestion(r, y)!;
+        expect(s.indexCagr).toBeCloseTo(regionGrowthIndex(r)!.cagr, 12);
+        expect(s.indexMedian).toBeCloseTo(regionGrowthDistribution(r, s.holdYears)!.median, 12);
+        expect(s.indexGap).toBeCloseTo(s.indexMedian! - s.cagr, 12);
+        // 세 권역 · 두 기간 모두 지수가 표본 중위보다 높습니다. 이 부호가
+        // 뒤집히면 드리프트 설명을 다시 재야 합니다.
+        expect(s.indexGap).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  /**
+   * 스냅샷이 2016년부터라 30년 보유 표본은 없습니다. 그때 지수 CAGR 로
+   * 바꿔치기하면 화면에는 30년처럼 보이는 다른 숫자가 뜹니다.
+   */
+  it('표본이 없는 기간은 물러서고 그 사실을 냅니다', () => {
+    const s = growthSuggestion('busan', 30)!;
+    expect(s.fellBack).toBe(true);
+    expect(s.holdYears).toBeLessThan(30);
+    expect(s.holdYears).toBeGreaterThanOrEqual(1);
+    expect(s.samples).toBeGreaterThan(0);
+
+    const exact = growthSuggestion('busan', 5)!;
+    expect(exact.fellBack).toBe(false);
+    expect(exact.holdYears).toBe(5);
+  });
+
+  it('진입분기가 얇으면 얇다고 표시합니다', () => {
+    // 10년 보유는 2016년 진입 네 분기밖에 안 남습니다.
+    expect(growthSuggestion('busan', 10)!.thin).toBe(true);
+    expect(growthSuggestion('busan', 10)!.entryQuarters).toBeLessThan(8);
+    expect(growthSuggestion('busan', 5)!.thin).toBe(false);
+  });
+
+  it('분위수 순서가 맞습니다', () => {
+    const d = growthSuggestion('gyeonggi', 5)!.distribution!;
+    expect(d.worst).toBeLessThanOrEqual(d.p25);
+    expect(d.p25).toBeLessThanOrEqual(d.median);
+    expect(d.median).toBeLessThanOrEqual(d.p75);
+    expect(d.p75).toBeLessThanOrEqual(d.best);
   });
 });

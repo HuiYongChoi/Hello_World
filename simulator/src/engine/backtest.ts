@@ -45,7 +45,13 @@
  */
 
 import { marketGrowthIndex } from './growth';
-import { MARKET, quarterLabel, type MarketComplex, type MarketPoint } from './market';
+import {
+  MARKET,
+  MIN_ENTRY_QUARTERS,
+  holdingSamples,
+  quarterLabel,
+  type MarketPoint,
+} from './market';
 import {
   TRAIT_LIFT_STRONG,
   TRAIT_MIN_BUCKET,
@@ -57,12 +63,6 @@ import type { RegionId } from './types';
 
 /** 초과수익을 무엇에 견주나 */
 export type BenchmarkMode = 'none' | 'cohort' | 'district' | 'market';
-
-/** 양 끝 분기 거래가 이보다 적으면 표본에서 뺍니다 — 개별 물건 한 채 가격입니다. */
-const MIN_DEALS = 3;
-
-/** 진입분기가 이보다 적으면 시점 축이 성립하지 않습니다. */
-export const MIN_ENTRY_QUARTERS = 8;
 
 /** 이보다 적은 표본으로는 분위수도 재현 여부도 말할 수 없습니다. */
 export const MIN_SAMPLES = 30;
@@ -194,13 +194,12 @@ export interface RollingInput {
  */
 export function rollingBacktest(input: RollingInput): RollingBacktest | null {
   const { holdYears, benchmark } = input;
-  const span = Math.round(holdYears * 4);
-  if (span < 4) return null;
+  // 1년 미만은 연환산이 폭주하므로 아예 내지 않습니다.
+  if (Math.round(holdYears * 4) < 4) return null;
 
-  const codes = input.districtCodes?.length ? new Set(input.districtCodes) : null;
-  const pool: MarketComplex[] = codes
-    ? MARKET.complexes.filter((c) => codes.has(c.regionCode))
-    : MARKET.complexes;
+  // 표본 만들기 규칙은 `market.ts` 에 한 곳으로 둡니다 — 상승률 앵커와 같은
+  // 표본을 봐야 두 화면의 숫자가 어긋나지 않습니다.
+  const raw = holdingSamples(holdYears, { districtCodes: input.districtCodes });
 
   // 지수는 한 번만 만듭니다 — 표본마다 다시 접으면 안 됩니다.
   const marketIdx = benchmark === 'market' ? marketGrowthIndex()?.points ?? null : null;
@@ -208,48 +207,37 @@ export function rollingBacktest(input: RollingInput): RollingBacktest | null {
   const samples: RollingSample[] = [];
   const cells = new Set<string>();
 
-  for (const c of pool) {
-    const region = c.region as RegionId;
-    for (const s of c.sizes) {
-      const cellId = `${c.id}|${s.area}`;
-      for (const start of s.points) {
-        if (start.n < MIN_DEALS || start.price <= 0) continue;
-        const end = nearest(s.points, start.q + span);
-        if (!end || end.n < MIN_DEALS || end.price <= 0) continue;
-        const years = (end.q - start.q) / 4;
-        if (years < 1) continue;
+  for (const r of raw) {
+    const c = r.complex;
+    // 지수 기준선은 여기서 바로 재고, 코호트 기준선은 표본이 다 모인 뒤
+    // 2차로 뺍니다 — 같은 진입분기 표본의 중위가 필요하기 때문입니다.
+    const bench =
+      benchmark === 'market' ? benchmarkOf(marketIdx, r.entryQ, r.exitQ, r.years) : 0;
+    // 지수를 못 재는 구간은 초과수익을 0으로 채우지 않고 표본에서 뺍니다.
+    // 0으로 채우면 "지수와 똑같이 움직였다" 는 없는 관측이 생깁니다.
+    if (bench === null) continue;
 
-        const cagr = annualize(start.price, end.price, years);
-        // 지수 기준선은 여기서 바로 재고, 코호트 기준선은 표본이 다 모인 뒤
-        // 2차로 뺍니다 — 같은 진입분기 표본의 중위가 필요하기 때문입니다.
-        const bench =
-          benchmark === 'market' ? benchmarkOf(marketIdx, start.q, end.q, years) : 0;
-        // 지수를 못 재는 구간은 초과수익을 0으로 채우지 않고 표본에서 뺍니다.
-        // 0으로 채우면 "지수와 똑같이 움직였다" 는 없는 관측이 생깁니다.
-        if (bench === null) continue;
-
-        cells.add(cellId);
-        samples.push({
-          cellId,
-          name: c.name,
-          umd: c.umd,
-          districtCode: c.regionCode,
-          districtLabel: districtLabel(c.regionCode),
-          region,
-          buildYear: c.buildYear,
-          area: s.area,
-          entryQ: start.q,
-          exitQ: end.q,
-          years,
-          startPrice: start.price,
-          endPrice: end.price,
-          cagr,
-          benchmarkCagr: bench,
-          excess: cagr - bench,
-          minDeals: Math.min(start.n, end.n),
-        });
-      }
-    }
+    const cellId = `${c.id}|${r.area}`;
+    cells.add(cellId);
+    samples.push({
+      cellId,
+      name: c.name,
+      umd: c.umd,
+      districtCode: c.regionCode,
+      districtLabel: districtLabel(c.regionCode),
+      region: c.region as RegionId,
+      buildYear: c.buildYear,
+      area: r.area,
+      entryQ: r.entryQ,
+      exitQ: r.exitQ,
+      years: r.years,
+      startPrice: r.startPrice,
+      endPrice: r.endPrice,
+      cagr: r.cagr,
+      benchmarkCagr: bench,
+      excess: r.cagr - bench,
+      minDeals: r.minDeals,
+    });
   }
 
   if (samples.length === 0) return null;

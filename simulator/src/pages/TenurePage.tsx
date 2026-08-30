@@ -12,6 +12,7 @@ import {
 } from '../components/ui';
 import { money, percent } from '../engine/format';
 import { growthSuggestion } from '../engine/growth';
+import { MARKET } from '../engine/market';
 import { REPAIR, REPAIR_CAVEATS, repairAnchor } from '../engine/repair';
 import { cellKey } from '../engine/matrix';
 import { RULES } from '../engine/rules';
@@ -190,7 +191,8 @@ function GrowthAnchor({
         <span className="text-[10px] text-slate-500">
           실측 <span className="text-slate-300 tabular-nums">{percent(s.cagr, 2)}</span>
           <span className="ml-1 text-slate-600">
-            ({s.years.toFixed(1)}년 · {s.cells.toLocaleString('ko-KR')}칸)
+            ({s.holdYears}년 보유 · {s.cells.toLocaleString('ko-KR')}칸 ·{' '}
+            {s.samples.toLocaleString('ko-KR')}건 중위)
           </span>
         </span>
         <button
@@ -209,20 +211,44 @@ function GrowthAnchor({
       {d && (
         <div
           className="mt-0.5 text-[9px] leading-relaxed text-slate-600"
-          title={`${years}년 보유를 ${d.count}개 진입시점에서 각각 계산한 분포입니다. 중위 ${percent(
+          title={`${s.holdYears}년 보유를 단지·평형 ${s.cells}칸 × 진입분기 ${s.entryQuarters}개에서 각각 계산한 ${d.count}건의 분포입니다. 중위 ${percent(
             d.median,
             2
-          )} · 하위25% ${percent(d.p25, 2)} · 최악 ${percent(d.worst, 2)} · 최고 ${percent(d.best, 2)}.`}
+          )} · 하위25% ${percent(d.p25, 2)} · 최악 ${percent(d.worst, 2)} · 최고 ${percent(d.best, 2)}. 언제 들어갔나와 무엇을 골랐나가 함께 섞인 폭입니다.`}
         >
-          {years}년 보유 중위 {percent(d.median, 1)} · 하위25% {percent(d.p25, 1)} · 최악{' '}
+          {s.holdYears}년 보유 중위 {percent(d.median, 1)} · 하위25% {percent(d.p25, 1)} · 최악{' '}
           {percent(d.worst, 1)}
           {d.thin && (
             <span className="ml-1 text-amber-500/70">{' · '}
-              진입시점 {d.count}개뿐 — 분위수가 뭉개집니다
+              진입분기 {s.entryQuarters}개뿐 — 특정 시기에 쏠립니다
             </span>
           )}
         </div>
       )}
+      {s.fellBack && (
+        <div className="mt-0.5 text-[9px] leading-relaxed text-amber-500/80">
+          {years}년 보유 표본이 없어 <b>{s.holdYears}년</b>으로 물러섰습니다 — 스냅샷이{' '}
+          {MARKET.range.from.slice(0, 4)}년부터입니다.
+        </div>
+      )}
+      {/*
+        예전에는 이 자리에 연쇄 지수의 전체 구간 CAGR 을 제안했습니다. 그런데
+        지수는 분기 중위 변화율을 곱해 이어 붙이면서 위로 치우쳐(연쇄 드리프트)
+        전형적인 한 칸이 겪은 것보다 높게 나옵니다. 제안값은 표본 중위로 바꾸고,
+        지수는 얼마나 벌어지는지를 보이는 참고값으로 남깁니다.
+      */}
+      <div
+        className="mt-0.5 text-[9px] leading-relaxed text-slate-600"
+        title={`연쇄 지수는 분기 중위 변화율을 곱해 이어 붙이면서 위로 치우칩니다(연쇄 드리프트). 가져다 쓰는 값은 지수가 아니라 실제 단지·평형 표본의 중위입니다.`}
+      >
+        참고 · 연쇄지수 전체 {s.indexYears.toFixed(1)}년 {percent(s.indexCagr, 2)}
+        {s.indexGap !== null && Math.abs(s.indexGap) > 0.0005 && (
+          <span className="ml-1">
+            · 같은 {s.holdYears}년으로 재면 {percent(s.indexMedian!, 2)} (표본 중위보다{' '}
+            {percent(Math.abs(s.indexGap), 2)}p {s.indexGap > 0 ? '높음' : '낮음'} — 지수의 치우침)
+          </span>
+        )}
+      </div>
       <div className="mt-0.5 text-[9px] leading-relaxed text-slate-600">
         과거 실측일 뿐 예측이 아닙니다. 구간을 어디서 끊느냐로 크게 달라집니다.
       </div>

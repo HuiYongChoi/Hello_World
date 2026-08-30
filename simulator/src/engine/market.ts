@@ -232,6 +232,87 @@ function nearestPoint(
   return best;
 }
 
+/* ────────────────────────────────────────────────────────────────────────
+   단지·평형 단위 보유 표본 — 지수를 거치지 않고 재는 길
+   ──────────────────────────────────────────────────────────────────── */
+
+/** 양 끝 분기 거래가 이보다 적으면 표본에서 뺍니다 — 개별 물건 한 채 가격입니다. */
+export const HOLDING_MIN_DEALS = 3;
+
+/**
+ * 진입분기가 이보다 적으면 시점 축이 성립하지 않습니다 — 특정 시기 한두 개를
+ * 본 것에 가깝습니다. 상승률 앵커와 롤링 백테스트가 같은 기준을 씁니다.
+ */
+export const MIN_ENTRY_QUARTERS = 8;
+
+export interface HoldingSample {
+  complex: MarketComplex;
+  /** 전용면적 (㎡) */
+  area: number;
+  entryQ: number;
+  exitQ: number;
+  /** 실제 간격 (명목 보유기간과 ±0.25년 다를 수 있습니다) */
+  years: number;
+  startPrice: number;
+  endPrice: number;
+  /** 복리 연환산 */
+  cagr: number;
+  /** 양 끝 분기 거래건수 중 작은 값 */
+  minDeals: number;
+}
+
+/**
+ * **모든 단지·평형 × 모든 진입분기**의 보유 결과.
+ *
+ * 연쇄 지수(`growth.ts`)를 거치지 않고 한 칸이 실제로 겪은 값을 그대로 씁니다.
+ * 지수는 분기 중위 변화율을 곱해 이어 붙이면서 위로 치우치는데(연쇄 드리프트),
+ * 여기에는 그 치우침이 없습니다 — **곱해서 잇지 않고 양 끝을 직접 재기**
+ * 때문입니다.
+ *
+ * 규칙을 한 곳에 둡니다. 롤링 백테스트(`backtest.ts`)와 상승률 앵커
+ * (`growth.ts`)가 같은 표본을 봐야 두 화면의 숫자가 어긋나지 않습니다.
+ *
+ * 종료 분기를 **정확히** 요구하면 거래 없는 분기 하나에 진입시점이 통째로
+ * 날아가므로 ±1분기까지 허용하고 실제 간격으로 환산합니다.
+ */
+export function holdingSamples(
+  holdYears: number,
+  opts: { districtCodes?: string[]; regions?: string[] } = {}
+): HoldingSample[] {
+  const span = Math.round(holdYears * 4);
+  if (span < 4) return [];
+
+  const codes = opts.districtCodes?.length ? new Set(opts.districtCodes) : null;
+  const regions = opts.regions?.length ? new Set(opts.regions) : null;
+
+  const out: HoldingSample[] = [];
+  for (const c of MARKET.complexes) {
+    if (codes && !codes.has(c.regionCode)) continue;
+    if (regions && !regions.has(c.region)) continue;
+    for (const s of c.sizes) {
+      for (const start of s.points) {
+        if (start.n < HOLDING_MIN_DEALS || start.price <= 0) continue;
+        const end = nearestPoint(s.points, start.q + span, 1);
+        if (!end || end.n < HOLDING_MIN_DEALS || end.price <= 0) continue;
+        const years = (end.q - start.q) / 4;
+        if (years < 1) continue;
+        out.push({
+          complex: c,
+          area: s.area,
+          entryQ: start.q,
+          exitQ: end.q,
+          years,
+          startPrice: start.price,
+          endPrice: end.price,
+          cagr: Math.pow(end.price / start.price, 1 / years) - 1,
+          minDeals: Math.min(start.n, end.n),
+        });
+      }
+    }
+  }
+  return out;
+}
+
 export interface SafetyMargin {
   /** 비교 기준선 (예: 대출금리, 손익분기 상승률) */
   reference: number;
