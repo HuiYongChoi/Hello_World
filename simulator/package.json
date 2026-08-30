@@ -20,7 +20,8 @@
     "fetch:presale": "node ../scripts/fetch-presale.mjs",
     "fetch:dividend": "node ../scripts/fetch-dividend.mjs",
     "fetch:population": "node ../scripts/fetch-population.mjs",
-    "fetch:repair": "node ../scripts/fetch-repair.mjs"
+    "fetch:repair": "node ../scripts/fetch-repair.mjs",
+    "fetch:offering": "node ../scripts/fetch-offering.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
