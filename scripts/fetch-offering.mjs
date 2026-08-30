@@ -39,7 +39,7 @@
  * ```
  * node scripts/fetch-offering.mjs                 # 최근 12개월 · 수집 대상 시군구
  * node scripts/fetch-offering.mjs --months 24
- * node scripts/fetch-offering.mjs --probe         # 원문 1건을 그대로 출력 (필드명 대조용)
+ * node scripts/fetch-offering.mjs --probe         # 응답 대조 — 읽는 키가 오는지 스크립트가 판정
  * node scripts/fetch-offering.mjs --all-regions   # 지역 필터 없이 (표본 확인용, 저장 안 함)
  * ```
  */
@@ -167,12 +167,96 @@ export function waitYears(pblancDate, mvnYm) {
   return months > 0 ? Math.round((months / 12) * 10) / 10 : null;
 }
 
+export const median = (xs) => {
+  if (!xs.length) return 0;
+  const t = [...xs].sort((a, b) => a - b);
+  const i = Math.floor(t.length / 2);
+  const v = t.length % 2 ? t[i] : (t[i - 1] + t[i]) / 2;
+  return Math.round(v * 100) / 100;
+};
+
 /** 법정동 — "경상남도 창원시 성산구 가음동 123" 에서 동/읍/면을 집습니다. */
 export function umdOf(address, district) {
   if (!address) return undefined;
   const after = address.split(district.tokens[district.tokens.length - 1]).pop() ?? '';
   const m = after.match(/([가-힣]+[동읍면])(?![가-힣])/);
   return m ? m[1] : undefined;
+}
+
+/**
+ * 수집기가 **실제로 읽는** 키만 적습니다. 이 목록이 곧 대조 대상입니다 —
+ * 명세 문서를 옮겨 적으면 안 읽는 키까지 섞여 결측 경고가 소음이 됩니다.
+ */
+export const FIELDS = {
+  getAPTLttotPblancDetail: {
+    HOUSE_MANAGE_NO: '주택관리번호 — 두 API 를 잇는 조인 키',
+    HOUSE_NM: '주택명',
+    HSSPLY_ADRES: '공급위치 — 시군구·법정동을 여기서 뽑습니다',
+    RCRIT_PBLANC_DE: '모집공고일 — 기간 필터와 대기기간 기산점',
+    MVN_PREARNGE_YM: '입주예정월 — 대기기간의 끝',
+    TOT_SUPLY_HSHLDCO: '총 공급세대수',
+    PBLANC_NO: '공고번호',
+    RCEPT_BGNDE: '접수 시작일',
+    RCEPT_ENDDE: '접수 종료일',
+    PRZWNER_PRESNATN_DE: '당첨자발표일',
+    CNTRCT_CNCLS_BGNDE: '계약 시작일',
+    PBLANC_URL: '공고 URL',
+  },
+  getAPTLttotPblancMdl: {
+    HOUSE_MANAGE_NO: '조인 키',
+    HOUSE_TY: '주택형 — **전용면적을 여기서 뽑습니다** (SUPLY_AR 아님)',
+    LTTOT_TOP_AMOUNT: '분양최고금액 (만원)',
+    SUPLY_AR: '공급면적 — 참고용',
+    SUPLY_HSHLDCO: '공급세대수',
+    SPSPLY_HSHLDCO: '특별공급 세대수',
+  },
+};
+
+/** 결측 키에 대해 실제 응답에서 이름이 비슷한 키를 찾아 줍니다. */
+export function similarKeys(missing, actual) {
+  const core = missing.replace(/_/g, '').toUpperCase();
+  return actual
+    .filter((k) => {
+      const c = k.replace(/_/g, '').toUpperCase();
+      if (c === core) return true;
+      const shorter = c.length < core.length ? c : core;
+      const longer = c.length < core.length ? core : c;
+      return shorter.length >= 4 && longer.includes(shorter);
+    })
+    .slice(0, 3);
+}
+
+/**
+ * 필드 대조 — 있는지/몇 건에 채워졌는지/예시값.
+ * 첫 실행에서 사람이 원문 JSON 을 읽고 판단하던 일을 스크립트가 합니다.
+ */
+export function audit(label, rows, spec) {
+  console.log(`\n=== ${label} — ${rows.length}건 표본 ===`);
+  const actual = [...new Set(rows.flatMap((r) => Object.keys(r ?? {})))].sort();
+  const missing = [];
+
+  for (const [k, why] of Object.entries(spec)) {
+    const filled = rows.filter((r) => r?.[k] !== undefined && r?.[k] !== null && r?.[k] !== '').length;
+    const sample = rows.find((r) => r?.[k] !== undefined && r?.[k] !== null && r?.[k] !== '')?.[k];
+    if (filled === 0) {
+      missing.push(k);
+      // 키가 아예 없는 것과 키는 있는데 값이 전부 빈 것은 원인이 다릅니다 —
+      // 전자는 명세가 바뀐 것이고, 후자는 그 공고에 그 값이 없는 것입니다.
+      if (actual.includes(k)) {
+        console.log(`  ✗ ${k.padEnd(22)} 키는 있으나 표본 ${rows.length}건 모두 빈 값 — ${why}`);
+      } else {
+        const near = similarKeys(k, actual).filter((n) => n !== k);
+        console.log(`  ✗ ${k.padEnd(22)} 키 자체가 없음 — ${why}` + (near.length ? `\n      비슷한 키: ${near.join(', ')}` : ''));
+      }
+    } else {
+      const mark = filled === rows.length ? '✓' : '△';
+      console.log(`  ${mark} ${k.padEnd(22)} ${String(filled).padStart(2)}/${rows.length}  예: ${JSON.stringify(sample)}`);
+    }
+  }
+
+  const unused = actual.filter((k) => !(k in spec));
+  if (unused.length) console.log(`  · 안 읽는 키 ${unused.length}개: ${unused.join(', ')}`);
+  return missing;
 }
 
 async function main() {
@@ -189,14 +273,36 @@ async function main() {
   const sinceStr = since.toISOString().slice(0, 10);
 
   if (flag('probe')) {
-    const detail = await call('getAPTLttotPblancDetail', { page: 1, perPage: 1 });
-    const mdl = await call('getAPTLttotPblancMdl', { page: 1, perPage: 1 });
-    console.log('=== getAPTLttotPblancDetail ===');
-    console.log(JSON.stringify(detail.data[0], null, 2));
-    console.log(`\ntotalCount ${detail.totalCount}`);
-    console.log('\n=== getAPTLttotPblancMdl ===');
-    console.log(JSON.stringify(mdl.data[0], null, 2));
-    console.log(`\ntotalCount ${mdl.totalCount}`);
+    const n = Number(arg('probe-rows', 5));
+    const detail = await call('getAPTLttotPblancDetail', { page: 1, perPage: n });
+    const mdl = await call('getAPTLttotPblancMdl', { page: 1, perPage: n });
+
+    console.log('청약홈 응답 대조 — 수집기가 읽는 키가 실제로 오는지 봅니다.');
+    console.log(`  공고 totalCount ${detail.totalCount} · 주택형 totalCount ${mdl.totalCount}`);
+
+    const miss = [
+      ...audit('getAPTLttotPblancDetail', detail.data, FIELDS.getAPTLttotPblancDetail),
+      ...audit('getAPTLttotPblancMdl', mdl.data, FIELDS.getAPTLttotPblancMdl),
+    ];
+
+    // 파싱까지 실제로 해 봅니다. 키가 와도 형식이 다르면 여기서 드러납니다.
+    console.log('\n=== 파싱 시험 ===');
+    const d0 = detail.data[0] ?? {};
+    const m0 = mdl.data[0] ?? {};
+    const pblancDate = toDate(d0.RCRIT_PBLANC_DE);
+    const district = matchDistrict(d0.HSSPLY_ADRES, districts);
+    console.log(`  모집공고일   ${JSON.stringify(d0.RCRIT_PBLANC_DE)} → ${pblancDate}`);
+    console.log(`  입주예정월   ${JSON.stringify(d0.MVN_PREARNGE_YM)} → 대기 ${waitYears(pblancDate, d0.MVN_PREARNGE_YM)}년`);
+    console.log(`  공급위치     ${JSON.stringify(d0.HSSPLY_ADRES)} → ${district ? district.label : '수집 대상 시군구 아님 (표본 1건이라 정상일 수 있음)'}`);
+    console.log(`  주택형       ${JSON.stringify(m0.HOUSE_TY)} → 전용 ${exclusiveArea(m0.HOUSE_TY)}㎡`);
+    console.log(`  공급면적     ${JSON.stringify(m0.SUPLY_AR)}  ← areaSqm 에 쓰면 안 되는 값`);
+    console.log(`  분양가       ${JSON.stringify(m0.LTTOT_TOP_AMOUNT)} 만원`);
+
+    console.log(
+      miss.length
+        ? `\n✗ 결측 ${miss.length}개: ${miss.join(', ')}\n  이 출력을 그대로 붙여 주시면 키를 맞추겠습니다.`
+        : '\n✓ 수집기가 읽는 키가 전부 옵니다. 그대로 `npm run fetch:offering` 하시면 됩니다.'
+    );
     return;
   }
 
@@ -281,6 +387,33 @@ async function main() {
   }
 
   offerings.sort((a, b) => b.pblancDate.localeCompare(a.pblancDate));
+
+  // 키가 와도 값이 엉뚱하면 조용히 지나가면 안 됩니다. 스냅샷이 화면의 기준가가
+  // 되므로 여기서 못 잡으면 안전마진이 통째로 틀린 채 그럴듯해 보입니다.
+  const areas = offerings.flatMap((o) => o.models.map((m) => m.areaSqm));
+  const prices = offerings.flatMap((o) => o.models.map((m) => m.price));
+  const waits = offerings.map((o) => o.waitYears).filter((v) => v != null);
+  const warn = [];
+  if (median(areas) > 120) {
+    warn.push(
+      `전용면적 중위 ${median(areas)}㎡ — 공급면적(SUPLY_AR)을 집었을 수 있습니다. ` +
+        '주택형(HOUSE_TY) 파싱을 확인하세요.'
+    );
+  }
+  if (median(areas) < 20) warn.push(`전용면적 중위 ${median(areas)}㎡ — 단위가 ㎡ 가 아닐 수 있습니다.`);
+  // 만원 단위라면 3억~20억이 30000~200000 입니다. 원 단위로 오면 자릿수가 네 개 틉니다.
+  if (median(prices) > 1000000) {
+    warn.push(`분양가 중위 ${median(prices)} — 만원이 아니라 원 단위로 오는 것 같습니다.`);
+  }
+  if (median(prices) < 3000) warn.push(`분양가 중위 ${median(prices)}만원 — 총액이 아니라 ㎡당 가격일 수 있습니다.`);
+  if (waits.length && median(waits) > 6) {
+    warn.push(`대기기간 중위 ${median(waits)}년 — 입주예정월 해석을 확인하세요.`);
+  }
+  if (warn.length) {
+    console.log('\n⚠ 값이 예상 범위를 벗어납니다 — 저장은 하되 그대로 쓰지 마세요.');
+    for (const w of warn) console.log(`   · ${w}`);
+    console.log('   `--probe` 로 원문 키를 대조하세요.\n');
+  }
 
   const byRegion = {};
   for (const o of offerings) byRegion[o.region] = (byRegion[o.region] ?? 0) + 1;
