@@ -94,7 +94,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 247건)
+npm test                 # 엔진 단위 테스트 (현재 340건)
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
 npm run standalone       # dist/standalone.html — 골격 없는 조각 (아티팩트 호스트용)
@@ -106,6 +106,7 @@ npm run fetch:presale    # 국토부 분양권전매 실거래가 → src/data/p
 npm run fetch:dividend   # ECOS 코스피 배당수익률 → src/data/dividend.json
 npm run fetch:population # 행안부 통계연보 지역별 인구 → src/data/population.json
 npm run fetch:repair     # K-apt 장기수선충당금 → src/data/repair.json
+npm run fetch:offering   # 청약홈 분양정보 → src/data/offering-*.json
 node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 룰셋
 ```
 
@@ -282,10 +283,18 @@ node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 
 시군구가 비면 권역 전체와 비교하게 되어 숫자가 통째로 달라지므로 화면에
 경고를 답니다. 호버에만 적으면 못 보고 지나갑니다.
 
-남은 것: **청약홈 API** (`api.odcloud.kr/api/ApplyhomeInfoDetailSvc/v1/`).
-분양정보로 분양가·입주예정월·세대수·일정을 자동으로 채우고, 경쟁률 API 로
-당첨 가능성 축을 세울 수 있습니다. 활용신청 대기 중입니다 —
-`docs/데이터-활용신청.md` 참고.
+**청약홈 API 는 승인됐습니다** (2026-08-29, 분양정보·경쟁률 두 건).
+`scripts/fetch-offering.mjs` 가 분양가·입주예정월·세대수·일정을 받아
+`src/data/offering-YYYY-MM.json` 으로 굽습니다.
+
+**면적은 `SUPLY_AR`(공급면적)가 아니라 주택형(`HOUSE_TY`)에서 뽑습니다** —
+`"084.9500A"` 의 앞 숫자가 전용 84.95㎡ 입니다. 공급면적을 `areaSqm` 에 넣으면
+전용 84㎡ 가 110㎡ 로 들어가 ㎡당 가격이 30% 가까이 싸 보입니다.
+**중도금 조건과 전매제한은 API 에 없어**(단지 공고문에만 있음) `null` 로 둡니다 —
+0 으로 채우면 "전매제한 없음" 으로 읽혀 계산이 조용히 틀립니다.
+
+남은 것: 첫 실행 대조(`--probe` 로 필드명 확인), 스냅샷에서 고르는 화면 배선,
+그리고 경쟁률 API 명세 확인 — `docs/데이터-활용신청.md` 참고.
 
 ### 가정값 현황
 
