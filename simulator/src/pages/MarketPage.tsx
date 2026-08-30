@@ -6,6 +6,7 @@ import {
   Field,
   Foldable,
   NumberInput,
+  SegmentedControl,
   Select,
   Stat,
   TextInput,
@@ -23,6 +24,13 @@ import {
   THIN_DEAL_COUNT,
   type MarketPoint,
 } from '../engine/market';
+import {
+  rollingBacktest,
+  splitValidate,
+  type BenchmarkMode,
+  type EntryQuarterStat,
+  type SplitValidation,
+} from '../engine/backtest';
 import { PremiumCard } from './PremiumCard';
 
 /** 중위가 추이 스파크라인. 거래가 얇은 분기는 점을 비워 표시합니다. */
@@ -246,6 +254,336 @@ function DistributionRow({
         </div>
       </div>
     </div>
+  );
+}
+
+const BENCHMARKS: { value: BenchmarkMode; label: string; hint: string }[] = [
+  {
+    value: 'cohort',
+    label: '같은 시기',
+    hint: '같은 진입분기 표본의 중위를 뺍니다. 시기 효과가 빠지고, 정의상 중위가 0이라 부호를 그대로 읽습니다.',
+  },
+  {
+    value: 'district',
+    label: '같은 시기·동네',
+    hint: '같은 진입분기 · 같은 시군구 중위를 뺍니다. 남는 것은 단지 고유분이라 시군구 공통점은 여기서 안 보입니다.',
+  },
+  {
+    value: 'market',
+    label: '시장지수',
+    hint: '수집 3권역 합산 연쇄지수. 지수는 위로 치우쳐(연쇄 드리프트) 중위 초과수익이 음수로 나옵니다.',
+  },
+  {
+    value: 'none',
+    label: '변환 없음',
+    hint: '절대 수익률. 시기 효과가 그대로 남아 "많이 오른 때 들어갔다" 가 1등 공통점이 됩니다.',
+  },
+];
+
+const VERDICT: Record<SplitValidation['verdict'], { label: string; tone: 'good' | 'warn' | 'bad' | 'neutral'; text: string }> = {
+  holds: {
+    label: '대체로 남았습니다',
+    tone: 'good',
+    text: '학습 구간에서 강했던 공통점이 검증 구간에서도 기준선 위였습니다. 그래도 한 번의 분할일 뿐입니다.',
+  },
+  mixed: {
+    label: '절반쯤만 남았습니다',
+    tone: 'warn',
+    text: '찾은 공통점의 절반은 그 시기의 성질이었습니다. 남은 쪽만 이야기로 쓰세요.',
+  },
+  fails: {
+    label: '거의 안 남았습니다',
+    tone: 'bad',
+    text: '학습 구간의 공통점이 검증 구간에서 대부분 깨졌습니다. 시기를 맞힌 것이지 물건을 고른 것이 아닙니다.',
+  },
+  thin: {
+    label: '판정할 표본이 모자랍니다',
+    tone: 'neutral',
+    text: '학습 구간에서 강하게 몰린 구간 자체가 몇 개 없습니다.',
+  },
+};
+
+/** 진입분기별 중위 — 막대 하나가 "그때 들어갔으면" 입니다. */
+function EntryBars({ rows }: { rows: EntryQuarterStat[] }) {
+  const span = Math.max(0.01, ...rows.map((r) => Math.abs(r.medianCagr)));
+  return (
+    <div className="space-y-1">
+      {rows.map((r) => {
+        const v = r.medianCagr;
+        const up = v >= 0;
+        return (
+          <div key={r.q} className="flex items-center gap-2">
+            <span className="w-14 shrink-0 text-[10px] text-slate-500 tabular-nums">
+              {r.label}
+            </span>
+            <div className="relative h-3 flex-1 overflow-hidden rounded bg-slate-900/60">
+              <div className="absolute inset-y-0 left-1/2 w-px bg-slate-700" />
+              <div
+                className={`absolute inset-y-0 rounded-sm ${up ? 'bg-sky-500/60' : 'bg-rose-500/60'}`}
+                style={{
+                  left: up ? '50%' : `${50 - (Math.abs(v) / span) * 50}%`,
+                  width: `${(Math.abs(v) / span) * 50}%`,
+                }}
+              />
+            </div>
+            <span
+              className={`w-14 shrink-0 text-right text-[11px] tabular-nums ${
+                up ? 'text-slate-200' : 'text-rose-300'
+              }`}
+            >
+              {percent(v, 1)}
+            </span>
+            <span className="w-11 shrink-0 text-right text-[10px] text-slate-600 tabular-nums">
+              {r.n}건
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * 같은 분기에 들어간 표본의 초과수익 **폭**.
+ *
+ * 코호트 기준선을 쓰면 중위는 정의상 0이라 볼 것이 없습니다. 볼 것은 폭입니다 —
+ * 같은 시기에 들어가도 물건에 따라 얼마나 갈렸나. 이 폭이 곧 물건을 고르는
+ * 일로 벌 수 있었던 범위이고, 시기 막대(왼쪽)와 견주면 **시기와 선택 중
+ * 무엇이 더 컸는지**가 보입니다.
+ */
+function SpreadBars({ rows }: { rows: EntryQuarterStat[] }) {
+  const lo = Math.min(0, ...rows.map((r) => r.p25Excess));
+  const hi = Math.max(0, ...rows.map((r) => r.p75Excess));
+  const span = Math.max(0.01, hi - lo);
+  const pos = (v: number) => ((v - lo) / span) * 100;
+  return (
+    <div className="space-y-1">
+      {rows.map((r) => (
+        <div key={r.q} className="flex items-center gap-2">
+          <span className="w-14 shrink-0 text-[10px] text-slate-500 tabular-nums">
+            {r.label}
+          </span>
+          <div className="relative h-3 flex-1 overflow-hidden rounded bg-slate-900/60">
+            <div
+              className="absolute inset-y-0 w-px bg-slate-700"
+              style={{ left: `${pos(0)}%` }}
+            />
+            <div
+              className="absolute inset-y-0 rounded-sm bg-slate-500/50"
+              style={{
+                left: `${pos(r.p25Excess)}%`,
+                width: `${Math.max(1, pos(r.p75Excess) - pos(r.p25Excess))}%`,
+              }}
+            />
+          </div>
+          <span className="w-14 shrink-0 text-right text-[11px] text-slate-200 tabular-nums">
+            {percent(r.spreadExcess, 1)}
+          </span>
+          <span className="w-11 shrink-0 text-right text-[10px] text-slate-600 tabular-nums">
+            {percent(r.p25Excess, 0)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 롤링 백테스트 — **진입시점 축**.
+ *
+ * 위 카드들은 단지 하나를 골라 놓고 봅니다. 여기는 스냅샷 전체를 모든
+ * 진입분기에서 굴려, "언제 들어갔느냐" 가 결과를 얼마나 가르는지와
+ * **그때 찾은 공통점이 다음 시기에도 남는지**를 봅니다.
+ */
+function BacktestCard() {
+  const [holdYears, setHoldYears] = useState<'3' | '5' | '10'>('5');
+  const [benchmark, setBenchmark] = useState<BenchmarkMode>('cohort');
+
+  const bt = useMemo(
+    () => rollingBacktest({ holdYears: Number(holdYears), benchmark }),
+    [holdYears, benchmark]
+  );
+  const sv = useMemo(() => (bt ? splitValidate(bt) : null), [bt]);
+
+  if (!bt) {
+    return (
+      <Card title="롤링 백테스트 — 진입시점 축">
+        <Empty>이 보유기간으로 만들 수 있는 표본이 없습니다.</Empty>
+      </Card>
+    );
+  }
+
+  const benchmarkHint = BENCHMARKS.find((b) => b.value === benchmark)!.hint;
+  const converted = benchmark !== 'none';
+
+  return (
+    <Card
+      title="롤링 백테스트 — 진입시점 축"
+      subtitle="지역은 3개뿐이라 특징 추출 표본이 못 됩니다. 대신 모든 단지·평형을 모든 진입분기에서 굴려, 시점 축에서 봅니다."
+      action={
+        <SegmentedControl<'3' | '5' | '10'>
+          value={holdYears}
+          onChange={setHoldYears}
+          options={[
+            { value: '3', label: '3년' },
+            { value: '5', label: '5년' },
+            { value: '10', label: '10년' },
+          ]}
+        />
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat
+          label="표본"
+          value={bt.samples.length.toLocaleString('ko-KR')}
+          hint={`단지·평형 ${bt.cells.toLocaleString('ko-KR')}칸 × 진입분기 ${bt.entryQuarters.length}개`}
+        />
+        <Stat label="중위 수익률" value={percent(bt.medianCagr, 1)} hint="연환산, 명목" />
+        <Stat
+          label="중위 초과수익"
+          value={percent(bt.medianExcess, 1)}
+          tone={converted && Math.abs(bt.medianExcess) < 0.005 ? 'neutral' : undefined}
+          hint={converted ? '기준선 대비 %p' : '변환하지 않음'}
+        />
+        <Stat
+          label="기준선 위 비율"
+          value={percent(bt.beatShare, 0)}
+          hint={converted ? '초과수익이 양수인 표본' : '수익이 양수인 표본'}
+        />
+      </div>
+
+      <div className="mt-4">
+        <Field label="초과수익 기준선" hint={benchmarkHint}>
+          <Select<BenchmarkMode>
+            value={benchmark}
+            onChange={setBenchmark}
+            options={BENCHMARKS.map((b) => ({ value: b.value, label: b.label }))}
+          />
+        </Field>
+      </div>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <div>
+          <h4 className="mb-2 text-[11px] font-medium tracking-wide text-slate-500">
+            진입분기별 중위 수익률 — 언제 들어갔느냐
+          </h4>
+          <EntryBars rows={bt.entryQuarters} />
+        </div>
+        <div>
+          <h4 className="mb-2 text-[11px] font-medium tracking-wide text-slate-500">
+            같은 분기에 들어간 것들끼리의 폭 — 하위25%~상위25%
+          </h4>
+          <SpreadBars rows={bt.entryQuarters} />
+          <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+            왼쪽 막대의 높낮이는 <b className="text-slate-300">시기</b>이고, 오른쪽 막대의 길이는{' '}
+            <b className="text-slate-300">선택</b>입니다. 오른쪽 끝 숫자가 폭(%p), 그 옆이 하위
+            25% 위치입니다. 폭이 시기 차이보다 크면 언제 들어가느냐보다 무엇을 고르느냐가 더
+            갈랐다는 뜻입니다.
+          </p>
+        </div>
+      </div>
+
+      {sv && (
+        <div className="mt-6 border-t border-slate-800 pt-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h4 className="text-[11px] font-medium tracking-wide text-slate-500">
+              시점 분할 검증 — {quarterLabel(sv.trainRange[0])}~{quarterLabel(sv.trainRange[1])} 진입에서
+              찾은 공통점이 {quarterLabel(sv.testRange[0])}~{quarterLabel(sv.testRange[1])} 진입에도 남는가
+            </h4>
+            <Badge tone={VERDICT[sv.verdict].tone === 'neutral' ? 'neutral' : VERDICT[sv.verdict].tone}>
+              재현 {sv.heldCount}/{sv.strongCount} · {percent(sv.reproducedShare, 0)}
+            </Badge>
+          </div>
+          <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
+            <b className="text-slate-200">{VERDICT[sv.verdict].label}</b> —{' '}
+            {VERDICT[sv.verdict].text}
+          </p>
+
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[36rem] text-left text-[11px]">
+              <thead className="text-slate-500">
+                <tr className="border-b border-slate-800">
+                  <th className="py-1.5 pr-3 font-medium">학습에서 강했던 구간</th>
+                  <th className="py-1.5 pr-3 text-right font-medium">학습 배수</th>
+                  <th className="py-1.5 pr-3 text-right font-medium">검증 배수</th>
+                  <th className="py-1.5 pr-3 text-right font-medium">검증 표본</th>
+                  <th className="py-1.5 font-medium">판정</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sv.groups.flatMap((g) =>
+                  g.buckets
+                    .filter((b) => b.strongInTrain)
+                    .map((b) => (
+                      <tr key={`${g.id}|${b.key}`} className="border-b border-slate-900">
+                        <td className="py-1.5 pr-3 text-slate-300">
+                          <span className="text-slate-600">{g.label}</span> · {b.key}
+                        </td>
+                        <td className="py-1.5 pr-3 text-right text-slate-200 tabular-nums">
+                          {b.trainLift.toFixed(2)}배
+                          <span className="ml-1 text-slate-600">
+                            ({b.trainTop}/{b.trainAll})
+                          </span>
+                        </td>
+                        <td
+                          className={`py-1.5 pr-3 text-right tabular-nums ${
+                            b.unmeasurable
+                              ? 'text-slate-600'
+                              : b.holds
+                                ? 'text-emerald-300'
+                                : 'text-rose-300'
+                          }`}
+                        >
+                          {b.unmeasurable ? '—' : `${b.testLift.toFixed(2)}배`}
+                        </td>
+                        <td className="py-1.5 pr-3 text-right text-slate-500 tabular-nums">
+                          {b.testTop}/{b.testAll}
+                        </td>
+                        <td className="py-1.5">
+                          {b.unmeasurable ? (
+                            <span className="text-slate-600">판정 불가</span>
+                          ) : b.holds ? (
+                            <span className="text-emerald-300">재현</span>
+                          ) : (
+                            <span className="text-rose-300">깨짐</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+            배수는 <b className="text-slate-300">그 구간을 고르면 상위 {sv.topPercent}%에 들 확률</b>이
+            기준선의 몇 배인가입니다. 아무거나 골라도 {sv.topPercent}% 이므로 1배가 기준선입니다.
+            상위권은 학습·검증 <b className="text-slate-300">각각 안에서</b> 따로 뽑습니다 — 안 그러면
+            검증이 시기 맞히기가 됩니다.
+          </p>
+
+          <Foldable summary="이 검증이 못 하는 것" count={sv.caveats.length}>
+            <ul className="space-y-1">
+              {sv.caveats.map((c) => (
+                <li key={c} className="text-[10px] leading-relaxed text-slate-500">
+                  · {c}
+                </li>
+              ))}
+            </ul>
+          </Foldable>
+        </div>
+      )}
+
+      <Foldable summary="이 표본이 못 하는 것" count={bt.caveats.length}>
+        <ul className="space-y-1">
+          {bt.caveats.map((c) => (
+            <li key={c} className="text-[10px] leading-relaxed text-slate-500">
+              · {c}
+            </li>
+          ))}
+        </ul>
+      </Foldable>
+    </Card>
   );
 }
 
@@ -482,6 +820,8 @@ export function MarketPage() {
         방법론 세 줄은 위 카드의 접이식으로 옮겼습니다 (가이드 05 — 지우지 않고 위치만 이동).
         여기는 "이 수치로 무엇을 하면 안 되는가"만 남깁니다.
       */}
+      <BacktestCard />
+
       <PremiumCard />
 
       <Card title="이 숫자가 아닌 것">

@@ -17,6 +17,7 @@ export * from './indexes';
 export * from './rent';
 export * from './market';
 export * from './growth';
+export * from './backtest';
 export * from './supply';
 export * from './population';
 export * from './repair';

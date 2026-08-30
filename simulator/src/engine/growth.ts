@@ -45,8 +45,11 @@ function median(xs: number[]): number {
   return s.length % 2 ? s[i] : (s[i - 1] + s[i]) / 2;
 }
 
+/** 지수 범위 — 한 권역이거나, 수집 지역 전체(시장 공통요인)입니다. */
+export type IndexScope = RegionId | 'all';
+
 export interface GrowthIndex {
-  region: RegionId;
+  scope: IndexScope;
   /** 연쇄 지수 — 시작 분기를 1로 둡니다 */
   points: MarketPoint[];
   /** 각 분기를 이을 때 쓴 칸 수 */
@@ -60,23 +63,23 @@ export interface GrowthIndex {
   thin: boolean;
 }
 
-const cache = new Map<RegionId, GrowthIndex | null>();
+const cache = new Map<IndexScope, GrowthIndex | null>();
 
 /**
- * 지역 연쇄 가격지수.
+ * 연쇄 가격지수.
  *
  * 스냅샷 전체를 훑으므로 한 번만 계산하고 캐시합니다 — 화면이 매 렌더마다
  * 40만 건을 다시 접으면 안 됩니다.
  */
-export function regionGrowthIndex(region: RegionId): GrowthIndex | null {
-  if (cache.has(region)) return cache.get(region)!;
+function chainedIndex(scope: IndexScope): GrowthIndex | null {
+  if (cache.has(scope)) return cache.get(scope)!;
 
   // 분기 → (칸 키 → 가격). 같은 칸끼리만 이어야 구성 변화가 안 들어옵니다.
   const byQuarter = new Map<number, Map<string, number>>();
   let cells = 0;
 
   for (const c of MARKET.complexes) {
-    if (c.region !== region) continue;
+    if (scope !== 'all' && c.region !== scope) continue;
     for (const s of c.sizes) {
       const key = `${c.id}|${s.area}`;
       let contributed = false;
@@ -93,7 +96,7 @@ export function regionGrowthIndex(region: RegionId): GrowthIndex | null {
 
   const quarters = [...byQuarter.keys()].sort((a, b) => a - b);
   if (quarters.length < 8) {
-    cache.set(region, null);
+    cache.set(scope, null);
     return null;
   }
 
@@ -134,7 +137,7 @@ export function regionGrowthIndex(region: RegionId): GrowthIndex | null {
   const last = points[points.length - 1];
   const years = yearsBetween(first.q, last.q);
   const result: GrowthIndex = {
-    region,
+    scope,
     points,
     linkCounts,
     years,
@@ -142,8 +145,28 @@ export function regionGrowthIndex(region: RegionId): GrowthIndex | null {
     cells,
     thin,
   };
-  cache.set(region, result);
+  cache.set(scope, result);
   return result;
+}
+
+/** 권역 연쇄 가격지수. */
+export function regionGrowthIndex(region: RegionId): GrowthIndex | null {
+  return chainedIndex(region);
+}
+
+/**
+ * **시장 공통요인 지수** — 수집 3권역을 한 번에 이은 지수.
+ *
+ * 롤링 백테스트에서 초과수익의 기준선으로 씁니다. 지역 수익률은 전국 금리·
+ * 유동성에 함께 끌려다녀 서로 독립이 아니라, 절대 수익률로 상위를 뽑으면
+ * "많이 오른 시기에 들어갔다" 가 1등 공통점으로 나옵니다 — 발견이 아니라
+ * 동어반복입니다.
+ *
+ * **전국 지수가 아닙니다.** 창원·부산·경기 수집분을 합친 것뿐이라, 이 셋이
+ * 함께 움직인 부분까지만 걷어 냅니다.
+ */
+export function marketGrowthIndex(): GrowthIndex | null {
+  return chainedIndex('all');
 }
 
 /**
