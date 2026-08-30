@@ -23,6 +23,7 @@ src/data/regions.json    ← 수집 대상·후보군과 그 이유 (수집 스�
 src/data/market-YYYY-MM.json ← 매매 실거래 스냅샷 (빌드 타임 수집, 손대지 말 것)
 src/data/rent-YYYY-MM.json   ← 전월세에서 잰 전세가율·전환율
 src/data/presale-YYYY-MM.json ← 분양권전매 실거래 스냅샷
+src/data/applyhome-YYYY-MM.json ← 청약홈 공고·주택형·1순위 경쟁률
 src/data/index-*.json · rates-*.json ← KRX·FRED·ECOS 지수와 금리
 src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상.
   rules.ts       룰셋 로더, 지역·규제지역 판정
@@ -41,6 +42,7 @@ src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상
   population.ts  권역 인구 추세 실측 (시도 단위)
   repair.ts      장기수선충당금 실측 (수선유지비 하한 앵커)
   offering.ts    청약 공고 안전마진 (분양가를 네 자로 견줌)
+  applyhome.ts   청약홈 공고 로더 — 분양가·평형·일정 자동 채움 + 1순위 경쟁률
   subscription.ts 청약 납입 일정 + 4번째 갈래 LegPlan
   rent.ts        전세가율·전월세전환율 실측치 (자리표시자 대체)
   regions.ts     시군구 목록·후보군 + 시군구명 → 법정동코드 조회
@@ -94,7 +96,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 247건)
+npm test                 # 엔진 단위 테스트 (현재 361건)
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
 npm run standalone       # dist/standalone.html — 골격 없는 조각 (아티팩트 호스트용)
@@ -106,6 +108,7 @@ npm run fetch:presale    # 국토부 분양권전매 실거래가 → src/data/p
 npm run fetch:dividend   # ECOS 코스피 배당수익률 → src/data/dividend.json
 npm run fetch:population # 행안부 통계연보 지역별 인구 → src/data/population.json
 npm run fetch:repair     # K-apt 장기수선충당금 → src/data/repair.json
+npm run fetch:applyhome  # 청약홈 분양정보·경쟁률 → src/data/applyhome-*.json
 node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 룰셋
 ```
 
@@ -221,9 +224,10 @@ node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 
    매수/전세/월세와 구조가 다릅니다: 계약금 10% → 중도금 60%(이자후불) → 잔금 30% 를
    2~3년에 걸쳐 내고 **그동안은 다른 집에 임차로 삽니다.**
 
-   단지별 분양가·입주예정·중도금 조건·전매제한·가점은 **실거래 API 에 없습니다** —
-   단지 공고에만 있어서 `＋ 청약 단지 (선택)` 탭에서 직접 받습니다. 선택 탭이라
-   비워 두면 화면은 그대로 3갈래입니다.
+   분양가·전용면적·일정은 **청약홈 공고에서 불러옵니다** (`applyhome.ts`). 남은
+   손입력은 **중도금 조건(이자후불 여부·금리)과 전매제한** 둘뿐입니다 — 이 둘은
+   API 에 없고 단지 공고문 본문에만 있습니다. 선택 탭이라 비워 두면 화면은
+   그대로 3갈래입니다.
 
    - **의존 방향은 `subscription → tenure`** 입니다. tenure 가 청약을 import 하면
      순환 참조가 되고, 무엇보다 청약은 선택 갈래라 엔진의 기본 축이 아닙니다.
@@ -242,7 +246,7 @@ node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 
      당첨을 전제로 합니다. 이 갈래가 1등이어도 "되면 낫다"까지입니다 —
      `SUBSCRIPTION_CAVEATS` 가 화면에 같이 붙습니다.
 
-5. **스코어링 실측 피드백** — `futureSupply` **완료**, `populationTrend` 는 API 승인 대기.
+5. ~~**스코어링 실측 피드백**~~ — **완료** (`supply.ts`, `population.ts`).
 
    주관 입력을 **대체하지 않습니다.** 입지 점수가 주관적 입력의 가중합이라는 설계는
    그대로 두고, 실측 신호를 옆에 놓아 **어긋날 때만** 말합니다.
@@ -255,11 +259,11 @@ node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 
    점수로 바꿔 방향만 비교합니다. 한계 셋(`SUPPLY_CAVEATS`)이 호버에 붙습니다 —
    세대수가 아니라 단지 수 · 전매제한 단지는 안 잡혀 하한 · 입주 시기 모름.
 
-   `populationTrend` 는 행안부 주민등록 인구통계(data.go.kr)에 있는데 지금 키로는
-   `SERVICE_KEY_IS_NOT_REGISTERED` 가 돌아옵니다. **API 별 활용신청이 따로 필요**하고
-   그건 희용님 계정에서만 됩니다. UI 자리는 만들어 뒀습니다.
+   `populationTrend` 는 행안부 통계연보로 실측이 들어왔습니다 (`population.ts`).
+   **다만 시도 단위**라 창원 성산구와 마산회원구를 가르지 못합니다 — 같은 권역
+   시군구는 전부 같은 값을 받으므로 권역 축에서만 씁니다.
 
-### 공고 안전마진 — 진행 중
+### 공고 안전마진 — 완료
 
 새 공고가 뜰 때 **5분 안에 거르는** 화면입니다. 이미 정한 물건을 다른 선택지와
 비교하는 4-way 와는 묻는 것이 다릅니다.
@@ -282,10 +286,32 @@ node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 
 시군구가 비면 권역 전체와 비교하게 되어 숫자가 통째로 달라지므로 화면에
 경고를 답니다. 호버에만 적으면 못 보고 지나갑니다.
 
-남은 것: **청약홈 API** (`api.odcloud.kr/api/ApplyhomeInfoDetailSvc/v1/`).
-분양정보로 분양가·입주예정월·세대수·일정을 자동으로 채우고, 경쟁률 API 로
-당첨 가능성 축을 세울 수 있습니다. 활용신청 대기 중입니다 —
-`docs/데이터-활용신청.md` 참고.
+**공고는 이제 목록에서 고릅니다.** 청약홈 분양정보·경쟁률이 승인돼
+`scripts/fetch-applyhome.mjs` 가 스냅샷을 굽고 `applyhome.ts` 가 읽습니다.
+
+```
+자동  분양가 · 전용면적 · 시군구 · 법정동 · 세대수 · 계약일 · 입주예정월 · 1순위 경쟁률
+손    중도금 이자후불 여부 · 중도금 금리 · 전매제한
+```
+
+**불러오기가 납입 구조를 건드리지 않습니다.** 그 셋은 API 에 없어 공고문을 보고
+넣은 값인데, 주택형을 바꿔 다시 불러올 때 덮어쓰면 조용히 지워집니다. 테스트로
+고정해 뒀습니다.
+
+주의할 것 셋입니다.
+
+- **주택형 `084.9800A` 의 앞 숫자가 전용면적**입니다. `SUPLY_AR` 은 공급면적이라
+  20㎡ 넘게 큽니다 — 이 도구의 면적 축은 전부 전용이라 섞으면 안 됩니다.
+- **`지구` 로 끝나는 주소 토큰을 구로 보면 안 됩니다.** `평택시 고덕국제화계획지구`
+  는 시군구가 아닙니다. 그리고 `경기도 화성시 반월동` 처럼 **구 없이** 오는 공고는
+  라벨이 정확히 맞을 때만 붙이고 아니면 비웁니다 — 동탄에 붙여 버리면 기준가가
+  통째로 다른 동네 것이 됩니다.
+- **경쟁률은 1순위 접수건수 ÷ 공급세대**입니다. API 의 `CMPET_RATE` 는 해당지역·
+  기타지역으로 갈려 한 숫자가 아니고 미달이면 `-` 로 옵니다. **1 미만은 0이 아니라
+  미달**이고, 창원은 1순위 미달이 46%입니다.
+
+당첨 확률은 내지 않습니다 — 가점제·추첨제·특별공급 유형이 섞여 있어 경쟁률
+분포까지가 이 자료로 말할 수 있는 전부입니다.
 
 ### 가정값 현황
 
@@ -311,6 +337,7 @@ CAGR 만 내면 진입시점이 감춰지므로 같은 보유기간의 분포를
 | S&P500·나스닥 배당 | 가정 | FRED 에 배당수익률도 총수익지수도 **없음을 확인** |
 | 수선유지비 | 하한만 실측 | `repair.ts` — 장기수선충당금 318개 단지. 세대 내부 수선은 여전히 가정 |
 | 인구 추이 | **실측** | `population.ts` — 행안부 통계연보, 다만 시도 단위 |
+| 분양가·청약 일정 | **실측** | `applyhome.ts` — 청약홈 공고. 중도금 조건·전매제한만 손입력 |
 
 남은 가정값의 근거는 룰셋 `tenure.assumptionDefaults.basis` 에 있습니다 —
 무엇을 보고 찍었고 무엇이 있어야 실측이 되는지를 데이터로 남깁니다.

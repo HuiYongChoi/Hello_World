@@ -13,6 +13,16 @@ import {
   Toggle,
 } from '../components/ui';
 import { money, percent } from '../engine/format';
+import {
+  APPLYHOME,
+  APPLYHOME_CAVEATS,
+  competitionStats,
+  districtOf,
+  noticeUrl,
+  notices,
+  planPatch,
+  type OfferingNotice,
+} from '../engine/applyhome';
 import { annualizedPremium, premiumRows } from '../engine/presale';
 import { OFFERING_CAVEATS, appraiseOffering } from '../engine/offering';
 import { collectedDistricts } from '../engine/regions';
@@ -54,6 +64,186 @@ function useNearbyPremium(region: RegionId, areaSqm: number) {
       lossShare: ann.filter((v) => v < 0).length / ann.length,
     };
   }, [region, areaSqm]);
+}
+
+/** `11.68` → `11.7 : 1`. 1 미만은 숫자가 아니라 **미달**로 읽어야 합니다. */
+function rateLabel(rate: number | null): string {
+  if (rate === null) return '경쟁률 없음';
+  if (rate < 1) return `미달 ${rate.toFixed(2)} : 1`;
+  return `${rate.toFixed(1)} : 1`;
+}
+
+/**
+ * 공고 불러오기 — **분양가·전용면적·일정을 손으로 넣지 않게 합니다.**
+ *
+ * 청약홈 분양정보가 열리기 전까지 이 탭은 전부 손입력이었습니다. 이제
+ * 목록에서 고르면 다음이 채워집니다.
+ *
+ * ```
+ * 자동  분양가 · 전용면적 · 지역 · 시군구 · 법정동 · 입주까지 남은 기간
+ * 손    중도금 이자후불 여부 · 중도금 금리 · 전매제한
+ * ```
+ *
+ * 아래 셋은 **API 에 아예 없습니다** — 단지 공고문 본문에만 있어서, 불러온
+ * 뒤에도 납입 구조는 손으로 확인하셔야 합니다. 그래서 불러오기가 그 값들을
+ * 건드리지 않습니다.
+ */
+function NoticePicker({
+  onPick,
+}: {
+  onPick: (patch: Partial<SubscriptionPlan>) => void;
+}) {
+  const [region, setRegion] = useState<RegionId>('changwon');
+  const [noticeId, setNoticeId] = useState('');
+  const [houseType, setHouseType] = useState('');
+
+  const list = useMemo(() => notices({ region }), [region]);
+  const notice: OfferingNotice | null =
+    list.find((n) => n.id === noticeId) ?? list[0] ?? null;
+  const model =
+    notice?.models.find((m) => m.houseType === houseType) ?? notice?.models[0] ?? null;
+  const stats = useMemo(() => competitionStats(region), [region]);
+  const matched = notice ? districtOf(notice) : null;
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Field label="권역">
+          <Select<RegionId>
+            value={region}
+            onChange={(v) => {
+              setRegion(v);
+              setNoticeId('');
+              setHouseType('');
+            }}
+            options={REGION_OPTIONS}
+          />
+        </Field>
+        <Field label="공고" hint={`${list.length}건 · 최근 순`}>
+          <Select<string>
+            value={notice?.id ?? ''}
+            onChange={(v) => {
+              setNoticeId(v);
+              setHouseType('');
+            }}
+            options={
+              list.length
+                ? list.map((n) => ({
+                    value: n.id,
+                    label: `${n.noticeDate.slice(2)} ${n.name}${n.sigungu ? ` · ${n.sigungu}` : ''}`,
+                  }))
+                : [{ value: '', label: '— 공고 없음' }]
+            }
+          />
+        </Field>
+        <Field label="주택형" hint="전용면적 · 분양가 · 1순위 경쟁률">
+          <Select<string>
+            value={model?.houseType ?? ''}
+            onChange={setHouseType}
+            options={
+              notice
+                ? notice.models.map((m) => ({
+                    value: m.houseType,
+                    label: `${m.areaSqm}㎡ · ${money(m.price)} · ${rateLabel(m.rank1Rate)}`,
+                  }))
+                : [{ value: '', label: '—' }]
+            }
+          />
+        </Field>
+      </div>
+
+      {notice && model && (
+        <div className="rounded-xl border border-slate-800 bg-slate-900/30 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-slate-200">{notice.name}</span>
+            {notice.regulated && <Badge tone="warn">규제지역</Badge>}
+            {notice.speculative && <Badge tone="warn">투기과열</Badge>}
+            {notice.priceCapped && <Badge tone="good">분양가상한제</Badge>}
+            <Badge>{notice.kind}</Badge>
+            <a
+              href={noticeUrl(notice)}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[11px] text-sky-400 underline-offset-2 hover:underline"
+            >
+              공고 원문 ↗
+            </a>
+          </div>
+          <div className="mt-2 grid gap-x-6 gap-y-1 text-[11px] text-slate-400 sm:grid-cols-2 lg:grid-cols-4">
+            <span>
+              총 <b className="text-slate-200 tabular-nums">{notice.households}</b>세대 ·
+              이 주택형 <b className="text-slate-200 tabular-nums">{model.general + model.special}</b>
+            </span>
+            <span>
+              모집공고 <span className="tabular-nums">{notice.noticeDate}</span>
+            </span>
+            <span>
+              계약 <span className="tabular-nums">{notice.contractDate || '—'}</span>
+            </span>
+            <span>
+              입주예정{' '}
+              <span className="tabular-nums">
+                {notice.moveInYm ? `${notice.moveInYm.slice(0, 4)}.${notice.moveInYm.slice(4)}` : '—'}
+              </span>
+              {notice.waitMonths !== null && (
+                <span className="text-slate-500"> ({notice.waitMonths}개월 뒤)</span>
+              )}
+            </span>
+            <span>
+              특별공급 <span className="tabular-nums">{model.special}</span>세대 · 생애최초{' '}
+              <span className="tabular-nums">{model.lifeFirst}</span> · 신혼{' '}
+              <span className="tabular-nums">{model.newlywed}</span>
+            </span>
+            <span className="lg:col-span-3">{notice.address}</span>
+          </div>
+
+          {/*
+            시군구를 못 뜯은 공고는 안전마진이 권역 전체와 비교됩니다. 불러온
+            뒤에 조용히 어긋나느니 여기서 미리 말합니다.
+          */}
+          {!matched && (
+            <p className="mt-2 text-[11px] leading-relaxed text-amber-300">
+              ⚠ 이 공고 주소에서 수집 시군구를 특정하지 못했습니다
+              {notice.sigungu ? ` (${notice.sigungu})` : ''} — 불러온 뒤 위에서 시군구를 직접
+              고르세요. 비워 두면 안전마진이 권역 전체와 비교됩니다.
+            </p>
+          )}
+
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <Button size="sm" onClick={() => onPick(planPatch(notice, model))}>
+              이 주택형으로 단지 추가
+            </Button>
+            <span className="text-[11px] text-slate-500">
+              중도금 조건·전매제한은 공고문에만 있어 그대로 둡니다 — 추가한 뒤 직접 넣으세요.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {stats && (
+        <p className="text-[11px] leading-relaxed text-slate-500">
+          이 권역 1순위 경쟁률 — 중위{' '}
+          <b className="text-slate-300 tabular-nums">{stats.median.toFixed(1)} : 1</b> · 하위 25%{' '}
+          <span className="tabular-nums">{stats.p25.toFixed(1)}</span> · 상위 25%{' '}
+          <span className="tabular-nums">{stats.p75.toFixed(1)}</span> · 1순위 미달{' '}
+          <span className="tabular-nums text-amber-300">{percent(stats.underShare, 0)}</span>{' '}
+          <span className="text-slate-600">
+            (공고 {stats.notices}건 · 주택형 {stats.n}개, {APPLYHOME.range.from} 이후)
+          </span>
+        </p>
+      )}
+
+      <Foldable summary="이 자료가 못 하는 것" count={APPLYHOME_CAVEATS.length}>
+        <ul className="space-y-1">
+          {APPLYHOME_CAVEATS.map((c) => (
+            <li key={c} className="text-[10px] leading-relaxed text-slate-500">
+              · {c}
+            </li>
+          ))}
+        </ul>
+      </Foldable>
+    </div>
+  );
 }
 
 function PlanForm({
@@ -422,11 +612,25 @@ export function SubscriptionPage() {
         }
       >
         <p className="text-xs leading-relaxed text-slate-500">
-          분양가·입주예정·중도금 조건·전매제한은 <b className="text-slate-300">실거래 API에
-          없습니다</b> — 단지 공고에만 있어서 직접 넣으셔야 합니다. 넣으면 계약·대기·입주
+          분양가·전용면적·일정은 <b className="text-slate-300">청약홈 공고에서 불러옵니다</b> —
+          아래에서 고르면 채워집니다. 다만 <b className="text-slate-300">중도금 조건과
+          전매제한은 API 에 없어</b> 공고문을 보고 직접 넣으셔야 합니다. 넣으면 계약·대기·입주
           시점별로 현금이 언제 얼마나 필요한지와, 같은 지역·평형 분양권이 실제로 얼마나
           붙었는지를 나란히 봅니다.
         </p>
+
+        <div className="mt-4 border-t border-slate-800 pt-4">
+          <h4 className="mb-2 text-[11px] font-medium tracking-wide text-slate-500">
+            공고에서 불러오기 — {APPLYHOME.stats.notices}건 (기준 {APPLYHOME.asOf})
+          </h4>
+          <NoticePicker
+            onPick={(patch) => {
+              const id = addPlan();
+              updatePlan(id, patch);
+              setOpenId(id);
+            }}
+          />
+        </div>
 
         {plans.length === 0 ? (
           <div className="mt-4">
@@ -462,7 +666,7 @@ export function SubscriptionPage() {
         <>
           <Card
             title={current.name || '이름 없는 단지'}
-            subtitle="단지 공고문의 값을 그대로 넣으세요"
+            subtitle="공고에서 불러온 값입니다 — 중도금 조건·전매제한은 공고문을 보고 확인하세요"
             action={
               <Button
                 size="sm"
