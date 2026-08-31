@@ -16,6 +16,7 @@ import {
   constraintAdvice,
   limitDerivation,
   limitFootnote,
+  requiredIncomeNote,
 } from '../engine/loan';
 import { leverageView } from '../engine/leverage';
 import { cellKey } from '../engine/matrix';
@@ -400,6 +401,29 @@ function MatrixCell({
         <TierBadge tier="cond" label="현금" value={money(r.requiredCash)} />
       </div>
       <ProvenanceChip footnote={footnote}>{limitDerivation(r, property)}</ProvenanceChip>
+      {/*
+        셀을 열지 않아도 "얼마를 더 벌어야 하나" 가 보여야 합니다 — 한 줄이면
+        같은 화면에서 시나리오끼리 견줄 수 있습니다.
+      */}
+      {r.limitBeforeRepay > 0 && (
+        <div
+          className={`mt-1 text-[10px] leading-snug tabular-nums ${
+            r.requiredIncomeBlocked
+              ? 'text-rose-300'
+              : r.incomeGap > 0
+                ? 'text-amber-300/90'
+                : 'text-slate-500'
+          }`}
+          title={requiredIncomeNote(r)}
+        >
+          필요소득 {money(r.requiredIncome)}
+          {r.requiredIncomeBlocked
+            ? ' · 소득으론 못 뚫음'
+            : r.incomeGap > 0
+              ? ` · ${money(r.incomeGap)} 부족`
+              : ' · 충족'}
+        </div>
+      )}
       <HiddenProductBadges summary={cell.summary} />
     </button>
   );

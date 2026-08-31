@@ -92,3 +92,66 @@ describe('대출 설명서', () => {
     expect(findHandbookEntry('없는상품')).toBeNull();
   });
 });
+
+describe('내 조건으로 읽기 — 필요소득', () => {
+  const ctx = {
+    termYears: 30,
+    existingMonthlyDebt: 0,
+    isFirstTimeValid: true,
+    assessedIncome: 60000000,
+  };
+
+  it('컨텍스트를 주면 상품마다 필요소득 절이 붙습니다', () => {
+    for (const p of RULES.products) {
+      const plain = findHandbookEntry(p.id)!;
+      const withCtx = findHandbookEntry(p.id, ctx)!;
+      const hasCap = p.limits.cap !== undefined || p.limits.cap_first_time !== undefined;
+      expect(withCtx.sections.length).toBe(plain.sections.length + (hasCap ? 1 : 0));
+    }
+  });
+
+  /** 비율만 보여 주면 크고 작음을 판단할 기준이 없습니다. 원 단위여야 답이 됩니다. */
+  it('절대상한과 생애최초 상한을 따로 냅니다', () => {
+    const e = findHandbookEntry('bogeumjari_first', ctx)!;
+    const sec = e.sections.find((x) => x.title.startsWith('이 한도를 받으려면'))!;
+    const keys = sec.rows.map((r) => r.key);
+    expect(keys).toContain('need_cap');
+    expect(keys).toContain('need_cap_first_time');
+    // 더 큰 한도를 받으려면 더 벌어야 합니다.
+    const need = (k: string) => sec.rows.find((r) => r.key === k)!.value;
+    expect(need('need_cap_first_time') > need('need_cap')).toBe(true);
+  });
+
+  it('기존 부채가 있으면 필요소득이 올라갑니다', () => {
+    const row = (c: typeof ctx) =>
+      findHandbookEntry('bogeumjari_first', c)!
+        .sections.find((x) => x.title.startsWith('이 한도를 받으려면'))!
+        .rows.find((r) => r.key === 'need_cap')!.value;
+    expect(row({ ...ctx, existingMonthlyDebt: 1000000 })).not.toBe(row(ctx));
+  });
+
+  /**
+   * 정책상품은 소득이 낮아야 자격이 나오고 높아야 한도가 나옵니다. 필요소득이
+   * 자격 상한을 넘으면 그 한도에는 어떤 소득으로도 못 갑니다.
+   */
+  it('필요소득이 자격 상한을 넘으면 그렇게 적습니다', () => {
+    const heavy = { ...ctx, existingMonthlyDebt: 3000000 };
+    const sec = findHandbookEntry('bogeumjari_first', heavy)!.sections.find((x) =>
+      x.title.startsWith('이 한도를 받으려면')
+    )!;
+    const note = sec.rows.find((r) => r.key === 'need_cap')!.note ?? '';
+    expect(note).toContain('자격 상한');
+    expect(note).toContain('상품을 잃습니다');
+  });
+
+  it('설명서 문구에 마크다운 별표를 남기지 않습니다 — 화면은 평문으로 그립니다', () => {
+    for (const e of handbookEntries(ctx)) {
+      const text = [
+        e.headline,
+        ...e.watchOuts,
+        ...e.sections.flatMap((s) => [s.title, ...s.rows.flatMap((r) => [r.label, r.value, r.note ?? ''])]),
+      ].join(' ');
+      expect(text).not.toContain('**');
+    }
+  });
+});

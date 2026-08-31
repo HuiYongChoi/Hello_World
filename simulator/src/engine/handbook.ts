@@ -20,6 +20,7 @@
  */
 
 import { money, percent } from './format';
+import { incomeNeededFor } from './loan';
 import { RULES } from './rules';
 import type { ProductRule } from './rules';
 
@@ -189,7 +190,7 @@ const FIELD: Record<
   dsr: {
     label: 'DSR',
     format: (v: number) => percent(v, 0),
-    note: '연소득 대비 **모든** 빚의 원리금 비율. 기존 대출이 여기서 걸립니다.',
+    note: '연소득 대비 모든 빚의 원리금 비율. 기존 대출이 여기서 걸립니다.',
   },
   dsr_exempt: {
     label: 'DSR 적용',
@@ -311,7 +312,7 @@ function productEntry(p: ProductRule): HandbookEntry {
   }
   if (ltvNon && ltvCap && ltvNon !== ltvCap) {
     watchOuts.push(
-      `같은 조건이라도 **물건이 어느 권역이냐로 LTV 가 ${percent(ltvNon, 0)} ↔ ${percent(ltvCap, 0)} 로 갈립니다.** 지역 선택이 곧 대출 조건 선택입니다.`
+      `같은 조건이라도 물건이 어느 권역이냐로 LTV 가 ${percent(ltvNon, 0)} ↔ ${percent(ltvCap, 0)} 로 갈립니다. 지역 선택이 곧 대출 조건 선택입니다.`
     );
   }
   const ftLtv = p.limits.ltv_first_time_non_capital as number | undefined;
@@ -322,7 +323,7 @@ function productEntry(p: ProductRule): HandbookEntry {
       ftCap && cap ? `한도 ${money(cap)} → ${money(ftCap)}` : '',
     ].filter(Boolean);
     watchOuts.push(
-      `**생애최초는 자격 요건이 아니라 우대 조건입니다.** 아니어도 받을 수 있고, 대신 ${parts.join(' · ')} 로 갈립니다.`
+      `생애최초는 자격 요건이 아니라 우대 조건입니다. 아니어도 받을 수 있고, 대신 ${parts.join(' · ')} 로 갈립니다.`
     );
   }
   if (p.limits.cap_single_household && p.limits.cap) {
@@ -384,7 +385,7 @@ function premiseEntry(): HandbookEntry {
       },
     ],
     watchOuts: [
-      '생애최초 우대는 **비수도권에서만** 살아 있습니다. 경기 수도권 물건은 우대를 받아도 70% 가 상한입니다.',
+      '생애최초 우대는 비수도권에서만 살아 있습니다. 경기 수도권 물건은 우대를 받아도 70% 가 상한입니다.',
       '비수도권 80% 는 항상 유리한 것이 아닙니다 — 가격상승률이 금리를 밑돌면 많이 빌릴수록 손실이 커집니다.',
     ],
   };
@@ -443,7 +444,7 @@ function jeonseEntry(): HandbookEntry {
       },
     ],
     watchOuts: [
-      '전세는 원금을 갚지 않으므로, 매수와 견주려면 **덜 쓴 만큼을 적립**해야 비교가 대등해집니다 — 3-way 화면이 그렇게 계산합니다.',
+      '전세는 원금을 갚지 않으므로, 매수와 견주려면 덜 쓴 만큼을 적립해야 비교가 대등해집니다 — 3-way 화면이 그렇게 계산합니다.',
       '갱신 증액분은 대출을 늘리는 것이 아니라 모아 둔 돈을 헐어 채운다고 봅니다.',
       `증액 상한 ${percent(l.renewalCapRatio, 0)} 는 갱신청구권을 쓴 ${l.renewalCapUses}회에만 걸립니다. 그 다음 계약은 시세대로 오릅니다.`,
     ],
@@ -493,23 +494,108 @@ function subscriptionEntry(): HandbookEntry {
     watchOuts: [
       s.waitTenureNote,
       '이자후불제는 대기 중 월 부담을 낮추고 입주 목돈을 키웁니다. 총액은 같습니다.',
-      '청약 갈래가 1등이어도 **당첨을 전제**한 결과입니다. 나머지 셋은 같은 집인데 청약만 다른 집입니다.',
+      '청약 갈래가 1등이어도 당첨을 전제한 결과입니다. 나머지 셋은 같은 집인데 청약만 다른 집입니다.',
     ],
   };
 }
 
+/**
+ * 내 조건 — 설명서를 **내 숫자로** 읽기 위한 최소 입력.
+ *
+ * 물건은 안 받습니다. 물건을 받으면 LTV 가 끼어들어 매트릭스와 같은 계산이
+ * 되는데, 여기서 묻는 것은 **"이 상품의 한도를 다 받으려면 얼마를 벌어야 하나"**
+ * 라 상품 자체의 성질입니다.
+ */
+export interface HandbookContext {
+  termYears: number;
+  existingMonthlyDebt: number;
+  isFirstTimeValid: boolean;
+  rateAdjust?: number;
+  /** 지금 판정소득 — 있으면 부족액까지 냅니다 */
+  assessedIncome?: number;
+}
+
+/**
+ * **"이 한도를 다 받으려면 연소득이 얼마여야 하나."**
+ *
+ * 설명서는 DTI 60% · DSR 40% 같은 비율만 보여 줍니다. 비율은 그 자체로는
+ * 크고 작음을 판단할 기준이 없습니다 — 원 단위로 바꿔야 "내 소득으로 되나" 가
+ * 답해집니다.
+ *
+ * 정책상품에서는 여기서 **소득으로 뚫을 수 없는 구간**이 드러납니다. 필요소득이
+ * 자격 상한을 넘으면, 소득을 올리는 순간 상품을 잃기 때문입니다.
+ */
+function capIncomeSection(p: ProductRule, ctx: HandbookContext): HandbookSection | null {
+  const targets: { key: string; label: string; amount: number }[] = [];
+  const cap = p.limits.cap as number | undefined;
+  const capFirst = p.limits.cap_first_time as number | undefined;
+  const capSingle = p.limits.cap_single_household as number | undefined;
+  if (cap) targets.push({ key: 'cap', label: '절대상한까지 받으려면', amount: cap });
+  if (capFirst)
+    targets.push({ key: 'cap_first_time', label: '생애최초 상한까지 받으려면', amount: capFirst });
+  if (capSingle)
+    targets.push({
+      key: 'cap_single_household',
+      label: '단독세대주 상한까지 받으려면',
+      amount: capSingle,
+    });
+  if (targets.length === 0) return null;
+
+  const incomeCap =
+    (p.eligibility.income_max as number | undefined) ??
+    (p.eligibility.income_max_newlywed as number | undefined) ??
+    (p.eligibility.income_max_single as number | undefined) ??
+    null;
+  const kind = p.limits.dsr_exempt ? 'DTI' : 'DSR';
+  const ratio = (p.limits.dsr_exempt ? p.limits.dti : p.limits.dsr) as number;
+
+  const rows: HandbookRow[] = targets.map((t) => {
+    const need = incomeNeededFor(p, t.amount, {
+      termYears: ctx.termYears,
+      existingMonthlyDebt: ctx.existingMonthlyDebt,
+      isFirstTimeValid: ctx.isFirstTimeValid,
+      rateAdjust: ctx.rateAdjust,
+    });
+    const blocked = incomeCap !== null && need > incomeCap;
+    const gap = ctx.assessedIncome !== undefined ? need - ctx.assessedIncome : null;
+    const note = blocked
+      ? `자격 상한 ${money(incomeCap)}를 넘습니다 — 소득을 올리면 한도가 아니라 상품을 잃습니다. 이 상한까지는 어떤 소득으로도 못 갑니다.`
+      : gap === null
+        ? undefined
+        : gap > 0
+          ? `지금 판정소득보다 ${money(gap)} 모자랍니다.`
+          : '지금 소득으로 이미 닿습니다.';
+    return {
+      key: `need_${t.key}`,
+      label: `${t.label} (${money(t.amount)})`,
+      value: `연소득 ${money(need)}`,
+      note,
+    };
+  });
+
+  return {
+    title: `이 한도를 받으려면 — ${kind} ${percent(ratio, 0)} · ${ctx.termYears}년 만기 기준`,
+    rows,
+  };
+}
+
 /** 설명서 전체. 목록 순서가 곧 읽는 순서입니다. */
-export function handbookEntries(): HandbookEntry[] {
+export function handbookEntries(ctx?: HandbookContext): HandbookEntry[] {
   return [
     premiseEntry(),
-    ...RULES.products.map(productEntry),
+    ...RULES.products.map((p) => {
+      const entry = productEntry(p);
+      if (!ctx) return entry;
+      const extra = capIncomeSection(p, ctx);
+      return extra ? { ...entry, sections: [...entry.sections, extra] } : entry;
+    }),
     jeonseEntry(),
     subscriptionEntry(),
   ];
 }
 
-export function findHandbookEntry(id: string): HandbookEntry | null {
-  return handbookEntries().find((e) => e.id === id) ?? null;
+export function findHandbookEntry(id: string, ctx?: HandbookContext): HandbookEntry | null {
+  return handbookEntries(ctx).find((e) => e.id === id) ?? null;
 }
 
 /** 화면 하단·서랍 머리에 상시 노출하는 기준일. */

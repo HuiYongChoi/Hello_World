@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Badge } from '../components/ui';
+import { ALL_SCENARIO_AXES, deriveScenario } from '../engine/scenario';
+import { useStore } from '../state/store';
 import {
   HANDBOOK_CATEGORY_LABEL,
   HANDBOOK_META,
@@ -7,6 +9,7 @@ import {
   type HandbookCategory,
   type HandbookEntry,
 } from '../engine/handbook';
+import { money } from '../engine/format';
 
 /**
  * 대출 설명서 — **왼쪽** 서랍.
@@ -119,7 +122,30 @@ function EntryDetail({ entry }: { entry: HandbookEntry }) {
 }
 
 export function HandbookDrawer() {
-  const entries = useMemo(handbookEntries, []);
+  const { profile, enabledScenarioIds } = useStore();
+
+  /*
+   * 설명서를 **내 숫자로** 읽습니다 — 비율(DTI 60%)만으로는 크고 작음을
+   * 판단할 기준이 없습니다.
+   *
+   * 판정소득과 생애최초 유효 여부는 시나리오마다 다르므로 **첫 번째 켜진
+   * 시나리오**를 기준으로 잡고, 그 이름을 화면에 같이 적습니다. 어느 가정의
+   * 숫자인지 안 적으면 다른 시나리오에 그대로 옮겨 읽게 됩니다.
+   */
+  const axis =
+    ALL_SCENARIO_AXES.find((a) => enabledScenarioIds.includes(a.id)) ?? ALL_SCENARIO_AXES[0];
+  const scenario = useMemo(() => deriveScenario(profile, axis), [profile, axis]);
+  const ctx = useMemo(
+    () => ({
+      termYears: profile.termYears,
+      existingMonthlyDebt: profile.existingMonthlyDebt,
+      isFirstTimeValid: scenario.isFirstTimeValid,
+      rateAdjust: profile.rateAdjust,
+      assessedIncome: scenario.assessedIncome,
+    }),
+    [profile, scenario]
+  );
+  const entries = useMemo(() => handbookEntries(ctx), [ctx]);
   const [open, setOpen] = useState(false);
   const [currentId, setCurrentId] = useState(entries[0]?.id ?? '');
 
@@ -179,6 +205,12 @@ export function HandbookDrawer() {
             <h2 className="text-sm font-semibold text-slate-100">전세 · 매매 대출 설명서</h2>
             <p className="mt-0.5 text-[11px] text-slate-500">
               화면에 쓰인 규정을 그대로 폈습니다 — 숫자는 전부 룰셋에서 옵니다
+            </p>
+            <p className="mt-0.5 text-[10px] text-slate-600">
+              필요소득은 <b className="text-slate-500">{scenario.label}</b> 기준 — 판정소득{' '}
+              {money(scenario.assessedIncome)} · 만기 {profile.termYears}년
+              {profile.existingMonthlyDebt > 0 &&
+                ` · 기존부채 월 ${money(profile.existingMonthlyDebt)}`}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">

@@ -88,6 +88,11 @@ requiredIncome   = (원리금 + 기존부채) ÷ DTI or DSR  ← STEP 4 를 그�
   이 서로를 뭅니다. 몇 번 돌려 수렴시키고 만원 단위로 올림합니다 — 딱 떨어지는
   값을 적으면 그 소득을 벌어도 한 뼘 모자랍니다.
 
+이 값은 **세 곳**에 나옵니다 — 매트릭스 셀(열지 않아도 한 줄), 셀 상세(부족액과
+자격 상한 대조), 대출 설명서(상품 한도별 필요소득). 설명서는 물건을 받지 않고
+**상품 자체의 한도**를 기준으로 재므로 "이 상품을 끝까지 쓰려면 얼마를 벌어야
+하나" 에 답합니다. 어느 시나리오의 판정소득인지는 서랍 머리에 적습니다.
+
 **정책상품에는 소득으로 뚫을 수 없는 구간이 있습니다.** 소득이 낮아야 자격이
 나오고 높아야 한도가 나오는데, 필요소득이 자격 상한을 넘으면 소득을 올리는 순간
 상품을 잃습니다(`requiredIncomeBlocked`). "소득이 부족하다" 로만 적으면 사용자가
@@ -182,7 +187,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 406건)
+npm test                 # 엔진 단위 테스트 (현재 411건)
 npm run scorecard        # 채점표 — 구조·연결·검증·산출물 100점 만점
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)

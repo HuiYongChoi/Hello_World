@@ -24,6 +24,23 @@ export function effectiveRate(
   profile: Profile,
   scenario: DerivedScenario
 ): number {
+  return rateAt(product, {
+    assessedIncome: scenario.assessedIncome,
+    isFirstTimeValid: scenario.isFirstTimeValid,
+    rateAdjust: profile.rateAdjust,
+  });
+}
+
+/**
+ * 소득만 있으면 금리를 냅니다 — 프로필·시나리오 없이도 부를 수 있게 갈라 둡니다.
+ *
+ * 필요소득 역산이 "소득을 가정해 금리를 다시 재는" 일을 하기 때문입니다.
+ * 시나리오 객체를 통째로 흉내 내면 없는 상태를 지어내게 됩니다.
+ */
+export function rateAt(
+  product: ProductRule,
+  ctx: { assessedIncome: number; isFirstTimeValid: boolean; rateAdjust?: number }
+): number {
   const min = product.rate.min ?? 0.04;
   const max = product.rate.max ?? min;
   const incomeCap =
@@ -31,13 +48,68 @@ export function effectiveRate(
     num(product.eligibility.income_max_newlywed) ??
     num(product.eligibility.income_max_single) ??
     100000000;
-  const ratio = clamp(scenario.assessedIncome / incomeCap, 0, 1);
+  const ratio = clamp(ctx.assessedIncome / incomeCap, 0, 1);
   let rate = min + (max - min) * ratio;
 
-  if (scenario.isFirstTimeValid) rate -= product.rate.first_time_discount ?? 0;
+  if (ctx.isFirstTimeValid) rate -= product.rate.first_time_discount ?? 0;
   rate -= product.rate.online_discount ?? 0;
 
-  return Math.max(0.001, rate + profile.rateAdjust);
+  return Math.max(0.001, rate + (ctx.rateAdjust ?? 0));
+}
+
+export interface IncomeNeedContext {
+  termYears: number;
+  existingMonthlyDebt: number;
+  isFirstTimeValid: boolean;
+  rateAdjust?: number;
+}
+
+/**
+ * **이 금액을 상환능력으로 받아 내려면 연소득이 얼마여야 하나.**
+ *
+ * DTI·DSR 식을 그대로 뒤집습니다. 두 가지를 지켜야 값이 맞습니다.
+ *
+ * - **스트레스 금리로 잽니다.** 실제 금리로 뒤집으면 필요소득이 작게 나와,
+ *   그만큼 벌어도 한도가 안 열립니다.
+ * - **금리가 소득을 따라 움직여 한 번에 안 풀립니다.** 소득이 자격 상한에
+ *   가까울수록 금리가 오르므로 "필요소득 → 금리 → 원리금 → 필요소득" 이 서로를
+ *   뭅니다. 몇 번 돌려 수렴시키고 만원 단위로 **올림**합니다 — 딱 떨어지는 값을
+ *   적으면 그 소득을 벌어도 한 뼘 모자랍니다.
+ */
+export function incomeNeededFor(
+  product: ProductRule,
+  amount: number,
+  ctx: IncomeNeedContext
+): number {
+  if (amount <= 0) return 0;
+  const lim = product.limits;
+  const dsrExempt = bool(lim.dsr_exempt);
+  const ratio = dsrExempt ? (num(lim.dti) ?? 0.6) : (num(lim.dsr) ?? 0.4);
+  if (ratio <= 0) return 0;
+  const stress = dsrExempt ? 0 : (num(lim.stress_rate_add) ?? 0);
+
+  let income = 0;
+  let probeRate =
+    rateAt(product, {
+      assessedIncome: 0,
+      isFirstTimeValid: ctx.isFirstTimeValid,
+      rateAdjust: ctx.rateAdjust,
+    }) + stress;
+
+  for (let i = 0; i < 6; i++) {
+    const pmt = monthlyPayment(amount, probeRate, ctx.termYears);
+    const next = (pmt * 12 + ctx.existingMonthlyDebt * 12) / ratio;
+    const settled = Math.abs(next - income) < 1000;
+    income = next;
+    if (settled) break;
+    probeRate =
+      rateAt(product, {
+        assessedIncome: income,
+        isFirstTimeValid: ctx.isFirstTimeValid,
+        rateAdjust: ctx.rateAdjust,
+      }) + stress;
+  }
+  return Math.ceil(income / 10000) * 10000;
 }
 
 /** 소득 요건 상한 — 상품별로 단일/신혼 기준이 갈리고 시행일이 붙습니다. */
@@ -263,27 +335,12 @@ export function calcLoan(
    *
    * 몇 번 돌리면 금리 밴드가 좁아 금방 수렴합니다.
    */
-  let requiredIncome = 0;
-  let probeRate = appliedRateForLimit;
-  for (let i = 0; i < 5; i++) {
-    const pmt = monthlyPayment(limitBeforeRepay, probeRate, profile.termYears);
-    const next =
-      ratioForRepay > 0
-        ? (pmt * 12 + profile.existingMonthlyDebt * 12) / ratioForRepay
-        : 0;
-    if (Math.abs(next - requiredIncome) < 1000) {
-      requiredIncome = next;
-      break;
-    }
-    requiredIncome = next;
-    probeRate =
-      effectiveRate(product, profile, { ...scenario, assessedIncome: requiredIncome }) + stress;
-  }
-  /*
-   * 만원 단위로 **올림**합니다. 딱 떨어지는 값을 적으면 그 소득을 벌어도 원 단위
-   * 반올림 때문에 한도가 한 뼘 모자랍니다 — "6,561만이면 된다" 가 사실이어야 합니다.
-   */
-  requiredIncome = Math.ceil(requiredIncome / 10000) * 10000;
+  const requiredIncome = incomeNeededFor(product, limitBeforeRepay, {
+    termYears: profile.termYears,
+    existingMonthlyDebt: profile.existingMonthlyDebt,
+    isFirstTimeValid: scenario.isFirstTimeValid,
+    rateAdjust: profile.rateAdjust,
+  });
   /*
    * 정책상품은 **소득이 낮아야 자격이 나오고 높아야 한도가 나옵니다.** 둘이
    * 어긋나면 어떤 소득으로도 그 한도에 닿을 수 없습니다 — 소득을 올리는 순간
