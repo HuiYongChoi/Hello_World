@@ -6,8 +6,10 @@ import {
   limitDerivation,
   limitFootnote,
   rankProducts,
+  requiredIncomeNote,
 } from '../loan';
 import { money } from '../format';
+import { monthlyPayment } from '../finance';
 import { getProduct } from '../rules';
 import { ALL_SCENARIO_AXES, deriveScenario } from '../scenario';
 import { baseProfile, makeProperty } from './fixtures';
@@ -331,5 +333,80 @@ describe('생애최초 — 요건인가 우대인가', () => {
     const plain = calcLoan(bank, notFirst, s, changwon);
     expect(plain.appliedLtv).toBeCloseTo(first.appliedLtv, 6);
     expect(plain.limitCap).toBe(first.limitCap);
+  });
+});
+
+/**
+ * 한도가 막혔다는 사실만으로는 다음 행동이 안 나옵니다 — **"그래서 얼마를 더
+ * 벌어야 하나"** 까지가 한 짝입니다. 그 값은 DTI·DSR 식을 그대로 뒤집어 냅니다.
+ */
+describe('필요 소득 — LTV 를 통과한다고 칠 때', () => {
+  const s = deriveScenario(baseProfile, axis('before-sole'));
+  const gyeonggi = makeProperty({ region: 'gyeonggi', sigungu: '평택시', price: 520000000 });
+
+  it('상환능력을 뺀 최대는 LTV·상품캡·가격 중 최솟값입니다', () => {
+    for (const product of [bogeumjari, bank]) {
+      const r = calcLoan(product, baseProfile, s, gyeonggi);
+      expect(r.limitBeforeRepay).toBeCloseTo(
+        Math.min(r.limitLtv, r.limitCap || Infinity, r.limitPrice),
+        0
+      );
+      // 상환능력이 막고 있어도 이 값은 그대로입니다 — 소득이 늘면 여기까지 갑니다.
+      expect(r.limitBeforeRepay).toBeGreaterThanOrEqual(r.limit);
+    }
+  });
+
+  /**
+   * 역산이 맞는지 확인하는 가장 단단한 방법은 **되돌려 보는 것**입니다.
+   * 필요소득을 가진 사람으로 다시 계산하면 상환능력이 더 이상 안 막아야 합니다.
+   */
+  it('필요소득을 가진 사람으로 다시 계산하면 상환능력이 안 막습니다', () => {
+    const r = calcLoan(bank, baseProfile, s, gyeonggi);
+    expect(r.bindingConstraint).toBe('DSR');
+    expect(r.incomeGap).toBeGreaterThan(0);
+
+    // 판정소득은 본인 소득에서 옵니다 (혼인 전 단독 축).
+    const richer = { ...baseProfile, ownIncome: Math.ceil(r.requiredIncome) };
+    const r2 = calcLoan(bank, richer, deriveScenario(richer, axis('before-sole')), gyeonggi);
+    expect(r2.limitRepay).toBeGreaterThanOrEqual(r2.limitBeforeRepay - 1_000_000);
+    expect(r2.bindingConstraint).not.toBe('DSR');
+  });
+
+  it('부족액은 필요소득 − 판정소득입니다', () => {
+    const r = calcLoan(bank, baseProfile, s, gyeonggi);
+    expect(r.incomeGap).toBeCloseTo(r.requiredIncome - s.assessedIncome, 0);
+  });
+
+  /**
+   * 은행 상품의 필요소득은 **스트레스 금리로** 재야 합니다. 실제 금리로 재면
+   * 필요소득이 실제보다 작게 나와, 그만큼 벌어도 한도가 안 나옵니다.
+   */
+  it('은행 상품은 스트레스 금리로 필요소득을 잽니다', () => {
+    const r = calcLoan(bank, baseProfile, s, gyeonggi);
+    // 실제 금리로 재면 원리금이 작아져 필요소득도 작게 나옵니다 — 그만큼 벌어도
+    // 한도는 안 나옵니다. 스트레스로 잰 값이 더 커야 맞습니다.
+    const naive =
+      (monthlyPayment(r.limitBeforeRepay, r.rate, baseProfile.termYears) * 12) /
+      r.regulatoryCap;
+    expect(r.requiredIncome).toBeGreaterThan(naive);
+  });
+
+  /**
+   * 정책상품은 소득이 **낮아야 자격**이 나오고 **높아야 한도**가 나옵니다.
+   * 둘이 어긋나면 어떤 소득으로도 그 한도에 닿을 수 없습니다.
+   */
+  it('소득을 올리면 자격을 잃는 구간을 구조적 막힘으로 표시합니다', () => {
+    const indebted = { ...baseProfile, existingMonthlyDebt: 2500000 };
+    const r = calcLoan(bogeumjari, indebted, deriveScenario(indebted, axis('before-sole')), gyeonggi);
+    expect(r.eligible).toBe(true);
+    expect(r.requiredIncome).toBeGreaterThan(r.incomeCap as number);
+    expect(r.requiredIncomeBlocked).toBe(true);
+    expect(r.warnings.some((w) => w.includes('구조적 막힘'))).toBe(true);
+  });
+
+  it('상환능력이 안 막으면 이미 충족했다고 적습니다', () => {
+    const r = calcLoan(bogeumjari, baseProfile, s, makeProperty({ region: 'changwon' }));
+    expect(r.incomeGap).toBeLessThanOrEqual(0);
+    expect(requiredIncomeNote(r)).toContain('이미 충족');
   });
 });

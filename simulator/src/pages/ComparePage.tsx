@@ -632,6 +632,54 @@ function ProductDetail({ result: r, property }: { result: LoanResult; property: 
             );
           })}
         </div>
+        {/*
+          한도가 막혔다는 사실만으로는 다음 행동이 안 나옵니다 — "얼마를 더
+          벌어야 하나" 까지 적어야 판단이 끝납니다. 정책상품은 그 소득이 자격
+          상한을 넘는 경우가 있어, 그때는 방향 자체가 막혔다고 말해야 합니다.
+        */}
+        {r.limitBeforeRepay > 0 && (
+          <div
+            className={`mt-2 rounded-md border px-2.5 py-2 text-[11px] leading-relaxed ${
+              r.requiredIncomeBlocked
+                ? 'border-rose-500/40 bg-rose-500/10 text-rose-200'
+                : r.incomeGap > 0
+                  ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
+                  : 'border-slate-800 bg-slate-950/40 text-slate-400'
+            }`}
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <span>
+                LTV·상품한도까지면{' '}
+                <b className="tabular-nums">{money(r.limitBeforeRepay)}</b>
+              </span>
+              <span>
+                필요 연소득{' '}
+                <b className="tabular-nums">{money(r.requiredIncome)}</b>
+                <span className="ml-1 text-[10px] opacity-70">
+                  ({r.regulatoryKind} {percent(r.regulatoryCap, 0)} 기준
+                  {r.regulatoryKind === 'DSR' ? ' · 스트레스 금리 적용' : ''})
+                </span>
+              </span>
+            </div>
+            <div className="mt-1">
+              {r.requiredIncomeBlocked ? (
+                <>
+                  그런데 이 상품 자격 상한이 <b>{money(r.incomeCap!)}</b>입니다 — 소득을 올리면
+                  한도가 아니라 <b>상품 자체를 잃습니다.</b> 이 조합에서는 소득으로 뚫을 수 없습니다.
+                </>
+              ) : r.incomeGap > 0 ? (
+                <>
+                  지금 판정소득보다 <b className="tabular-nums">{money(r.incomeGap)}</b> 모자랍니다.
+                  {r.incomeCap !== null && (
+                    <> 자격 상한 {money(r.incomeCap)} 안이라 소득이 늘면 실제로 뚫립니다.</>
+                  )}
+                </>
+              ) : (
+                <>이미 충족해서 상환능력은 한도를 막지 않습니다 — 여기서는 LTV·상품한도가 천장입니다.</>
+              )}
+            </div>
+          </div>
+        )}
         <p className="mt-2 text-[11px] text-slate-500">
           {constraintAdvice(r, property)}
         </p>

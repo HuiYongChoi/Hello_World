@@ -115,6 +115,32 @@ export interface LoanResult {
   /** 그 상품에 적용되는 규제 상한 (DSR 40% / DTI 60%) */
   regulatoryCap: number;
   regulatoryKind: 'DSR' | 'DTI';
+  /**
+   * **상환능력을 빼고** LTV·상품캡·가격만 봤을 때의 최대 한도.
+   *
+   * "LTV 는 통과한다고 치면 얼마까지 되나" 에 답합니다. 소득이 늘면 여기까지
+   * 올라갈 수 있고, 그 위로는 소득을 아무리 올려도 안 올라갑니다.
+   */
+  limitBeforeRepay: number;
+  /**
+   * 위 금액을 상환능력으로 받아 내려면 필요한 **연 판정소득**.
+   *
+   * DTI·DSR 식을 그대로 뒤집은 값입니다. 한도가 막혔을 때 "그래서 얼마를 더
+   * 벌어야 하나" 가 다음 행동이라, 막힌 사실만 알려 주면 절반만 답한 것입니다.
+   */
+  requiredIncome: number;
+  /** 필요소득 − 현재 판정소득. 양수면 그만큼 모자랍니다 */
+  incomeGap: number;
+  /**
+   * 필요소득이 이 상품의 **소득 자격 상한**을 넘는가.
+   *
+   * 정책상품은 소득이 낮아야 자격이 나오고 높아야 한도가 나옵니다. 둘이
+   * 어긋나면 **어떤 소득으로도 그 한도에 닿을 수 없습니다** — 소득을 올리면
+   * 자격을 잃기 때문입니다. 이 구조적 막힘은 화면에 따로 말해 줘야 합니다.
+   */
+  requiredIncomeBlocked: boolean;
+  /** 그 상품의 소득 자격 상한 (없으면 null) */
+  incomeCap: number | null;
   downPayment: number;
   costs: CostBreakdown;
   requiredCash: number;

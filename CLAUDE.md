@@ -67,8 +67,31 @@ STEP 1 자격 게이트    소득·자산·주택가격·면적·생애최초·�
 STEP 2 LTV           수도권 여부 → 규제지역 여부 순
 STEP 3 상품 캡        단독세대주 축소 한도, 수도권 절대상한
 STEP 4 상환능력       DSR 면제 상품은 DTI, 은행 상품은 DSR + 스트레스 금리
-STEP 5 최종          min(위 넷) + bindingConstraint 판별
+STEP 5 최종          min(위 넷) + bindingConstraint 판별 + 필요소득 역산
 ```
+
+**한도가 막혔다는 사실만 알려 주면 절반만 답한 것입니다.** 다음 행동은 "그래서
+얼마를 더 벌어야 하나" 이므로, 상환능력을 뺀 최대치(`limitBeforeRepay`)와 그
+금액을 받아 내는 데 필요한 연소득(`requiredIncome`)을 같이 냅니다.
+
+```
+limitBeforeRepay = min(LTV, 상품캡, 가격상한)      ← 소득이 늘면 여기까지
+requiredIncome   = (원리금 + 기존부채) ÷ DTI or DSR  ← STEP 4 를 그대로 뒤집음
+```
+
+두 가지가 함정입니다.
+
+- **스트레스 금리로 재야 합니다.** 실제 금리로 뒤집으면 필요소득이 작게 나와,
+  그만큼 벌어도 한도가 안 열립니다.
+- **금리가 소득을 따라 움직여 한 번에 안 풀립니다.** `effectiveRate` 는 소득이
+  자격 상한에 가까울수록 금리를 올리므로 "필요소득 → 금리 → 원리금 → 필요소득"
+  이 서로를 뭅니다. 몇 번 돌려 수렴시키고 만원 단위로 올림합니다 — 딱 떨어지는
+  값을 적으면 그 소득을 벌어도 한 뼘 모자랍니다.
+
+**정책상품에는 소득으로 뚫을 수 없는 구간이 있습니다.** 소득이 낮아야 자격이
+나오고 높아야 한도가 나오는데, 필요소득이 자격 상한을 넘으면 소득을 올리는 순간
+상품을 잃습니다(`requiredIncomeBlocked`). "소득이 부족하다" 로만 적으면 사용자가
+없는 길을 향해 뜁니다.
 
 **생애최초는 상품마다 성격이 다릅니다 — 요건인 곳과 우대인 곳이 있습니다.**
 
@@ -159,7 +182,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 400건)
+npm test                 # 엔진 단위 테스트 (현재 406건)
 npm run scorecard        # 채점표 — 구조·연결·검증·산출물 100점 만점
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
