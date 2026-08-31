@@ -5,6 +5,7 @@ import {
   findHandbookEntry,
   handbookEntries,
 } from '../handbook';
+import { money } from '../format';
 import { RULES } from '../rules';
 
 const entries = handbookEntries();
@@ -101,12 +102,16 @@ describe('내 조건으로 읽기 — 필요소득', () => {
     assessedIncome: 60000000,
   };
 
-  it('컨텍스트를 주면 상품마다 필요소득 절이 붙습니다', () => {
+  it('컨텍스트를 주면 상품마다 계산 절이 붙습니다', () => {
     for (const p of RULES.products) {
       const plain = findHandbookEntry(p.id)!;
       const withCtx = findHandbookEntry(p.id, ctx)!;
+      const titles = withCtx.sections.map((s) => s.title);
+      // 천장은 모든 상품에, 필요소득은 절대상한이 있는 상품에만 붙습니다.
       const hasCap = p.limits.cap !== undefined || p.limits.cap_first_time !== undefined;
-      expect(withCtx.sections.length).toBe(plain.sections.length + (hasCap ? 1 : 0));
+      expect(titles.some((t) => t.includes('안 늘어나는'))).toBe(true);
+      expect(titles.some((t) => t.startsWith('이 한도를 받으려면'))).toBe(hasCap);
+      expect(withCtx.sections.length).toBe(plain.sections.length + 1 + (hasCap ? 1 : 0));
     }
   });
 
@@ -153,5 +158,56 @@ describe('내 조건으로 읽기 — 필요소득', () => {
       ].join(' ');
       expect(text).not.toContain('**');
     }
+  });
+});
+
+describe('대출이 멈추는 지점', () => {
+  const ctx = {
+    termYears: 30,
+    existingMonthlyDebt: 0,
+    isFirstTimeValid: true,
+    assessedIncome: 60000000,
+  };
+  const ceiling = (id: string) =>
+    findHandbookEntry(id, ctx)!.sections.find((s) => s.title.includes('안 늘어나는'));
+
+  it('매매 상품마다 천장 절이 붙습니다', () => {
+    for (const p of RULES.products) expect(ceiling(p.id)).toBeDefined();
+  });
+
+  /** 주택가격 상한과 대출 절대상한은 다른 축입니다 — 이어서 읽는 일을 맡기지 않습니다. */
+  it('천장 가격 × LTV 가 멈추는 대출액입니다', () => {
+    const rows = ceiling('bogeumjari_first')!.rows;
+    for (const r of rows) {
+      const [priceText, amountText] = r.value.split('부터');
+      expect(priceText).toMatch(/억$/);
+      expect(amountText).toContain('에서 멈춤');
+    }
+    // 생애최초(LTV 80%)가 일반(70%)보다 더 비싼 집까지 대출이 따라옵니다.
+    expect(rows[0].label).toContain('80%');
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('같은 값이 나오는 지역은 한 줄로 합칩니다', () => {
+    // 은행 상품은 세 지역 LTV 가 모두 같아 한 줄이어야 합니다.
+    const rows = ceiling('bank_mortgage')!.rows;
+    expect(rows.length).toBe(1);
+    expect(rows[0].label).toContain('전 지역');
+  });
+
+  it('무엇이 천장을 만들었는지 적습니다', () => {
+    expect(ceiling('bogeumjari_first')!.rows[0].note).toContain('절대상한');
+    // 은행 상품은 캡이 아니라 상환능력이 먼저 걸립니다.
+    expect(ceiling('bank_mortgage')!.rows[0].note).toContain('상환능력');
+  });
+
+  it('전세도 같은 줄을 냅니다 — 보증금이 오르면 대출은 멈춥니다', () => {
+    const e = findHandbookEntry('jeonse-loan', ctx)!;
+    const row = e.sections
+      .flatMap((s) => s.rows)
+      .find((r) => r.key === 'ceiling')!;
+    const j = RULES.tenure.jeonseLoan;
+    expect(row.value).toContain(money(j.absoluteCap / j.ltvCap));
+    expect(row.value).toContain(money(j.absoluteCap));
   });
 });

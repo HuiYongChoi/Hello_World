@@ -19,8 +19,8 @@
  * 읽히기 때문입니다. 빠뜨리지 않는 쪽이 못생긴 쪽보다 낫습니다.
  */
 
-import { money, percent } from './format';
-import { incomeNeededFor } from './loan';
+import { money, percent, withParticle } from './format';
+import { incomeNeededFor, repayCapacity } from './loan';
 import { RULES } from './rules';
 import type { ProductRule } from './rules';
 
@@ -417,6 +417,16 @@ function jeonseEntry(): HandbookEntry {
             value: percent(j.rate, 2),
             note: '만기일시 상환이라 원금은 안 갚고 이자만 냅니다. 매수의 원리금과 대칭이 아닙니다.',
           },
+          {
+            /*
+             * 매매와 같은 구조입니다 — 보증금이 오르면 대출도 오르다가 절대상한에서
+             * 멈추고, 그 위로는 전부 자기 돈입니다. 전세도 목돈이 드는 지점입니다.
+             */
+            key: 'ceiling',
+            label: '대출이 멈추는 보증금',
+            value: `${money(j.absoluteCap / j.ltvCap)}부터 ${money(j.absoluteCap)}에서 멈춤`,
+            note: '보증금이 그보다 크면 오른 만큼이 전부 자기 돈입니다. 전세도 목돈이 드는 지점이 여기입니다.',
+          },
         ],
       },
       {
@@ -579,6 +589,112 @@ function capIncomeSection(p: ProductRule, ctx: HandbookContext): HandbookSection
   };
 }
 
+/**
+ * **가격을 올려도 대출이 안 늘어나는 지점.**
+ *
+ * 주택가격 상한(자격선)과 대출 절대상한(빌릴 수 있는 최대)은 다른 축인데,
+ * 설명서에서 둘이 각각 다른 줄에만 적혀 있으면 "6억까지 가능" 이 "6억을
+ * 빌려준다" 로 읽힙니다. 이어서 읽는 일을 사용자에게 맡기지 않습니다.
+ *
+ * ```
+ * 대출액   = min(LTV×가격, 상품캡, 상환능력, 가격상한)
+ *            ↑가격에 비례    ↑둘 다 가격과 무관
+ * 천장가격 = min(상품캡, 상환능력) ÷ LTV
+ * ```
+ *
+ * LTV 가 지역·생애최초로 갈리므로 **줄도 그만큼 갈라** 냅니다 — 같은 상품이라도
+ * 창원이냐 경기냐로 천장이 다릅니다.
+ */
+function loanCeilingSection(p: ProductRule, ctx: HandbookContext): HandbookSection | null {
+  const lim = p.limits;
+  const capGeneral = (lim.cap as number | undefined) ?? Number.POSITIVE_INFINITY;
+  const capFirst = (lim.cap_first_time as number | undefined) ?? capGeneral;
+  const capCapital = Math.min(
+    (lim.absolute_cap_capital as number | undefined) ?? Number.POSITIVE_INFINITY,
+    capGeneral
+  );
+  const priceMax = p.eligibility.house_price_max as number | undefined;
+
+  const repay = repayCapacity(p, {
+    assessedIncome: ctx.assessedIncome ?? 0,
+    termYears: ctx.termYears,
+    existingMonthlyDebt: ctx.existingMonthlyDebt,
+    isFirstTimeValid: ctx.isFirstTimeValid,
+    rateAdjust: ctx.rateAdjust,
+  });
+
+  const tiers: { key: string; label: string; ltv: number | undefined; cap: number }[] = [
+    {
+      key: 'ceil_non_capital_first',
+      label: '비수도권 · 생애최초',
+      ltv: lim.ltv_first_time_non_capital as number | undefined,
+      cap: capFirst,
+    },
+    {
+      key: 'ceil_non_capital',
+      label: '비수도권 (창원·부산)',
+      ltv: lim.ltv_non_capital as number | undefined,
+      cap: capGeneral,
+    },
+    {
+      key: 'ceil_capital',
+      label: '수도권 (경기)',
+      ltv: lim.ltv_capital as number | undefined,
+      cap: capCapital,
+    },
+  ];
+
+  /*
+   * 같은 값이 나오는 지역은 **한 줄로 합칩니다.** 은행 상품은 세 지역 LTV 가
+   * 모두 70% 라 따로 적으면 똑같은 줄이 셋이고, 그러면 읽는 사람이 "왜 셋을
+   * 나눠 놨지" 를 먼저 고민하게 됩니다.
+   */
+  const merged = new Map<string, { labels: string[]; ltv: number; amount: number; key: string }>();
+  for (const t of tiers) {
+    if (!t.ltv) continue;
+    const amount = Math.min(t.cap, repay > 0 ? repay : Number.POSITIVE_INFINITY);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const k = `${t.ltv}|${Math.round(amount)}`;
+    const hit = merged.get(k);
+    if (hit) hit.labels.push(t.label);
+    else merged.set(k, { labels: [t.label], ltv: t.ltv, amount, key: t.key });
+  }
+
+  const rows: HandbookRow[] = [...merged.values()].map((m) => {
+    const price = m.amount / m.ltv;
+    const by =
+      m.amount < (repay > 0 ? repay : Number.POSITIVE_INFINITY)
+        ? '상품 절대상한'
+        : `${lim.dsr_exempt ? 'DTI' : 'DSR'} 상환능력`;
+    const note =
+      priceMax !== undefined && price >= priceMax
+        ? `주택가격 상한 ${money(priceMax)} 안에서는 안 걸립니다 — 여기서는 LTV 가 끝까지 천장입니다.`
+        : `${withParticle(by, '이', '가')} 만든 천장입니다. 이 위로 오른 가격은 전부 자기 돈입니다` +
+          (priceMax !== undefined
+            ? ` — 상한 ${money(priceMax)}짜리를 사면 ${withParticle(money(priceMax - m.amount), '을', '를')} 현금으로 채워야 합니다.`
+            : '.');
+    /*
+     * 라벨이 셋 다 합쳐지면 "비수도권 · 생애최초 · 비수도권 · 수도권" 이 되어
+     * 읽기 어렵습니다. 합쳐진 만큼 이름을 줄입니다.
+     */
+    const label =
+      m.labels.length === 3
+        ? '전 지역'
+        : m.labels.length === 2 && m.labels.every((l) => l.startsWith('비수도권'))
+          ? '비수도권 (창원·부산)'
+          : m.labels.join(' · ');
+    return {
+      key: m.key,
+      label: `${label} · LTV ${percent(m.ltv, 0)}`,
+      value: `${money(price)}부터 ${money(m.amount)}에서 멈춤`,
+      note,
+    };
+  });
+  if (rows.length === 0) return null;
+
+  return { title: '가격을 올려도 대출이 안 늘어나는 지점', rows };
+}
+
 /** 설명서 전체. 목록 순서가 곧 읽는 순서입니다. */
 export function handbookEntries(ctx?: HandbookContext): HandbookEntry[] {
   return [
@@ -586,8 +702,10 @@ export function handbookEntries(ctx?: HandbookContext): HandbookEntry[] {
     ...RULES.products.map((p) => {
       const entry = productEntry(p);
       if (!ctx) return entry;
-      const extra = capIncomeSection(p, ctx);
-      return extra ? { ...entry, sections: [...entry.sections, extra] } : entry;
+      const extras = [loanCeilingSection(p, ctx), capIncomeSection(p, ctx)].filter(
+        (x): x is HandbookSection => x !== null
+      );
+      return extras.length ? { ...entry, sections: [...entry.sections, ...extras] } : entry;
     }),
     jeonseEntry(),
     subscriptionEntry(),

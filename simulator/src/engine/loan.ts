@@ -76,6 +76,31 @@ export interface IncomeNeedContext {
  *   뭅니다. 몇 번 돌려 수렴시키고 만원 단위로 **올림**합니다 — 딱 떨어지는 값을
  *   적으면 그 소득을 벌어도 한 뼘 모자랍니다.
  */
+/**
+ * **상환능력 한도** — 소득이 허락하는 대출액. 가격과 무관합니다.
+ *
+ * STEP 4 와 같은 식입니다. 설명서에서도 같은 값을 써야 매트릭스와 어긋나지
+ * 않으므로 갈라 두고 양쪽이 함께 부릅니다.
+ */
+export function repayCapacity(
+  product: ProductRule,
+  ctx: IncomeNeedContext & { assessedIncome: number }
+): number {
+  const lim = product.limits;
+  const dsrExempt = bool(lim.dsr_exempt);
+  const ratio = dsrExempt ? (num(lim.dti) ?? 0.6) : (num(lim.dsr) ?? 0.4);
+  const stress = dsrExempt ? 0 : (num(lim.stress_rate_add) ?? 0);
+  const rate =
+    rateAt(product, {
+      assessedIncome: ctx.assessedIncome,
+      isFirstTimeValid: ctx.isFirstTimeValid,
+      rateAdjust: ctx.rateAdjust,
+    }) + stress;
+  const annual = ctx.assessedIncome * ratio - ctx.existingMonthlyDebt * 12;
+  if (annual <= 0) return 0;
+  return presentValue(annual / 12, rate, ctx.termYears);
+}
+
 export function incomeNeededFor(
   product: ProductRule,
   amount: number,
@@ -303,12 +328,13 @@ export function calcLoan(
     );
   }
 
-  const annualCapacity =
-    scenario.assessedIncome * ratioForRepay - profile.existingMonthlyDebt * 12;
-  const limitRepay =
-    annualCapacity <= 0
-      ? 0
-      : presentValue(annualCapacity / 12, appliedRateForLimit, profile.termYears);
+  const limitRepay = repayCapacity(product, {
+    assessedIncome: scenario.assessedIncome,
+    termYears: profile.termYears,
+    existingMonthlyDebt: profile.existingMonthlyDebt,
+    isFirstTimeValid: scenario.isFirstTimeValid,
+    rateAdjust: profile.rateAdjust,
+  });
 
   // ── STEP 5: 최종 ──────────────────────────────────────────────────
   const limitPrice = property.price * (1 - RULES.defaults.minEquityRatio);
