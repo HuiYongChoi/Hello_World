@@ -282,3 +282,54 @@ describe('규제 상환비율 (DSR/DTI)', () => {
     expect(r.regulatoryKind).toBeDefined();
   });
 });
+
+/**
+ * 보금자리론은 **생애최초가 자격 요건이 아닙니다** — 무주택 세대면 됩니다.
+ * 생애최초는 LTV·한도 우대 조건일 뿐입니다.
+ *
+ * 예전에는 우대값(80% · 4.2억)이 무조건값으로 박혀 있어서, 생애최초가 아닌
+ * 사람에게도 우대 한도가 나갔습니다. 상품 이름이 "(생애최초)" 라 그 어긋남이
+ * 가려져 있었습니다.
+ */
+describe('생애최초 — 요건인가 우대인가', () => {
+  const notFirst = { ...baseProfile, isFirstTime: false };
+  const s = deriveScenario(notFirst, axis('before-sole'));
+  const changwon = makeProperty({ region: 'changwon' });
+
+  it('보금자리론은 생애최초가 아니어도 자격을 통과합니다', () => {
+    const r = calcLoan(bogeumjari, notFirst, s, changwon);
+    expect(r.eligible).toBe(true);
+  });
+
+  it('디딤돌은 생애최초가 아니면 탈락합니다 — 이쪽은 요건입니다', () => {
+    /*
+     * 자격 게이트는 순서대로 걸립니다 — 소득 → 순자산 → 가격 → 면적 → 생애최초.
+     * 생애최초 게이트까지 도달하려면 앞의 넷을 다 통과시켜야 합니다.
+     */
+    const lowIncome = { ...notFirst, ownIncome: 30000000, spouseIncome: 20000000 };
+    const joint = deriveScenario(lowIncome, axis('after-joint'));
+    const r = calcLoan(didimdol, lowIncome, joint, changwon);
+    expect(r.eligible).toBe(false);
+    expect(r.rejectReason).toContain('생애최초');
+  });
+
+  it('보금자리론 LTV 는 생애최초 80% / 아니면 80% 아래로 갈립니다', () => {
+    const first = calcLoan(bogeumjari, baseProfile, deriveScenario(baseProfile, axis('before-sole')), changwon);
+    const plain = calcLoan(bogeumjari, notFirst, s, changwon);
+    expect(first.appliedLtv).toBeCloseTo(0.8, 6);
+    expect(plain.appliedLtv).toBeLessThan(first.appliedLtv);
+  });
+
+  it('한도 우대도 같이 갈립니다 — 우대값을 무조건값으로 두면 안 됩니다', () => {
+    const first = calcLoan(bogeumjari, baseProfile, deriveScenario(baseProfile, axis('before-sole')), changwon);
+    const plain = calcLoan(bogeumjari, notFirst, s, changwon);
+    expect(plain.limitCap).toBeLessThan(first.limitCap);
+  });
+
+  it('생애최초 우대가 없는 상품은 두 시나리오가 같습니다', () => {
+    const first = calcLoan(bank, baseProfile, deriveScenario(baseProfile, axis('before-sole')), changwon);
+    const plain = calcLoan(bank, notFirst, s, changwon);
+    expect(plain.appliedLtv).toBeCloseTo(first.appliedLtv, 6);
+    expect(plain.limitCap).toBe(first.limitCap);
+  });
+});

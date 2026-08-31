@@ -127,7 +127,7 @@
     },
     {
       "id": "bogeumjari_first",
-      "name": "보금자리론 (생애최초)",
+      "name": "보금자리론",
       "type": "policy",
       "shortName": "보금자리론",
       "eligibility": {
@@ -140,8 +140,10 @@
         "requires_no_house_household": true
       },
       "limits": {
-        "cap": 420000000,
-        "ltv_non_capital": 0.8,
+        "cap": 360000000,
+        "cap_first_time": 420000000,
+        "ltv_non_capital": 0.7,
+        "ltv_first_time_non_capital": 0.8,
         "ltv_capital": 0.7,
         "dti": 0.6,
         "dsr_exempt": true

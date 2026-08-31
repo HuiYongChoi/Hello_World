@@ -195,7 +195,16 @@ export function calcLoan(
   let limitCap =
     scenario.isSingleHousehold && num(lim.cap_single_household) !== undefined
       ? (num(lim.cap_single_household) as number)
-      : (num(lim.cap) ?? Number.POSITIVE_INFINITY);
+      : /*
+         * 생애최초 한도 우대. LTV 와 같은 모양으로 둡니다.
+         *
+         * 보금자리론처럼 **생애최초가 자격 요건은 아닌데 우대는 있는** 상품이
+         * 있습니다. 우대값을 무조건값으로 박아 두면 생애최초가 아닌 사람에게도
+         * 우대 한도가 나갑니다 — 실제로 그렇게 잘못 들어가 있었습니다.
+         */
+        scenario.isFirstTimeValid && num(lim.cap_first_time) !== undefined
+        ? (num(lim.cap_first_time) as number)
+        : (num(lim.cap) ?? Number.POSITIVE_INFINITY);
 
   const absCapCapital = num(lim.absolute_cap_capital);
   if (capital && absCapCapital !== undefined) {

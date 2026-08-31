@@ -70,6 +70,19 @@ STEP 4 상환능력       DSR 면제 상품은 DTI, 은행 상품은 DSR + 스�
 STEP 5 최종          min(위 넷) + bindingConstraint 판별
 ```
 
+**생애최초는 상품마다 성격이 다릅니다 — 요건인 곳과 우대인 곳이 있습니다.**
+
+```
+디딤돌      requires_first_time: true   → 아니면 탈락
+보금자리론  요건 아님                    → 받되 LTV 70→80%, 한도 3.6→4.2억이 갈림
+신생아 특례 요건 아님 (신생아 요건)
+은행 주담대 우대 없음
+```
+
+우대값을 무조건값으로 박아 두면 생애최초가 아닌 사람에게도 우대가 나갑니다.
+실제로 보금자리론이 그렇게 들어가 있었고(이름이 "(생애최초)" 라 가려져 있었습니다),
+`ltv_first_time_non_capital` · `cap_first_time` 두 단으로 갈라 고쳤습니다.
+
 `bindingConstraint` 노출이 UX의 핵심입니다. "3.2억"만 보여주면 왜 그 숫자인지 모릅니다.
 무엇이 막았는지와 **다음 행동**을 함께 표시하되, 조언은 물건 맥락을 반영해야 합니다 —
 이미 비수도권 80%를 받는 물건에 "비수도권으로 바꾸라"고 하면 안 됩니다.
@@ -146,7 +159,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 395건)
+npm test                 # 엔진 단위 테스트 (현재 400건)
 npm run scorecard        # 채점표 — 구조·연결·검증·산출물 100점 만점
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)

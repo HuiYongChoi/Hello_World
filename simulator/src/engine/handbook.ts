@@ -152,6 +152,11 @@ const FIELD: Record<
     format: (v: number) => money(v),
     note: 'LTV·상환능력을 다 통과해도 이 금액을 넘지 못합니다.',
   },
+  cap_first_time: {
+    label: '절대상한 (생애최초)',
+    format: (v: number) => money(v),
+    note: '생애최초는 자격 요건이 아니라 우대 조건인 상품이 있습니다 — 아니어도 받되 한도가 줄어듭니다.',
+  },
   cap_single_household: {
     label: '절대상한 (단독세대주)',
     format: (v: number) => money(v),
@@ -307,6 +312,17 @@ function productEntry(p: ProductRule): HandbookEntry {
   if (ltvNon && ltvCap && ltvNon !== ltvCap) {
     watchOuts.push(
       `같은 조건이라도 **물건이 어느 권역이냐로 LTV 가 ${percent(ltvNon, 0)} ↔ ${percent(ltvCap, 0)} 로 갈립니다.** 지역 선택이 곧 대출 조건 선택입니다.`
+    );
+  }
+  const ftLtv = p.limits.ltv_first_time_non_capital as number | undefined;
+  const ftCap = p.limits.cap_first_time as number | undefined;
+  if (!p.eligibility.requires_first_time && (ftLtv || ftCap)) {
+    const parts = [
+      ftLtv && ltvNon ? `LTV ${percent(ltvNon, 0)} → ${percent(ftLtv, 0)}` : '',
+      ftCap && cap ? `한도 ${money(cap)} → ${money(ftCap)}` : '',
+    ].filter(Boolean);
+    watchOuts.push(
+      `**생애최초는 자격 요건이 아니라 우대 조건입니다.** 아니어도 받을 수 있고, 대신 ${parts.join(' · ')} 로 갈립니다.`
     );
   }
   if (p.limits.cap_single_household && p.limits.cap) {
