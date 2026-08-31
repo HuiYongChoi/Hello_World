@@ -26,6 +26,7 @@ import {
 import { annualizedPremium, premiumRows } from '../engine/presale';
 import { OFFERING_CAVEATS, appraiseOffering } from '../engine/offering';
 import { collectedDistricts } from '../engine/regions';
+import { PremiumCard } from './PremiumCard';
 import { RULES } from '../engine/rules';
 import {
   paymentSchedule,
@@ -694,6 +695,12 @@ export function SubscriptionPage() {
           >
             <SafetyMargin plan={current} />
           </Card>
+
+          {/*
+            떨어졌을 때의 대안이라 청약 옆이 제자리입니다. 예전에는 실거래 탭에
+            있었는데, 거기서는 "이걸 왜 보고 있지" 가 됩니다.
+          */}
+          <PremiumCard />
 
           <Card
             title="이 단지를 하면 현금이 언제 얼마나 필요한가"

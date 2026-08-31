@@ -13,6 +13,7 @@ import {
 import { money, percent } from '../engine/format';
 import { growthSuggestion } from '../engine/growth';
 import { MARKET } from '../engine/market';
+import { HandbookLink } from './HandbookDrawer';
 import { REPAIR, REPAIR_CAVEATS, repairAnchor } from '../engine/repair';
 import { cellKey } from '../engine/matrix';
 import { RULES } from '../engine/rules';
@@ -1109,7 +1110,16 @@ export function TenurePage() {
                 ? `전세가율·전월세전환율은 국토부 전월세 실거래 ${RENT.stats.deals.toLocaleString('ko-KR')}건에서 잰 값입니다 (${RENT.range.from.slice(0, 4)}년~, 같은 단지·평형·분기끼리 짝지음). 나머지는 아직 자리표시자입니다.`
                 : RULES.tenure.assumptionDefaults.note
             }
-            action={measured ? <Badge tone="good">일부 실측</Badge> : <Badge tone="warn">실측 아님</Badge>}
+            action={
+              <div className="flex items-center gap-2">
+                {/* 전세 쪽 규정은 여기서 바로 펴 봅니다 — 한도·갱신 상한을
+                    모르면 이 화면의 보증금 흐름이 왜 그런지 알 수 없습니다. */}
+                <span className="text-[11px] text-slate-500">
+                  <HandbookLink id="jeonse-loan">전세 규정 설명서 ◂</HandbookLink>
+                </span>
+                {measured ? <Badge tone="good">일부 실측</Badge> : <Badge tone="warn">실측 아님</Badge>}
+              </div>
+            }
           >
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <RateField

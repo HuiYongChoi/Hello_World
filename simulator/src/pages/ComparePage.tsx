@@ -30,7 +30,7 @@ import type {
   Property,
 } from '../engine/types';
 import { AffordabilityCard } from './AffordabilityCard';
-import { BubbleView } from './BubbleView';
+import { HandbookLink } from './HandbookDrawer';
 
 export function ComparePage() {
   const { properties, matrix, objective, setObjective } = useStore();
@@ -212,8 +212,6 @@ export function ComparePage() {
       )}
 
       <AffordabilityCard />
-
-      <BubbleView />
 
       {detail && (
         <DetailDrawer
@@ -560,7 +558,9 @@ function ProductDetail({ result: r, property }: { result: LoanResult; property: 
     return (
       <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-slate-400">{r.productName}</span>
+          <span className="text-sm font-medium text-slate-400">
+            <HandbookLink id={r.productId}>{r.productName}</HandbookLink>
+          </span>
           <Badge tone="bad">부적격</Badge>
         </div>
         <p className="mt-2 text-xs text-rose-300/90">{r.rejectReason}</p>
@@ -578,7 +578,11 @@ function ProductDetail({ result: r, property }: { result: LoanResult; property: 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm font-semibold text-slate-100">{r.productName}</span>
+        {/* 상품명을 누르면 왼쪽 설명서가 그 상품에서 열립니다 — "이게 뭔데" 가
+            생기는 자리가 바로 여기입니다. */}
+        <span className="text-sm font-semibold text-slate-100">
+          <HandbookLink id={r.productId}>{r.productName}</HandbookLink>
+        </span>
         <div className="flex gap-1.5">
           <Badge tone="neutral">금리 {percent(r.rate, 2)}</Badge>
           {r.feasible ? (

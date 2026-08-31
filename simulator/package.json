@@ -21,7 +21,8 @@
     "fetch:dividend": "node ../scripts/fetch-dividend.mjs",
     "fetch:population": "node ../scripts/fetch-population.mjs",
     "fetch:repair": "node ../scripts/fetch-repair.mjs",
-    "fetch:applyhome": "node ../scripts/fetch-applyhome.mjs"
+    "fetch:applyhome": "node ../scripts/fetch-applyhome.mjs",
+    "scorecard": "node ../scripts/scorecard.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",

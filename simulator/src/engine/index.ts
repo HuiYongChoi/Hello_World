@@ -1,6 +1,7 @@
 export * from './types';
 export * from './finance';
 export * from './rules';
+export * from './handbook';
 export * from './costs';
 export * from './scenario';
 export * from './loan';

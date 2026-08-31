@@ -24,6 +24,7 @@ import {
   THIN_DEAL_COUNT,
   type MarketPoint,
 } from '../engine/market';
+import { useStore } from '../state/store';
 import {
   rollingBacktest,
   splitValidate,
@@ -31,7 +32,6 @@ import {
   type EntryQuarterStat,
   type SplitValidation,
 } from '../engine/backtest';
-import { PremiumCard } from './PremiumCard';
 
 /** 중위가 추이 스파크라인. 거래가 얇은 분기는 점을 비워 표시합니다. */
 function Series({
@@ -588,6 +588,7 @@ function BacktestCard() {
 }
 
 export function MarketPage() {
+  const { properties } = useStore();
   const [query, setQuery] = useState('');
   const [complexId, setComplexId] = useState('');
   const [areaKey, setAreaKey] = useState('');
@@ -621,6 +622,34 @@ export function MarketPage() {
         subtitle={`국토교통부 실거래가를 빌드 시점에 구워 넣은 스냅샷입니다. 가정값이 아니라 실제로 체결된 가격이고, 해제된 거래는 빼뒀습니다. ${MARKET.range.from.slice(0, 4)}년 ~ ${MARKET.range.to.slice(0, 4)}년 · 거래 ${MARKET.stats.deals.toLocaleString('ko-KR')}건 · 단지 ${MARKET.stats.complexes.toLocaleString('ko-KR')}개`}
         action={<Badge tone="info">기준일 {MARKET.asOf}</Badge>}
       >
+        {/*
+          등록한 물건과 이 화면이 이어져 있지 않으면, 여기서 아무 단지나 찾아보는
+          취미 화면이 됩니다. 물건 이름·법정동으로 검색어를 채워 바로 잇습니다.
+        */}
+        {properties.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] text-slate-500">등록한 물건에서</span>
+            {properties.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => {
+                  setQuery(p.name);
+                  setComplexId('');
+                  setAreaKey('');
+                  setFromQ(null);
+                  setToQ(null);
+                }}
+                className="rounded-lg bg-slate-800/70 px-2.5 py-1 text-[11px] text-slate-300 transition hover:bg-slate-700 hover:text-slate-100"
+                title={`${p.sigungu} · ${p.name} 으로 검색어를 채웁니다`}
+              >
+                {p.name}
+                <span className="ml-1 text-slate-500">{p.sigungu}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="단지 검색" hint="단지명 또는 법정동">
             <TextInput value={query} onChange={setQuery} placeholder="예: 토월성원, 가음동" />
@@ -821,8 +850,6 @@ export function MarketPage() {
         여기는 "이 수치로 무엇을 하면 안 되는가"만 남깁니다.
       */}
       <BacktestCard />
-
-      <PremiumCard />
 
       <Card title="이 숫자가 아닌 것">
         <ul className="space-y-1.5">
