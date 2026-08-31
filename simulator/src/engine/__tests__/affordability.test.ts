@@ -99,3 +99,44 @@ describe('최대 감당가격 역산', () => {
     }
   });
 });
+
+/**
+ * 주택가격 상한과 대출 절대상한은 **다른 축**입니다. "6억까지 가능" 이 "6억을
+ * 빌려준다" 로 읽히는 지점이라, 대출이 멈추는 가격을 따로 냅니다.
+ */
+describe('대출이 멈추는 가격', () => {
+  const scenario = deriveScenario(baseProfile, ALL_SCENARIO_AXES[0]);
+  const ladder = affordabilityLadder(baseProfile, scenario, template);
+
+  it('천장 가격 × LTV 가 곧 멈추는 대출액입니다', () => {
+    for (const r of ladder) {
+      if (r.loanCeilingPrice === null || !r.at) continue;
+      expect(r.loanCeilingAmount).toBeCloseTo(r.loanCeilingPrice * r.at.appliedLtv, 0);
+    }
+  });
+
+  it('천장은 상품캡과 상환능력 중 먼저 걸리는 쪽입니다', () => {
+    for (const r of ladder) {
+      if (r.loanCeilingPrice === null || !r.at) continue;
+      const cap = r.at.limitCap > 0 ? r.at.limitCap : Infinity;
+      const repay = r.at.limitRepay > 0 ? r.at.limitRepay : Infinity;
+      expect(r.loanCeilingAmount).toBeCloseTo(Math.min(cap, repay), 0);
+      expect(r.loanCeilingBy).toBe(cap <= repay ? 'CAP' : r.at.regulatoryKind);
+    }
+  });
+
+  /** 천장 위에서는 가격이 올라도 대출이 그대로여야 합니다 — 오른 만큼 전부 현금. */
+  it('천장 위로는 오른 가격이 전부 자기 부담이 됩니다', () => {
+    const r = ladder.find((x) => x.loanCeilingPrice !== null && x.at)!;
+    const price = r.loanCeilingPrice!;
+    const product = getProduct(r.productId);
+    const below = calcLoan(product, baseProfile, scenario, { ...template, price: price * 0.9 });
+    const above1 = calcLoan(product, baseProfile, scenario, { ...template, price: price * 1.05 });
+    const above2 = calcLoan(product, baseProfile, scenario, { ...template, price: price * 1.1 });
+    if (!above1.eligible || !above2.eligible) return; // 가격 상한에 먼저 걸리면 건너뜁니다
+    expect(below.limit).toBeLessThan(r.loanCeilingAmount);
+    expect(above2.limit).toBeCloseTo(above1.limit, 0);
+    // 가격 차이가 그대로 자기부담 차이입니다.
+    expect(above2.downPayment - above1.downPayment).toBeCloseTo(price * 0.05, 0);
+  });
+});

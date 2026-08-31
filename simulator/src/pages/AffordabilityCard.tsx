@@ -74,6 +74,19 @@ function Compass({
             style={{ width: pos(Math.max(...usable.map((r) => r.maxPrice))) }}
           />
         )}
+        {/* 대출이 멈추는 지점 — 이 오른쪽은 오른 가격만큼 전부 현금입니다 */}
+        {usable.map((r) =>
+          r.loanCeilingPrice !== null && r.loanCeilingPrice <= maxAxis ? (
+            <span
+              key={`ceil-${r.productId}`}
+              className="absolute -top-0.5 h-3 w-0.5 -translate-x-1/2 bg-amber-400/70"
+              style={{ left: pos(r.loanCeilingPrice) }}
+              title={`${r.shortName} — ${money(r.loanCeilingPrice)}부터 대출이 ${money(
+                r.loanCeilingAmount
+              )}에서 멈춥니다. 그 위로 오른 가격은 전부 자기 돈입니다.`}
+            />
+          ) : null
+        )}
       </div>
 
       {/* 눈금 */}
@@ -192,17 +205,38 @@ export function AffordabilityCard() {
               )}
             </div>
             {r.maxPrice > 0 && r.at ? (
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] tabular-nums text-slate-500">
-                <span>
-                  대출 {money(r.at.limit)} · {percent(r.at.rate)}
-                </span>
-                <span>월 {money(r.at.monthlyPayment)}</span>
-                <span>필요현금 {money(r.at.requiredCash)}</span>
-                <span>부담 {percent(r.at.dtiRatio, 0)}</span>
-                <Badge tone={r.binding === 'ELIGIBILITY' ? 'warn' : 'info'}>
-                  {r.binding === 'ELIGIBILITY' ? '자격이 막음' : '현금이 막음'}
-                </Badge>
-              </div>
+              <>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] tabular-nums text-slate-500">
+                  <span>
+                    대출 {money(r.at.limit)} · {percent(r.at.rate)}
+                  </span>
+                  <span>월 {money(r.at.monthlyPayment)}</span>
+                  <span>필요현금 {money(r.at.requiredCash)}</span>
+                  <span>부담 {percent(r.at.dtiRatio, 0)}</span>
+                  <Badge tone={r.binding === 'ELIGIBILITY' ? 'warn' : 'info'}>
+                    {r.binding === 'ELIGIBILITY' ? '자격이 막음' : '현금이 막음'}
+                  </Badge>
+                </div>
+                {/*
+                  주택가격 상한과 대출 절대상한은 다른 축입니다. "6억까지 가능"
+                  이 "6억을 빌려준다" 로 읽히는 지점이 여기라, 대출이 멈추는
+                  가격을 정확히 찍어 줍니다.
+                */}
+                {r.loanCeilingPrice !== null && (
+                  <div className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                    <span className="tabular-nums text-slate-300">
+                      {money(r.loanCeilingPrice)}
+                    </span>
+                    부터 대출이{' '}
+                    <span className="tabular-nums text-slate-300">
+                      {money(r.loanCeilingAmount)}
+                    </span>
+                    에서 멈춥니다 (
+                    {r.loanCeilingBy === 'CAP' ? '상품 절대상한' : `${r.loanCeilingBy} 상환능력`}
+                    ) — 그 위로 오른 가격은 <b className="text-amber-300/90">전부 내 돈</b>입니다.
+                  </div>
+                )}
+              </>
             ) : (
               <div className="mt-1 text-[11px] leading-relaxed text-rose-300/80">{r.reason}</div>
             )}
@@ -216,6 +250,12 @@ export function AffordabilityCard() {
         더 있으면 뚫립니다. 그리고 여기 숫자는 <strong className="text-slate-300">살 수 있는
         한계</strong>이지 사도 되는 가격이 아닙니다. 한계까지 당기면 상환 부담도 같이 최대가
         됩니다.
+      </p>
+      <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+        축 위의 <span className="text-amber-300">노란 선</span>은 <b className="text-slate-300">대출이
+        멈추는 가격</b>입니다. 주택가격 상한과 대출 절대상한은 다른 축이라, 예를 들어 보금자리론은
+        6억짜리까지 살 수 있지만 빌려주는 돈은 4.2억에서 멈춥니다 — 그 위로 오른 가격은 한 푼도
+        대출로 안 채워집니다.
       </p>
     </Card>
   );

@@ -34,6 +34,42 @@ export interface AffordabilityResult {
   /** 최대가격을 만든 제약 */
   binding: 'ELIGIBILITY' | 'CASH' | 'NONE';
   reason: string;
+  /**
+   * **이 가격을 넘으면 대출이 더 안 늘어납니다** — 오른 가격은 전부 내 돈입니다.
+   *
+   * 대출액은 `min(LTV×가격, 상품캡, 상환능력, 가격상한)` 인데 **상품캡과
+   * 상환능력은 가격과 무관**합니다. 그래서 가격을 올리다 보면 어느 지점부터
+   * 대출이 멈추고, 그 위로는 오른 만큼이 100% 현금 부담이 됩니다.
+   *
+   * 주택가격 상한(예: 보금자리론 6억)과 대출 절대상한(4.2억)은 **다른 축**입니다.
+   * 6억까지 살 수 있다는 말은 6억을 빌려준다는 뜻이 아닙니다 — 이 값이 그
+   * 오해가 시작되는 지점을 정확히 찍습니다.
+   */
+  loanCeilingPrice: number | null;
+  /** 그 천장을 만든 것 */
+  loanCeilingBy: 'CAP' | 'DSR' | 'DTI' | null;
+  /** 천장에서 고정되는 대출액 */
+  loanCeilingAmount: number;
+}
+
+/** 가격을 올려도 대출이 안 늘어나기 시작하는 지점. */
+function loanCeilingOf(r: LoanResult): {
+  loanCeilingPrice: number | null;
+  loanCeilingBy: AffordabilityResult['loanCeilingBy'];
+  loanCeilingAmount: number;
+} {
+  const ltv = r.appliedLtv;
+  const cap = r.limitCap > 0 ? r.limitCap : Number.POSITIVE_INFINITY;
+  const repay = r.limitRepay > 0 ? r.limitRepay : Number.POSITIVE_INFINITY;
+  const amount = Math.min(cap, repay);
+  if (ltv <= 0 || !Number.isFinite(amount)) {
+    return { loanCeilingPrice: null, loanCeilingBy: null, loanCeilingAmount: 0 };
+  }
+  return {
+    loanCeilingPrice: amount / ltv,
+    loanCeilingBy: cap <= repay ? 'CAP' : r.regulatoryKind,
+    loanCeilingAmount: amount,
+  };
 }
 
 function ok(r: LoanResult): boolean {
@@ -67,6 +103,9 @@ export function maxAffordablePrice(
       maxPrice: 0,
       at: floor,
       binding: 'NONE',
+      loanCeilingPrice: null,
+      loanCeilingBy: null,
+      loanCeilingAmount: 0,
       reason: floor.rejectReason ?? '가격을 낮춰도 자금이 모자랍니다.',
     };
   }
@@ -100,6 +139,7 @@ export function maxAffordablePrice(
     maxPrice: Math.floor(lo / 1000000) * 1000000,
     at: best,
     binding,
+    ...loanCeilingOf(best),
     reason:
       binding === 'ELIGIBILITY'
         ? (beyond.rejectReason ?? '자격 요건에서 막힙니다.')
