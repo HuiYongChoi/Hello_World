@@ -23,6 +23,7 @@ export * from './supply';
 export * from './population';
 export * from './repair';
 export * from './offering';
+export * from './rating';
 export * from './applyhome';
 export * from './tenure';
 export * from './matrix';

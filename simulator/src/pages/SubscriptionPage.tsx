@@ -33,6 +33,12 @@ import {
   subscriptionPlan,
   type SubscriptionPlan,
 } from '../engine/subscription';
+import {
+  RATING_CAVEATS,
+  rateOffering,
+  type RatingAxis,
+  type RatingTerms,
+} from '../engine/rating';
 import { defaultAssumptions } from '../engine/tenure';
 import type { RegionId } from '../engine/types';
 import { useStore } from '../state/store';
@@ -89,14 +95,78 @@ function rateLabel(rate: number | null): string {
  * 뒤에도 납입 구조는 손으로 확인하셔야 합니다. 그래서 불러오기가 그 값들을
  * 건드리지 않습니다.
  */
+
+/** 손입력 기본값 — 룰셋의 통상값에서 출발합니다. 단지마다 다르므로 바꿀 수 있어야 합니다. */
+function defaultTerms(region: RegionId): RatingTerms {
+  const c = RULES.subscription;
+  return {
+    downPaymentRatio: c.downPaymentRatio,
+    interimRatio: c.interimRatio,
+    interimLoanRate: c.interimLoanRate,
+    interimDeferred: true,
+    resaleBanMonths: c.defaultResaleBanMonths,
+    mortgageRate: RULES.products.find((p) => p.type === 'bank')?.rate.max ?? 0.045,
+    mortgageLtv: RULES.regions.find((r) => r.id === region)?.isCapitalArea ? 0.7 : 0.8,
+  };
+}
+
+/**
+ * 별 다섯 개.
+ *
+ * 못 재는 축은 별을 그리지 않고 "—" 로 둡니다. 근거가 없는데 별 3개를 주면
+ * 그게 제일 나쁩니다 — 읽는 사람은 그것도 판정이라고 믿습니다.
+ */
+function Stars({ n }: { n: number | null }) {
+  if (n === null) return <span className="text-[11px] text-slate-600">잴 수 없음</span>;
+  return (
+    <span className="tracking-tight" title={`${n} / 5`}>
+      <span className="text-amber-300">{'★'.repeat(n)}</span>
+      <span className="text-slate-700">{'★'.repeat(5 - n)}</span>
+    </span>
+  );
+}
+
+function AxisCard({ axis }: { axis: RatingAxis }) {
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[11px] font-medium text-slate-200">
+          {axis.label}
+          <span className="ml-1 text-[10px] text-slate-600">{axis.question}</span>
+        </span>
+        <Stars n={axis.stars} />
+      </div>
+      <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{axis.headline}</p>
+      <Foldable summary={`왜 이 별점인가 · ${axis.label}`} count={axis.reasons.length}>
+        <ul className="space-y-1">
+          {axis.reasons.map((r) => (
+            <li key={r} className="text-[10px] leading-relaxed text-slate-500">
+              · {r}
+            </li>
+          ))}
+          <li className="text-[10px] leading-relaxed text-amber-500/70">⚠ {axis.caveat}</li>
+        </ul>
+      </Foldable>
+    </div>
+  );
+}
+
 function NoticePicker({
   onPick,
 }: {
   onPick: (patch: Partial<SubscriptionPlan>) => void;
 }) {
+  const { profile } = useStore();
   const [region, setRegion] = useState<RegionId>('changwon');
   const [noticeId, setNoticeId] = useState('');
   const [houseType, setHouseType] = useState('');
+  /*
+   * 중도금 조건·전매제한은 API 에 없어 공고문을 봐야 합니다. 단지를 추가한
+   * 뒤에 넣게 하면 **판단이 끝난 다음에 값을 넣는** 셈이라 순서가 거꾸로입니다.
+   * 고르는 자리에서 넣고, 넣는 즉시 별점이 움직이게 둡니다.
+   */
+  const [terms, setTerms] = useState<RatingTerms>(() => defaultTerms('changwon'));
+  const patchTerms = (patch: Partial<RatingTerms>) => setTerms((t) => ({ ...t, ...patch }));
 
   const list = useMemo(() => notices({ region }), [region]);
   const notice: OfferingNotice | null =
@@ -105,6 +175,22 @@ function NoticePicker({
     notice?.models.find((m) => m.houseType === houseType) ?? notice?.models[0] ?? null;
   const stats = useMemo(() => competitionStats(region), [region]);
   const matched = notice ? districtOf(notice) : null;
+
+  // 청약은 계약부터 입주까지 몇 년이 걸려 그 사이 합가가 자연스럽습니다.
+  const availableCash = profile.ownCash + profile.spouseCash;
+  const rating = useMemo(
+    () =>
+      notice && model
+        ? rateOffering({
+            notice,
+            model,
+            terms,
+            availableCash,
+            termYears: profile.termYears,
+          })
+        : null,
+    [notice, model, terms, availableCash, profile.termYears]
+  );
 
   return (
     <div className="space-y-3">
@@ -116,6 +202,8 @@ function NoticePicker({
               setRegion(v);
               setNoticeId('');
               setHouseType('');
+              // 권역이 바뀌면 LTV 기본값이 달라집니다 (수도권 70 / 비수도권 80).
+              setTerms(defaultTerms(v));
             }}
             options={REGION_OPTIONS}
           />
@@ -210,12 +298,101 @@ function NoticePicker({
             </p>
           )}
 
+          {/*
+            공고문에만 있는 값들. 여기서 넣어야 아래 별점이 그 조건으로 다시
+            계산됩니다 — 추가한 뒤에 넣으면 판단이 끝난 다음에 값을 넣는 셈입니다.
+          */}
+          <div className="mt-3 border-t border-slate-800 pt-3">
+            <h5 className="mb-2 text-[11px] font-medium tracking-wide text-slate-500">
+              공고문을 보고 넣을 값 — API 에 없습니다
+            </h5>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="계약금 비율" hint="자기 돈으로만 냅니다">
+                <NumberInput
+                  value={Math.round(terms.downPaymentRatio * 1000) / 10}
+                  step={1}
+                  suffix="%"
+                  onChange={(v) => patchTerms({ downPaymentRatio: v / 100 })}
+                />
+              </Field>
+              <Field label="중도금 비율" hint={`${RULES.subscription.interimInstallments}회 분할`}>
+                <NumberInput
+                  value={Math.round(terms.interimRatio * 1000) / 10}
+                  step={1}
+                  suffix="%"
+                  onChange={(v) => patchTerms({ interimRatio: v / 100 })}
+                />
+              </Field>
+              <Field label="중도금 금리">
+                <NumberInput
+                  value={Math.round(terms.interimLoanRate * 10000) / 100}
+                  step={0.05}
+                  suffix="%"
+                  onChange={(v) => patchTerms({ interimLoanRate: v / 100 })}
+                />
+              </Field>
+              <Field label="전매제한" hint="이 기간엔 팔 수 없습니다">
+                <NumberInput
+                  value={terms.resaleBanMonths}
+                  step={1}
+                  suffix="개월"
+                  onChange={(v) => patchTerms({ resaleBanMonths: Math.max(0, v) })}
+                />
+              </Field>
+            </div>
+            <div className="mt-2">
+              <Toggle
+                label="중도금 이자후불제"
+                hint="대기 중엔 안 내고 입주 때 한꺼번에 정산합니다. 대기 부담은 가벼워지고 입주 목돈이 커집니다."
+                checked={terms.interimDeferred}
+                onChange={(v) => patchTerms({ interimDeferred: v })}
+              />
+            </div>
+          </div>
+
+          {rating && (
+            <div className="mt-3 border-t border-slate-800 pt-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h5 className="text-[11px] font-medium tracking-wide text-slate-500">
+                  이 공고, 지역 안에서 몇 점인가
+                </h5>
+                <span className="text-[10px] text-slate-600">{rating.scope} 대비</span>
+              </div>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {rating.axes.map((a) => (
+                  <AxisCard key={a.id} axis={a} />
+                ))}
+              </div>
+              {/*
+                합치지 않는 이유를 화면에도 적습니다. 별을 넷 그려 놓으면
+                사람은 자동으로 평균을 냅니다.
+              */}
+              <p className="mt-2 text-[10px] leading-relaxed text-slate-600">
+                네 축을 <b className="text-slate-500">합치지 않습니다</b> — 싸지만 붙기 어려운
+                공고와 비싸지만 붙기 쉬운 공고는 해야 할 일이 다릅니다. 별점은 예측이 아니라
+                같은 권역 최근 공고들 사이에서의 위치입니다.
+              </p>
+              <Foldable summary="별점이 못 하는 것" count={RATING_CAVEATS.length}>
+                <ul className="space-y-1">
+                  {RATING_CAVEATS.map((c) => (
+                    <li key={c} className="text-[10px] leading-relaxed text-slate-500">
+                      · {c}
+                    </li>
+                  ))}
+                </ul>
+              </Foldable>
+            </div>
+          )}
+
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <Button size="sm" onClick={() => onPick(planPatch(notice, model))}>
+            <Button
+              size="sm"
+              onClick={() => onPick({ ...planPatch(notice, model), ...terms })}
+            >
               이 주택형으로 단지 추가
             </Button>
             <span className="text-[11px] text-slate-500">
-              중도금 조건·전매제한은 공고문에만 있어 그대로 둡니다 — 추가한 뒤 직접 넣으세요.
+              위에서 넣은 중도금 조건·전매제한이 그대로 따라갑니다.
             </span>
           </div>
         </div>
@@ -615,7 +792,8 @@ export function SubscriptionPage() {
         <p className="text-xs leading-relaxed text-slate-500">
           분양가·전용면적·일정은 <b className="text-slate-300">청약홈 공고에서 불러옵니다</b> —
           아래에서 고르면 채워집니다. 다만 <b className="text-slate-300">중도금 조건과
-          전매제한은 API 에 없어</b> 공고문을 보고 직접 넣으셔야 합니다. 넣으면 계약·대기·입주
+          전매제한은 API 에 없어</b> 공고문을 보고 아래에서 직접 넣으셔야 합니다 — 넣는 즉시
+          별점이 그 조건으로 다시 계산됩니다. 넣으면 계약·대기·입주
           시점별로 현금이 언제 얼마나 필요한지와, 같은 지역·평형 분양권이 실제로 얼마나
           붙었는지를 나란히 봅니다.
         </p>
