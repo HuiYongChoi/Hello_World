@@ -49,6 +49,13 @@ export interface RatingAxis {
   reasons: string[];
   /** 이 축이 못 말하는 것 */
   caveat: string;
+  /**
+   * **별을 어떻게 나눴는가.**
+   *
+   * 별 세 개를 보고 "기준이 뭔데" 가 바로 따라옵니다. 기준을 안 적으면 별점은
+   * 그냥 분위기가 되고, 분위기는 검증할 수 없습니다.
+   */
+  scale: string;
   /** 비교에 쓴 표본 수 */
   n: number;
 }
@@ -89,9 +96,9 @@ export interface RatingInput {
  * 뒤집어 **배수**로 말합니다.
  */
 function marginPhrase(margin: number): string {
-  if (margin > 0) return `${percent(margin, 1)} 싸다`;
-  if (margin >= -0.5) return `${percent(-margin, 1)} 비싸다`;
-  return `기준가의 ${(1 - margin).toFixed(1)}배`;
+  if (margin > 0) return `분양가가 ${percent(margin, 1)} 쌉니다`;
+  if (margin >= -0.5) return `분양가가 ${percent(-margin, 1)} 비쌉니다`;
+  return `분양가가 기준가의 ${(1 - margin).toFixed(1)}배입니다`;
 }
 
 /** 값이 클수록 좋은 축의 별점 — 구간 경계는 위에서부터 5개입니다. */
@@ -151,7 +158,7 @@ function priceAxis(input: RatingInput): RatingAxis {
     for (const b of appraisal.benchmarks) {
       if (b.margin === null) continue;
       reasons.push(
-        `${b.label} 대비 ${marginPhrase(b.margin)} — 기준가 ${money(Math.round(b.value ?? 0))} (표본 ${b.n}${b.thin ? ', 얇음' : ''})`
+        `${b.label} ${money(Math.round(b.value ?? 0))} 대비 — ${marginPhrase(b.margin)} (표본 ${b.n}${b.thin ? ', 얇음' : ''})`
       );
     }
     if (appraisal.conflicted) {
@@ -182,17 +189,24 @@ function priceAxis(input: RatingInput): RatingAxis {
         ? peers.length >= 20
           ? `주변 실거래 표본이 없어 청약끼리만 견줬습니다 — 이 권역 ${percent(pct, 0)} 지점`
           : '견줄 표본이 없습니다'
-        : `네 기준 대비 ${marginPhrase(margin)}`,
+        : `${marginPhrase(margin)} — 주변 실거래·신축 하한 등 네 기준의 중위`,
     reasons,
     caveat:
       district === null
         ? '주소에서 시군구를 특정하지 못해 권역 전체와 비교했습니다 — 동네가 섞여 있습니다.'
         : '분양가는 공고 기준 최고가입니다. 발코니 확장·옵션이 빠져 있어 실제 계약금액은 더 큽니다.',
+    scale:
+      '네 기준(주변 실거래·신축 하한·입주 시점 예상가·주변 분양권) 마진의 중위로 나눕니다. ' +
+      '25% 이상 싸면 ★5 · 15% ★4 · 5% ★3 · −5% 까지 ★2 · 그보다 비싸면 ★1.',
     n: appraisal?.benchmarks.filter((b) => b.value !== null).length ?? 0,
   };
 }
 
 /* ── 축 2. 당첨 가능성 ─────────────────────────────────────────────── */
+
+const COMPETITION_SCALE =
+  '같은 권역 주택형들의 1순위 경쟁률 분포에서 낮은 쪽일수록 별이 많습니다. ' +
+  '1순위 미달이면 ★5 · 하위 25% 안이면 ★4 · 45% ★3 · 65% ★2 · 그보다 경쟁이 세면 ★1.';
 
 function competitionAxis(input: RatingInput): RatingAxis {
   const { notice, model } = input;
@@ -223,6 +237,7 @@ function competitionAxis(input: RatingInput): RatingAxis {
         '이 주택형의 경쟁률이 스냅샷에 없어 별을 주지 않습니다. 같은 권역 분포만 참고하세요.',
       ],
       caveat: '경쟁률은 당첨 확률이 아닙니다. 가점제·추첨제·특별공급이 섞여 있습니다.',
+      scale: COMPETITION_SCALE,
       n: peers.length,
     };
   }
@@ -248,6 +263,7 @@ function competitionAxis(input: RatingInput): RatingAxis {
     reasons,
     caveat:
       '경쟁률이 낮다고 좋은 물건이라는 뜻이 아닙니다 — 시장이 덜 평가했다는 뜻이기도 합니다. 분양가 축과 같이 보세요.',
+    scale: COMPETITION_SCALE,
     n: peers.length,
   };
 }
@@ -308,6 +324,9 @@ function cashAxis(input: RatingInput): RatingAxis {
     reasons,
     caveat:
       '계약금은 대출이 안 됩니다. 청약의 진짜 문턱은 분양가가 아니라 이 돈과 대기 중 살 집 보증금입니다.',
+    scale:
+      '계약 시점에 나가는 현금이 가용현금에서 얼마나 남기는지로 나눕니다. ' +
+      '절반 이상 남으면 ★5 · 30% ★4 · 10% ★3 · 딱 맞으면 ★2 · 모자라면 ★1.',
     n: 0,
   };
 }
@@ -347,6 +366,9 @@ function lockupAxis(input: RatingInput): RatingAxis {
     reasons,
     caveat:
       '묶인다고 손해는 아닙니다 — 그 기간에 오르면 그대로 가져갑니다. 다만 마음이 바뀌어도 못 판다는 뜻이라 유동성 제약으로 봅니다.',
+    scale:
+      '입주까지 걸리는 기간 + 전매제한을 더한 총 개월로 나눕니다. ' +
+      '24개월 이하 ★5 · 36개월 ★4 · 48개월 ★3 · 60개월 ★2 · 그보다 길면 ★1.',
     n: peers.length,
   };
 }

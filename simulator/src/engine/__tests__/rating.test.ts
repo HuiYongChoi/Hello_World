@@ -65,6 +65,26 @@ describe('공고 별점', () => {
     }
   });
 
+  /**
+   * 별 세 개를 보면 "기준이 뭔데" 가 바로 따라옵니다. 기준을 안 적으면 별점은
+   * 분위기가 되고, 분위기는 검증할 수 없습니다.
+   */
+  it('축마다 별점 기준이 붙습니다 — 별 개수가 몇 개부터인지', () => {
+    for (const a of rate().axes) {
+      expect(a.scale.length).toBeGreaterThan(10);
+      expect(a.scale).toContain('★');
+    }
+    const lockup = rate().axes.find((a) => a.id === 'lockup')!;
+    expect(lockup.scale).toContain('개월');
+  });
+
+  /** 라벨과 문장이 붙어 "분양가가 기준가의 2.8배" 처럼 주어가 있어야 읽힙니다. */
+  it('분양가 문장에 주어가 있습니다', () => {
+    const price = rate().axes.find((a) => a.id === 'price')!;
+    expect(price.headline).toMatch(/분양가가/);
+    expect(price.headline).toMatch(/쌉니다|비쌉니다|배입니다|표본/);
+  });
+
   /** 경쟁률이 없는 주택형에 별 3개를 주면 그것도 판정으로 읽힙니다. */
   it('경쟁률이 없으면 별을 주지 않습니다', () => {
     const noRate = NOTICES.flatMap((n) => n.models.map((m) => ({ n, m }))).find(

@@ -129,14 +129,28 @@ function Stars({ n }: { n: number | null }) {
 function AxisCard({ axis }: { axis: RatingAxis }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[11px] font-medium text-slate-200">
-          {axis.label}
-          <span className="ml-1 text-[10px] text-slate-600">{axis.question}</span>
-        </span>
-        <Stars n={axis.stars} />
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-xs font-semibold text-slate-100">{axis.label}</div>
+          {/*
+            질문이 라벨 옆에 붙어 있으면 "분양가이 값이 싼가" 로 읽힙니다.
+            줄을 나누고 명도를 올려 별개의 문장으로 보이게 합니다.
+          */}
+          <div className="mt-0.5 text-[11px] text-slate-400">{axis.question}</div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Stars n={axis.stars} />
+          {/* 별 옆에 기준을 바로 붙입니다 — "기준이 뭔데" 가 곧바로 따라옵니다. */}
+          <span
+            title={axis.scale}
+            aria-label={axis.scale}
+            className="cursor-help rounded-full border border-slate-700 px-1 text-[10px] leading-4 text-slate-500 transition hover:border-sky-500/60 hover:text-sky-300"
+          >
+            ⓘ
+          </span>
+        </div>
       </div>
-      <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{axis.headline}</p>
+      <p className="mt-1.5 text-[11px] leading-relaxed text-slate-300">{axis.headline}</p>
       <Foldable summary={`왜 이 별점인가 · ${axis.label}`} count={axis.reasons.length}>
         <ul className="space-y-1">
           {axis.reasons.map((r) => (
@@ -166,6 +180,12 @@ function NoticePicker({
    * 고르는 자리에서 넣고, 넣는 즉시 별점이 움직이게 둡니다.
    */
   const [terms, setTerms] = useState<RatingTerms>(() => defaultTerms('changwon'));
+  /*
+   * 자금 부담은 가구 프로필에 딸린 축이라 공고를 고르는 단계에서는 늘 필요하진
+   * 않습니다. 기본은 접어 두고 필요할 때만 켭니다 — 나머지 셋은 공고 자체의
+   * 성질이라 항상 보입니다.
+   */
+  const [showCash, setShowCash] = useState(false);
   const patchTerms = (patch: Partial<RatingTerms>) => setTerms((t) => ({ ...t, ...patch }));
 
   const list = useMemo(() => notices({ region }), [region]);
@@ -359,10 +379,19 @@ function NoticePicker({
                 <span className="text-[10px] text-slate-600">{rating.scope} 대비</span>
               </div>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {rating.axes.map((a) => (
-                  <AxisCard key={a.id} axis={a} />
-                ))}
+                {rating.axes
+                  .filter((a) => a.id !== 'cash' || showCash)
+                  .map((a) => (
+                    <AxisCard key={a.id} axis={a} />
+                  ))}
               </div>
+              <button
+                type="button"
+                onClick={() => setShowCash((v) => !v)}
+                className="mt-2 text-[11px] text-slate-500 underline decoration-dotted underline-offset-2 transition hover:text-slate-300"
+              >
+                {showCash ? '자금 부담 축 숨기기' : '자금 부담 축도 보기 (가구 프로필 기준)'}
+              </button>
               {/*
                 합치지 않는 이유를 화면에도 적습니다. 별을 넷 그려 놓으면
                 사람은 자동으로 평균을 냅니다.
