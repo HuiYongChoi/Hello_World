@@ -6,6 +6,7 @@ import {
   Empty,
   Field,
   Foldable,
+  InfoPopover,
   MoneyInput,
   NumberInput,
   Select,
@@ -140,14 +141,40 @@ function AxisCard({ axis }: { axis: RatingAxis }) {
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <Stars n={axis.stars} />
-          {/* 별 옆에 기준을 바로 붙입니다 — "기준이 뭔데" 가 곧바로 따라옵니다. */}
-          <span
-            title={axis.scale}
-            aria-label={axis.scale}
-            className="cursor-help rounded-full border border-slate-700 px-1 text-[10px] leading-4 text-slate-500 transition hover:border-sky-500/60 hover:text-sky-300"
-          >
-            ⓘ
-          </span>
+          {/*
+            아이콘 둘 — 왼쪽은 "몇이면 별 몇 개인가", 오른쪽은 "그 값이 어디서
+            나왔나". 별만 보면 둘 다 곧바로 궁금해집니다.
+          */}
+          <InfoPopover icon="★" label={`${axis.label} — 별점 구간`}>
+            <span className="block space-y-0.5">
+              {axis.bands.map((b) => (
+                <span
+                  key={b.stars}
+                  className={`flex items-baseline justify-between gap-2 rounded px-1 py-0.5 text-[10px] ${
+                    b.current ? 'bg-sky-500/15 text-sky-200' : 'text-slate-400'
+                  }`}
+                >
+                  <span className="shrink-0 text-amber-300/80">{'★'.repeat(b.stars)}</span>
+                  <span className="text-right leading-snug">{b.range}</span>
+                </span>
+              ))}
+              <span className="block pt-1 text-[10px] text-slate-600">
+                파란 줄이 이 공고가 든 구간입니다.
+              </span>
+            </span>
+          </InfoPopover>
+          <InfoPopover icon="ƒ" label={`${axis.label} — 어떻게 계산했나`}>
+            <span className="block text-[10px] leading-relaxed text-slate-300">
+              {axis.formula.expression}
+            </span>
+            <span className="mt-1.5 block space-y-0.5">
+              {axis.formula.steps.map((st) => (
+                <span key={st} className="block text-[10px] leading-relaxed text-slate-500">
+                  · {st}
+                </span>
+              ))}
+            </span>
+          </InfoPopover>
         </div>
       </div>
       <p className="mt-1.5 text-[11px] leading-relaxed text-slate-300">{axis.headline}</p>

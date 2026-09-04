@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
 
 export function Card({
@@ -464,6 +465,68 @@ export function Stat({
       <div className={`mt-1 text-lg font-semibold tabular-nums ${color}`}>{value}</div>
       {hint && <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div>}
     </div>
+  );
+}
+
+/**
+ * 작은 설명 팝오버.
+ *
+ * `title` 속성에 기대면 **브라우저가 안 띄우는 경우가 있고**, 여러 줄·표를 담을
+ * 수도 없습니다. 별점 기준처럼 "구간표" 를 보여줘야 하는 자리에는 직접 그린
+ * 패널이 필요합니다.
+ *
+ * 마우스를 올리면 열리고 클릭으로 고정합니다 — 터치 기기에서는 hover 가
+ * 없으므로 클릭이 유일한 길입니다.
+ */
+export function InfoPopover({
+  icon,
+  label,
+  children,
+  align = 'right',
+}: {
+  icon: ReactNode;
+  label: string;
+  children: ReactNode;
+  align?: 'left' | 'right';
+}) {
+  const [pinned, setPinned] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const open = pinned || hovered;
+
+  return (
+    <span
+      className="relative inline-block no-print"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <button
+        type="button"
+        aria-label={label}
+        onClick={(e) => {
+          e.stopPropagation();
+          setPinned((v) => !v);
+        }}
+        className={`flex h-4.5 w-4.5 items-center justify-center rounded-full border text-[10px] leading-none transition ${
+          open
+            ? 'border-sky-500/60 bg-sky-500/15 text-sky-300'
+            : 'border-slate-700 text-slate-500 hover:border-sky-500/60 hover:text-sky-300'
+        }`}
+      >
+        {icon}
+      </button>
+      {open && (
+        <span
+          className={`absolute top-6 z-30 block w-72 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-left shadow-xl ${
+            align === 'right' ? 'right-0' : 'left-0'
+          }`}
+        >
+          <span className="mb-1.5 block text-[10px] font-medium tracking-wide text-slate-500">
+            {label}
+          </span>
+          {children}
+        </span>
+      )}
+    </span>
   );
 }
 

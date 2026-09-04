@@ -50,14 +50,32 @@ export interface RatingAxis {
   /** 이 축이 못 말하는 것 */
   caveat: string;
   /**
-   * **별을 어떻게 나눴는가.**
+   * **별을 어떻게 나눴는가** — 별 개수마다 어떤 값 구간인지.
    *
-   * 별 세 개를 보고 "기준이 뭔데" 가 바로 따라옵니다. 기준을 안 적으면 별점은
-   * 그냥 분위기가 되고, 분위기는 검증할 수 없습니다.
+   * 별 세 개를 보면 "몇 개월이 별 몇 개인데" 가 바로 따라옵니다. 문장 하나로
+   * 뭉뚱그리면 읽는 사람이 자기 값을 어디에 놓아야 할지 못 찾습니다. 구간을
+   * 표로 내고 **지금 값이 든 칸을 표시**합니다.
    */
-  scale: string;
+  bands: RatingBand[];
+  /** 이 별점이 어떤 식에서 나왔는가 — 식과 대입값 */
+  formula: RatingFormula;
   /** 비교에 쓴 표본 수 */
   n: number;
+}
+
+export interface RatingBand {
+  stars: number;
+  /** 이 별을 받는 값 구간 — "48개월 이하" */
+  range: string;
+  /** 지금 값이 이 구간에 드는가 */
+  current: boolean;
+}
+
+export interface RatingFormula {
+  /** 한 줄 식 */
+  expression: string;
+  /** 실제로 대입한 값들 */
+  steps: string[];
 }
 
 export interface OfferingRating {
@@ -99,6 +117,11 @@ function marginPhrase(margin: number): string {
   if (margin > 0) return `분양가가 ${percent(margin, 1)} 쌉니다`;
   if (margin >= -0.5) return `분양가가 ${percent(-margin, 1)} 비쌉니다`;
   return `분양가가 기준가의 ${(1 - margin).toFixed(1)}배입니다`;
+}
+
+/** 별 5→1 구간표. `hit` 이 지금 값의 별 개수입니다. */
+function bandsOf(ranges: [string, string, string, string, string], hit: number | null): RatingBand[] {
+  return ranges.map((range, i) => ({ stars: 5 - i, range, current: hit === 5 - i }));
 }
 
 /** 값이 클수록 좋은 축의 별점 — 구간 경계는 위에서부터 5개입니다. */
@@ -195,18 +218,73 @@ function priceAxis(input: RatingInput): RatingAxis {
       district === null
         ? '주소에서 시군구를 특정하지 못해 권역 전체와 비교했습니다 — 동네가 섞여 있습니다.'
         : '분양가는 공고 기준 최고가입니다. 발코니 확장·옵션이 빠져 있어 실제 계약금액은 더 큽니다.',
-    scale:
-      '네 기준(주변 실거래·신축 하한·입주 시점 예상가·주변 분양권) 마진의 중위로 나눕니다. ' +
-      '25% 이상 싸면 ★5 · 15% ★4 · 5% ★3 · −5% 까지 ★2 · 그보다 비싸면 ★1.',
+    bands: bandsOf(
+      [
+        '네 기준 중위보다 25% 이상 쌈',
+        '15~25% 쌈',
+        '5~15% 쌈',
+        '5% 쌈 ~ 5% 비쌈 (엇비슷)',
+        '5% 넘게 비쌈',
+      ],
+      stars
+    ),
+    formula: {
+      expression: '마진 = (기준가 − 분양가) ÷ 기준가 · 네 기준의 중위로 별을 매깁니다',
+      steps: [
+        `분양가 ${money(model.price)} (전용 ${model.areaSqm}㎡ · ㎡당 ${money(Math.round(perSqm))})`,
+        ...(appraisal?.benchmarks ?? []).map((b) =>
+          b.value === null
+            ? `${b.label} — 표본 없음`
+            : `${b.label} ${money(Math.round(b.value))} → ${marginPhrase(b.margin ?? 0)}`
+        ),
+        margin === null
+          ? '값이 나온 기준이 없어 청약끼리만 견줬습니다.'
+          : `네 기준의 중위 = ${marginPhrase(margin)}`,
+      ],
+    },
     n: appraisal?.benchmarks.filter((b) => b.value !== null).length ?? 0,
   };
 }
 
 /* ── 축 2. 당첨 가능성 ─────────────────────────────────────────────── */
 
-const COMPETITION_SCALE =
-  '같은 권역 주택형들의 1순위 경쟁률 분포에서 낮은 쪽일수록 별이 많습니다. ' +
-  '1순위 미달이면 ★5 · 하위 25% 안이면 ★4 · 45% ★3 · 65% ★2 · 그보다 경쟁이 세면 ★1.';
+/**
+ * 경쟁률 구간표 — **실제 배수로** 적습니다.
+ *
+ * "하위 25% 안이면 ★4" 는 자기 공고를 어디에 놓아야 할지 알 수 없습니다.
+ * 그 권역 분포의 실제 경쟁률로 바꿔 "1.2 : 1 이하면 ★4" 라고 적어야
+ * 손에 든 숫자와 바로 견줄 수 있습니다.
+ */
+/**
+ * 경쟁률 구간표 — **실제 배수로**, 그리고 **미달을 뺀 표본**으로 적습니다.
+ *
+ * "하위 25% 안이면 ★4" 는 자기 공고를 어디에 놓아야 할지 알 수 없습니다.
+ * 그렇다고 미달까지 섞어 분위수를 내면 창원처럼 미달이 46% 인 권역에서는
+ * 하위 분위가 전부 1 아래로 내려가, "미달 아님 ~ 0.1 : 1" 같은 있을 수 없는
+ * 구간이 나옵니다. **미달은 이미 ★5 한 칸을 차지하므로**, 나머지 네 칸은
+ * 미달이 아닌 표본 안에서 나눕니다.
+ */
+function competitionBands(peers: number[], hit: number | null): RatingBand[] {
+  const sorted = peers.filter((r) => r >= 1).sort((a, b) => a - b);
+  const at = (q: number) =>
+    sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * q))] : null;
+  const fmt = (v: number) => `${v.toFixed(1)} : 1`;
+
+  const edges = [0.25, 0.5, 0.75].map(at);
+  const range = (lo: number | null, hi: number | null, tail: string) =>
+    lo === null || hi === null ? '표본 없음' : `${fmt(lo)} ~ ${fmt(hi)}${tail}`;
+
+  return bandsOf(
+    [
+      '1순위 미달 (1 : 1 미만)',
+      range(1, edges[0], ' — 붙은 것들 중에서도 경쟁이 약한 축'),
+      range(edges[0], edges[1], ''),
+      range(edges[1], edges[2], ''),
+      edges[2] === null ? '표본 없음' : `${fmt(edges[2])} 초과 — 권역에서 경쟁이 센 축`,
+    ],
+    hit
+  );
+}
 
 function competitionAxis(input: RatingInput): RatingAxis {
   const { notice, model } = input;
@@ -237,18 +315,37 @@ function competitionAxis(input: RatingInput): RatingAxis {
         '이 주택형의 경쟁률이 스냅샷에 없어 별을 주지 않습니다. 같은 권역 분포만 참고하세요.',
       ],
       caveat: '경쟁률은 당첨 확률이 아닙니다. 가점제·추첨제·특별공급이 섞여 있습니다.',
-      scale: COMPETITION_SCALE,
+      bands: competitionBands(peers, null),
+      formula: {
+        expression: '경쟁률 = 1순위 접수건수 ÷ 공급세대',
+        steps: [
+          '이 주택형은 아직 접수 전이거나 집계 전이라 분자가 없습니다.',
+          stats
+            ? `같은 권역 주택형 ${stats.n}개의 중위는 ${stats.median.toFixed(1)} : 1 입니다.`
+            : '같은 권역 표본도 없습니다.',
+        ],
+      },
       n: peers.length,
     };
   }
 
-  // 경쟁률이 낮을수록 붙기 쉽습니다 — 낮은 쪽이 별이 많습니다.
-  const pct = percentileOf(peers, rate);
-  const stars = rate < 1 ? 5 : starsByThreshold(1 - pct, [0.75, 0.55, 0.35, 0.15]);
+  /*
+   * 미달은 그 자체로 한 칸(★5)이므로, 나머지는 **미달이 아닌 표본 안에서**
+   * 순위를 매깁니다. 미달까지 섞어 백분위를 내면 1.3 : 1 같은 값이 "권역
+   * 46% 지점" 이 되는데, 그 46% 는 대부분 미달이라 견줄 대상이 아닙니다.
+   */
+  const contested = peers.filter((r) => r >= 1);
+  const pct = percentileOf(contested, rate);
+  /*
+   * ★5 는 미달이 통째로 차지합니다. 미달이 아닌 것은 아무리 경쟁이 약해도
+   * ★4 가 상한이어야 표와 별이 어긋나지 않습니다 — 표에는 "★5 = 미달" 이라
+   * 적어 놓고 1.3 : 1 에 ★5 를 주면 읽는 사람이 둘을 못 맞춥니다.
+   */
+  const stars = rate < 1 ? 5 : pct <= 0.25 ? 4 : pct <= 0.5 ? 3 : pct <= 0.75 ? 2 : 1;
   reasons.unshift(
     rate < 1
       ? `이 주택형은 1순위 미달이었습니다 (${rate.toFixed(2)} : 1) — 접수만 하면 되는 구간입니다.`
-      : `이 주택형 1순위 ${rate.toFixed(1)} : 1 — 같은 권역 주택형 ${peers.length}개 중 아래에서 ${percent(pct, 0)} 지점입니다.`
+      : `이 주택형 1순위 ${rate.toFixed(1)} : 1 — 미달이 아닌 주택형 ${contested.length}개 중 아래에서 ${percent(pct, 0)} 지점입니다.`
   );
 
   return {
@@ -259,11 +356,19 @@ function competitionAxis(input: RatingInput): RatingAxis {
     headline:
       rate < 1
         ? '1순위 미달 — 이 권역에서 가장 붙기 쉬운 쪽'
-        : `1순위 ${rate.toFixed(1)} : 1 — 권역 ${percent(pct, 0)} 지점`,
+        : `1순위 ${rate.toFixed(1)} : 1 — 미달 아닌 것들 중 ${percent(pct, 0)} 지점`,
     reasons,
     caveat:
       '경쟁률이 낮다고 좋은 물건이라는 뜻이 아닙니다 — 시장이 덜 평가했다는 뜻이기도 합니다. 분양가 축과 같이 보세요.',
-    scale: COMPETITION_SCALE,
+    bands: competitionBands(peers, stars),
+    formula: {
+      expression: '경쟁률 = 1순위 접수건수 ÷ 공급세대 · 같은 권역 분포에서의 위치로 별을 매깁니다',
+      steps: [
+        `1순위 접수 ${model.rank1Req.toLocaleString('ko-KR')}건 ÷ 공급 ${model.rank1Supply}세대 = ${rate.toFixed(2)} : 1`,
+        `미달이 아닌 주택형 ${contested.length}개 중 아래에서 ${percent(pct, 0)} 지점 (미달 ${peers.length - contested.length}개는 ★5 칸으로 따로 셉니다)`,
+        rate < 1 ? '1 미만은 미달입니다 — 접수 자체가 공급세대에 못 미쳤습니다.' : '숫자가 낮을수록 붙기 쉽습니다.',
+      ],
+    },
     n: peers.length,
   };
 }
@@ -324,9 +429,26 @@ function cashAxis(input: RatingInput): RatingAxis {
     reasons,
     caveat:
       '계약금은 대출이 안 됩니다. 청약의 진짜 문턱은 분양가가 아니라 이 돈과 대기 중 살 집 보증금입니다.',
-    scale:
-      '계약 시점에 나가는 현금이 가용현금에서 얼마나 남기는지로 나눕니다. ' +
-      '절반 이상 남으면 ★5 · 30% ★4 · 10% ★3 · 딱 맞으면 ★2 · 모자라면 ★1.',
+    bands: bandsOf(
+      [
+        `계약 때 ${money(Math.round(availableCash * 0.5))} 이하 (현금의 절반 이상 남음)`,
+        `${money(Math.round(availableCash * 0.7))} 이하 (30% 남음)`,
+        `${money(Math.round(availableCash * 0.9))} 이하 (10% 남음)`,
+        `${money(Math.round(availableCash))} 이하 (딱 맞음)`,
+        `${money(Math.round(availableCash))} 초과 — 모자람`,
+      ],
+      stars
+    ),
+    formula: {
+      expression: '여유 = (가용현금 − 계약 때 나가는 현금) ÷ 가용현금',
+      steps: [
+        `계약금 ${money(res.downPayment)} + 대기 중 살 집 보증금 자기부담 ${money(res.waitDeposit)} = ${money(res.initialOutlay)}`,
+        `(${money(availableCash)} − ${money(res.initialOutlay)}) ÷ ${money(availableCash)} = ${percent(slack, 0)}`,
+        terms.interimDeferred
+          ? `중도금 이자 ${money(res.interimInterest)}는 이자후불이라 이 계산에 안 들어가고 입주 때 붙습니다.`
+          : `중도금 이자 ${money(res.interimInterest)}는 대기 기간에 매달 나갑니다.`,
+      ],
+    },
     n: 0,
   };
 }
@@ -366,9 +488,26 @@ function lockupAxis(input: RatingInput): RatingAxis {
     reasons,
     caveat:
       '묶인다고 손해는 아닙니다 — 그 기간에 오르면 그대로 가져갑니다. 다만 마음이 바뀌어도 못 판다는 뜻이라 유동성 제약으로 봅니다.',
-    scale:
-      '입주까지 걸리는 기간 + 전매제한을 더한 총 개월로 나눕니다. ' +
-      '24개월 이하 ★5 · 36개월 ★4 · 48개월 ★3 · 60개월 ★2 · 그보다 길면 ★1.',
+    bands: bandsOf(
+      [
+        '24개월 이하 (2년)',
+        '25~36개월 (3년)',
+        '37~48개월 (4년)',
+        '49~60개월 (5년)',
+        '60개월 초과',
+      ],
+      stars
+    ),
+    formula: {
+      expression: '총 묶임 = 입주까지 걸리는 기간 + 전매제한',
+      steps: [
+        `계약 ${notice.contractDate || '—'} → 입주예정 ${
+          notice.moveInYm ? `${notice.moveInYm.slice(0, 4)}.${notice.moveInYm.slice(4)}` : '—'
+        } = ${wait}개월`,
+        `+ 전매제한 ${terms.resaleBanMonths}개월 = ${total}개월`,
+        `${total}개월은 ${stars === 5 ? '24개월 이하' : stars === 4 ? '25~36개월' : stars === 3 ? '37~48개월' : stars === 2 ? '49~60개월' : '60개월 초과'} 구간이라 별 ${stars}개입니다.`,
+      ],
+    },
     n: peers.length,
   };
 }

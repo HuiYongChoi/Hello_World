@@ -69,13 +69,45 @@ describe('공고 별점', () => {
    * 별 세 개를 보면 "기준이 뭔데" 가 바로 따라옵니다. 기준을 안 적으면 별점은
    * 분위기가 되고, 분위기는 검증할 수 없습니다.
    */
-  it('축마다 별점 기준이 붙습니다 — 별 개수가 몇 개부터인지', () => {
+  it('축마다 별 5~1 구간표가 붙고 지금 값이 든 칸이 표시됩니다', () => {
     for (const a of rate().axes) {
-      expect(a.scale.length).toBeGreaterThan(10);
-      expect(a.scale).toContain('★');
+      expect(a.bands.map((b) => b.stars)).toEqual([5, 4, 3, 2, 1]);
+      for (const b of a.bands) expect(b.range.length).toBeGreaterThan(0);
+      const current = a.bands.filter((b) => b.current);
+      // 별을 못 매기는 축은 표시할 칸도 없습니다.
+      expect(current.length).toBe(a.stars === null ? 0 : 1);
+      if (a.stars !== null) expect(current[0].stars).toBe(a.stars);
+    }
+  });
+
+  it('묶이는 기간 구간표는 개월로 적습니다 — 백분위로 적으면 자기 값을 못 놓습니다', () => {
+    const lockup = rate().axes.find((a) => a.id === 'lockup')!;
+    for (const b of lockup.bands) expect(b.range).toContain('개월');
+  });
+
+  it('당첨 가능성 구간표는 실제 경쟁률로 적습니다', () => {
+    const comp = rate().axes.find((a) => a.id === 'competition')!;
+    expect(comp.bands[0].range).toContain('미달');
+    expect(comp.bands.slice(1).some((b) => b.range.includes(': 1'))).toBe(true);
+  });
+
+  it('축마다 계산식과 대입값이 붙습니다', () => {
+    for (const a of rate().axes) {
+      expect(a.formula.expression.length).toBeGreaterThan(5);
+      expect(a.formula.steps.length).toBeGreaterThan(0);
     }
     const lockup = rate().axes.find((a) => a.id === 'lockup')!;
-    expect(lockup.scale).toContain('개월');
+    expect(lockup.formula.expression).toContain('전매제한');
+    expect(lockup.formula.steps.join(' ')).toContain('별');
+  });
+
+  /** 네 기준이 무엇인지 이름이 나와야 "네 기준" 이 말이 됩니다. */
+  it('분양가 계산식이 네 기준을 하나씩 풉니다', () => {
+    const price = rate().axes.find((a) => a.id === 'price')!;
+    const text = price.formula.steps.join(' ');
+    for (const name of ['주변 실거래', '신축 하한', '입주 시점 예상가', '주변 분양권']) {
+      expect(text).toContain(name);
+    }
   });
 
   /** 라벨과 문장이 붙어 "분양가가 기준가의 2.8배" 처럼 주어가 있어야 읽힙니다. */
@@ -100,6 +132,43 @@ describe('공고 별점', () => {
     }).axes.find((a) => a.id === 'competition')!;
     expect(axis.stars).toBeNull();
     expect(axis.headline).toContain('경쟁률이 없습니다');
+  });
+
+  /**
+   * ★5 는 미달이 통째로 차지합니다. 표에 "★5 = 미달" 이라 적어 놓고 미달이
+   * 아닌 공고에 ★5 를 주면 표와 별이 어긋납니다.
+   */
+  it('미달이 아니면 당첨 가능성은 ★4 가 상한입니다', () => {
+    for (const n of NOTICES.slice(0, 60)) {
+      for (const m of n.models) {
+        if (m.rank1Rate === null || m.rank1Rate < 1) continue;
+        const axis = rateOffering({
+          notice: n,
+          model: m,
+          terms,
+          availableCash: 200000000,
+          termYears: 30,
+        }).axes.find((a) => a.id === 'competition')!;
+        expect(axis.stars).toBeLessThanOrEqual(4);
+      }
+    }
+  });
+
+  it('별과 구간표가 어긋나지 않습니다 — 표시된 칸이 곧 그 별입니다', () => {
+    for (const n of NOTICES.slice(0, 40)) {
+      for (const a of rateOffering({
+        notice: n,
+        model: n.models[0],
+        terms,
+        availableCash: 200000000,
+        termYears: 30,
+      }).axes) {
+        if (a.stars === null) continue;
+        const marked = a.bands.filter((b) => b.current);
+        expect(marked).toHaveLength(1);
+        expect(marked[0].stars).toBe(a.stars);
+      }
+    }
   });
 
   it('1순위 미달이면 당첨 가능성이 만점입니다', () => {
