@@ -216,6 +216,14 @@ function NoticePicker({
   const patchTerms = (patch: Partial<RatingTerms>) => setTerms((t) => ({ ...t, ...patch }));
 
   const list = useMemo(() => notices({ region }), [region]);
+  // 스냅샷 기준일과 그 권역 최신 공고일의 간격 — 목록이 낡아 보이는 이유를 가릅니다.
+  const staleDays = useMemo(() => {
+    if (!list.length) return null;
+    const days =
+      (new Date(APPLYHOME.asOf).getTime() - new Date(list[0].noticeDate).getTime()) /
+      86400000;
+    return Math.max(0, Math.round(days));
+  }, [list]);
   const notice: OfferingNotice | null =
     list.find((n) => n.id === noticeId) ?? list[0] ?? null;
   const model =
@@ -255,7 +263,14 @@ function NoticePicker({
             options={REGION_OPTIONS}
           />
         </Field>
-        <Field label="공고" hint={`${list.length}건 · 최근 순`}>
+        <Field
+          label="공고"
+          hint={
+            list.length
+              ? `${list.length}건 · 최근 순 · 최신 ${list[0].noticeDate}`
+              : '이 권역 공고 없음'
+          }
+        >
           <Select<string>
             value={notice?.id ?? ''}
             onChange={(v) => {
@@ -287,6 +302,19 @@ function NoticePicker({
           />
         </Field>
       </div>
+
+      {/*
+        목록이 오래돼 보이면 "기능이 사라졌나" 로 읽힙니다. 그 권역에 새 공고가
+        없는 것과 스냅샷이 낡은 것은 다른 문제라, 최신 공고일과 수집 기준일을
+        나란히 적어 어느 쪽인지 바로 가려집니다.
+      */}
+      {staleDays !== null && staleDays > 45 && (
+        <p className="text-[11px] leading-relaxed text-amber-300/90">
+          이 권역은 <b>{list[0].noticeDate}</b> 이후 새 공고가 없습니다 (수집 기준{' '}
+          {APPLYHOME.asOf} · {staleDays}일째). 목록이 비는 게 아니라 그동안 이 권역에
+          분양 공고가 나오지 않았다는 뜻입니다.
+        </p>
+      )}
 
       {notice && model && (
         <div className="rounded-xl border border-slate-800 bg-slate-900/30 px-4 py-3">

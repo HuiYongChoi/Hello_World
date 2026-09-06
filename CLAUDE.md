@@ -23,7 +23,7 @@ src/data/regions.json    ← 수집 대상·후보군과 그 이유 (수집 스�
 src/data/market-YYYY-MM.json ← 매매 실거래 스냅샷 (빌드 타임 수집, 손대지 말 것)
 src/data/rent-YYYY-MM.json   ← 전월세에서 잰 전세가율·전환율
 src/data/presale-YYYY-MM.json ← 분양권전매 실거래 스냅샷
-src/data/applyhome-YYYY-MM.json ← 청약홈 공고·주택형·1순위 경쟁률
+src/data/applyhome-YYYY-MM.json ← 청약홈 공고·주택형·1순위 경쟁률 (엔진 import 파일명 고정)
 src/data/index-*.json · rates-*.json ← KRX·FRED·ECOS 지수와 금리
 src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상.
   rules.ts       룰셋 로더, 지역·규제지역 판정
@@ -453,6 +453,16 @@ node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 
 
 당첨 확률은 내지 않습니다 — 가점제·추첨제·특별공급 유형이 섞여 있어 경쟁률
 분포까지가 이 자료로 말할 수 있는 전부입니다.
+
+**목록이 낡아 보이는 두 가지 이유를 화면에서 갈라 줍니다.** 스냅샷이 오래된
+것과 그 권역에 새 공고가 없는 것은 다른 문제인데, 구분이 안 되면 "기능이
+사라졌나" 로 읽힙니다. 공고 선택 옆에 **그 권역 최신 공고일**을 적고, 수집
+기준일과 45일 넘게 벌어지면 "이 권역은 ○○ 이후 새 공고가 없습니다 (수집 기준
+△△ · N일째)" 를 띄웁니다. 실제로 창원은 2026-07-16 이후 52일째 신규 공고가
+없고, 부산도 07-30 이 마지막입니다 — 경기만 09-04 에 새 공고가 들어왔습니다.
+
+스냅샷은 `npm run fetch:applyhome` 으로 갱신하고, 파일명이 `applyhome-YYYY-MM`
+이라 달이 바뀌면 **`applyhome.ts` 의 import 를 같이 고쳐야** 합니다.
 
 ### 공고 별점 — 고르는 자리에서 바로
 

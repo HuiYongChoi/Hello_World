@@ -30,7 +30,7 @@
  * 경고하게 둡니다.
  */
 
-import applyhomeSnapshot from '../data/applyhome-2026-08.json';
+import applyhomeSnapshot from '../data/applyhome-2026-09.json';
 import { DISTRICTS, type DistrictEntry } from './regions';
 import type { SubscriptionPlan } from './subscription';
 import type { RegionId } from './types';
