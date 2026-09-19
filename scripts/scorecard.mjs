@@ -86,7 +86,13 @@ check('구조', 7, '겹치는 화면이 제거됨', () => {
 });
 
 check('구조', 7, '아무도 부르지 않는 화면 파일이 없음', () => {
-  const entry = new Set(['src/main.tsx', 'src/App.tsx', 'src/index.css']);
+  // 사이트가 둘이라 진입점도 둘입니다.
+  const entry = new Set([
+    'src/main.tsx',
+    'src/App.tsx',
+    'src/index.css',
+    'src/rent-main.tsx',
+  ]);
   const orphans = [];
   for (const [path] of text) {
     if (entry.has(path) || path.startsWith('src/engine/')) continue;
@@ -101,12 +107,15 @@ check('구조', 7, '아무도 부르지 않는 화면 파일이 없음', () => {
     : { ok: false, detail: `고아: ${orphans.join(', ')}` };
 });
 
-check('구조', 7, '엔진이 UI 를 모름', () => {
+check('구조', 7, '계산이 UI 를 모름', () => {
+  // 두 사이트 모두 같은 규율입니다 — 계산은 화면 없이 테스트할 수 있어야 합니다.
+  const pure = ['src/engine/', 'src/rentfinder/data.ts', 'src/rentfinder/finder.ts'];
   const bad = [...text].filter(
-    ([path, body]) => path.startsWith('src/engine/') && /from 'react|\.tsx'/.test(body)
+    ([path, body]) =>
+      pure.some((p) => path.startsWith(p)) && /from 'react|\.tsx'/.test(body)
   );
   return bad.length === 0
-    ? { ok: true, detail: 'engine/ 에 React import 0건' }
+    ? { ok: true, detail: 'engine/ · rentfinder 계산부에 React import 0건' }
     : { ok: false, detail: bad.map(([p]) => p).join(', ') };
 });
 
@@ -179,29 +188,46 @@ check('검증', 10, '엔진 단위 테스트 전부 통과', () => {
 });
 
 // ── 산출물 ───────────────────────────────────────────────────────────
-check('산출물', 8, '단일 HTML 로 빌드됨', () => {
+check('산출물', 8, '두 사이트가 각각 단일 HTML 로 빌드됨', () => {
   if (FAST) return { ok: true, detail: '건너뜀(--fast)', skipped: true };
-  const r = run('npm run deploy:realty');
-  const out = join(ROOT, 'realty/index.html');
-  if (!r.ok || !existsSync(out)) {
-    return { ok: false, detail: r.out.trim().split('\n').slice(-3).join(' / ') };
+  const sites = [
+    { cmd: 'npm run deploy:realty', out: 'realty/index.html' },
+    { cmd: 'npm run deploy:rent', out: 'hyrent/index.html' },
+  ];
+  const parts = [];
+  for (const s of sites) {
+    const r = run(s.cmd);
+    const out = join(ROOT, s.out);
+    if (!r.ok || !existsSync(out)) {
+      return { ok: false, detail: `${s.out}: ${r.out.trim().split('\n').slice(-2).join(' / ')}` };
+    }
+    parts.push(`${s.out} ${Math.round(statSync(out).size / 1024)}KB`);
   }
-  const kb = Math.round(statSync(out).size / 1024);
-  return { ok: true, detail: `realty/index.html ${kb}KB` };
+  return { ok: true, detail: parts.join(' · ') };
 });
 
 check('산출물', 5, 'charset 이 첫 1024바이트 안 · 외부 요청 0건', () => {
-  const out = join(ROOT, 'realty/index.html');
-  if (!existsSync(out)) return { ok: false, detail: '빌드 산출물이 없습니다' };
+  const outs = ['realty/index.html', 'hyrent/index.html']
+    .map((p) => join(ROOT, p))
+    .filter((p) => existsSync(p));
+  if (outs.length < 2) return { ok: false, detail: '두 사이트 산출물이 다 있어야 합니다' };
+  const details = [];
+  for (const out of outs) {
   const buf = readFileSync(out);
   const head = buf.subarray(0, 1024).toString('utf8');
   const charsetOk = /charset/i.test(head);
   const html = buf.toString('utf8');
   // 외부에서 받아오는 태그만 봅니다. 본문 텍스트 안의 URL 은 요청이 아닙니다.
   const external = html.match(/<(?:script[^>]*\ssrc|link[^>]*\shref|img[^>]*\ssrc)=["']https?:/gi) ?? [];
-  return charsetOk && external.length === 0
-    ? { ok: true, detail: 'charset 선두 · 외부 태그 0건' }
-    : { ok: false, detail: `charset ${charsetOk} · 외부 태그 ${external.length}건` };
+    if (!charsetOk || external.length > 0) {
+      return {
+        ok: false,
+        detail: `${out.split('/').slice(-2).join('/')}: charset ${charsetOk} · 외부 태그 ${external.length}건`,
+      };
+    }
+    details.push(out.split('/').slice(-2).join('/'));
+  }
+  return { ok: true, detail: `${details.join(' · ')} — charset 선두 · 외부 태그 0건` };
 });
 
 /* ── 채점 ───────────────────────────────────────────────────────────── */

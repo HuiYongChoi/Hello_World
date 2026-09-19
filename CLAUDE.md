@@ -3,6 +3,14 @@
 `simulator/` 에 있는 React + TypeScript 앱이 이 저장소의 주 작업물입니다.
 루트의 `index.html` 은 무관한 옛 Hello World 파티클 페이지이니 건드리지 마세요.
 
+**사이트가 둘입니다.** 빌드·배포 파이프라인과 UI 컴포넌트는 나눠 쓰지만 앱은
+갈라 뒀습니다 — 묻는 질문이 다릅니다.
+
+```
+index.html  주택 매수 의사결정 시뮬레이터   살까 말까      → /hyrealty/
+rent.html   마산 전월세 찾기               지금 어디 살까  → /hyrent/
+```
+
 ## 이 도구가 존재하는 이유
 
 기존 부동산 계산기는 **대출과 물건을 따로 봅니다.** 그런데 두 축은 얽혀 있습니다.
@@ -24,6 +32,7 @@ src/data/market-YYYY-MM.json ← 매매 실거래 스냅샷 (빌드 타임 수�
 src/data/rent-YYYY-MM.json   ← 전월세에서 잰 전세가율·전환율
 src/data/presale-YYYY-MM.json ← 분양권전매 실거래 스냅샷
 src/data/applyhome-YYYY-MM.json ← 청약홈 공고·주택형·1순위 경쟁률 (엔진 import 파일명 고정)
+src/data/masan-rent-YYYY-MM.json ← 마산 생활권 아파트 전월세 실거래 (두 번째 사이트)
 src/data/index-*.json · rates-*.json ← KRX·FRED·ECOS 지수와 금리
 src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상.
   rules.ts       룰셋 로더, 지역·규제지역 판정
@@ -53,6 +62,10 @@ src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상
   presale.ts     분양권 프리미엄 (분양권 전매가 vs 준공 후 매매가)
   scoring.ts     입지 지표 정규화 + 지역별 가중치 프리셋
   matrix.ts      매트릭스 조립 + 3축 산점도 데이터
+src/rentfinder/          두 번째 사이트 — 마산 전월세 찾기
+  data.ts        전월세 스냅샷 로더 + 출퇴근 등급
+  finder.ts      조건 필터 + 월 환산 주거비 + 정렬 (UI 를 모릅니다)
+  RentFinderApp.tsx  화면 — 스토어를 공유하지 않습니다
 src/state/store.tsx      React 상태 + localStorage
 src/pages/               화면
 ```
@@ -208,10 +221,11 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 438건)
+npm test                 # 엔진 단위 테스트 (현재 460건)
 npm run scorecard        # 채점표 — 구조·연결·검증·산출물 100점 만점
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
+npm run deploy:rent      # 빌드 → 루트 hyrent/index.html (마산 전월세 찾기)
 npm run standalone       # dist/standalone.html — 골격 없는 조각 (아티팩트 호스트용)
 npm run fetch:market     # 국토부 매매 실거래가 → src/data/market-*.json
 npm run fetch:rent       # 국토부 전월세 실거래가 → src/data/rent-*.json
@@ -222,6 +236,7 @@ npm run fetch:dividend   # ECOS 코스피 배당수익률 → src/data/dividend.
 npm run fetch:population # 행안부 통계연보 지역별 인구 → src/data/population.json
 npm run fetch:repair     # K-apt 장기수선충당금 → src/data/repair.json
 npm run fetch:applyhome  # 청약홈 분양정보·경쟁률 → src/data/applyhome-*.json
+node ../scripts/fetch-masan-rent.mjs   # 마산 생활권 전월세 → src/data/masan-rent-*.json
 node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 룰셋
 ```
 
@@ -244,7 +259,10 @@ node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 
 | 대상 | 방법 | 주소 |
 |---|---|---|
 | GitHub Pages | `npm run deploy:realty` → 커밋·푸시 | `/Hello_World/realty/` |
-| 자체 AWS 서버 | `./scripts/deploy-aws.sh` | `<서버>/hyrealty/` |
+| 자체 AWS 서버 (매수) | `./scripts/deploy-aws.sh realty` | `<서버>/hyrealty/` |
+| 자체 AWS 서버 (전월세) | `./scripts/deploy-aws.sh rent` | `<서버>/hyrent/` |
+
+인자 없이 `./scripts/deploy-aws.sh` 를 돌리면 **둘 다** 올립니다.
 
 빌드 결과는 CSS·JS를 전부 인라인한 **외부 요청 0건의 단일 HTML** 입니다.
 그래서 경로에 무관하게 동작하고, 오프라인·파일 직접 열기도 됩니다.
@@ -585,6 +603,56 @@ CAGR 만 내면 진입시점이 감춰지므로 같은 보유기간의 분포를
 **표본은 서로 독립이 아닙니다.** 같은 칸의 2016Q1 진입과 2016Q2 진입은 보유기간이
 거의 겹칩니다. 표본이 1.4만 건이어도 독립 관측은 2,161칸에 가까우므로, 유의성
 검정을 붙이지 말고 분포와 재현 여부만 보세요.
+
+## 두 번째 사이트 — 마산 전월세 찾기
+
+집을 사기 전까지 살 집을 고르는 도구입니다. 함안·의령 지사 출퇴근을 전제로
+마산 생활권 투룸 이상 전월세를 좁힙니다. 매수 시뮬레이터와 **스토어를 공유하지
+않습니다** — 저기는 가구 프로필과 시나리오가 필요하고 여기는 예산과 지역만
+필요합니다.
+
+**전세와 월세를 한 자에 올립니다.**
+
+```
+월 환산 주거비 = 월세 + 보증금 × 기회비용률 ÷ 12
+```
+
+보증금은 없어지는 돈이 아니라 **묶이는 돈**입니다. 그 돈이 다른 데서 벌었을
+수익(전세대출을 썼다면 그 이자)이 실제 비용이고, 월로 펴야 월세와 견줄 수
+있습니다. 기회비용률이 이 화면에서 결론을 가장 많이 흔드는 값이라 화면에서
+바꿀 수 있게 두었습니다 (기본 4.2% — 전세대출 금리대).
+
+**매물이 아니라 체결된 계약입니다.** 국토부 신고 자료라 이미 나간 집들입니다.
+"이 단지 59㎡가 최근 얼마에 나갔나" 까지 답하고 "지금 빈 집이 있나" 는 답하지
+못합니다. 네이버 부동산은 공식 API 가 없고 약관상 크롤링이 금지돼 있어
+**시세로 후보를 좁히고 매물 확인은 사람이** 하는 구조입니다.
+
+### 자료로 못 답하는 것을 자료인 척하지 않습니다
+
+- **방 개수가 없습니다.** 전용면적으로 대신 재고(투룸 대리선 36㎡), 그렇게
+  적습니다.
+- **반려동물 가능 여부는 어느 공공자료에도 없습니다.** 단지별 메모 칸을 두고
+  관리사무소에 확인할 것을 목록으로 냅니다 — 엘리베이터·산책 동선·바닥재·주차.
+- **출퇴근 소요시간을 지어내지 않습니다.** 지도 API 가 없어 분 단위를 낼 수
+  없으므로 **방향 등급**(지사 소재지/가까움/보통/멂)과 근거 문장만 둡니다.
+  내서읍이 함안 칠원과 맞붙어 있다는 것은 사실이고, "22분" 은 지어낸 값입니다.
+
+### 얇은 표본이 1등으로 올라오면 안 됩니다
+
+거래 1건짜리 중위가는 시세가 아니라 **그 집 한 채 가격**입니다. 실제로 전세
+1건(3,000만)짜리가 목록 맨 위에 올라와 "이 단지가 제일 싸다" 로 읽혔습니다.
+최소 거래 건수를 **전세·월세 각각에** 겁니다 (기본 2건) — 평형 전체 건수로만
+걸면 "전세 1건 + 월세 6건" 평형에서 전세 1건이 그대로 대표 시세가 됩니다.
+
+부호를 문장으로 옮길 때 전제를 깔지 않습니다. 전세 보증금이 월세 보증금보다
+**작은** 단지가 실제로 있어(LH·구축 소형), "전세가 더 묶인다" 고 써 두면
+"−2,992만원 더 묶임" 이 나옵니다.
+
+### 함안·의령에는 살 집이 거의 없습니다
+
+아파트 전월세 거래가 함안 213건/2년, 의령 38건/2년입니다. 그래서 **마산에 살며
+그쪽으로 출퇴근** 하는 그림이 맞고, 두 군은 참고용으로만 담습니다. 0건이
+오류가 아니라 사실이므로 지역별 건수를 화면에 그대로 냅니다.
 
 ## 컨벤션
 
