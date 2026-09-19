@@ -120,11 +120,13 @@ check('구조', 7, '계산이 UI 를 모름', () => {
 });
 
 check('구조', 7, '화면이 룰셋 JSON 을 직접 읽지 않음', () => {
+  // 두 사이트 모두 같은 규율입니다 — 규정 수치는 계산부를 거쳐야 합니다.
+  const screens = (path) => path.startsWith('src/pages/') || /\.tsx$/.test(path);
   const bad = [...text].filter(
-    ([path, body]) => path.startsWith('src/pages/') && /from '.*rules\/\d{4}-\d{2}\.json'/.test(body)
+    ([path, body]) => screens(path) && /from '.*rules\/[\w-]*\d{4}-\d{2}\.json'/.test(body)
   );
   return bad.length === 0
-    ? { ok: true, detail: '정책 수치는 엔진 경유' }
+    ? { ok: true, detail: '정책 수치는 engine · rentfinder 계산부 경유' }
     : { ok: false, detail: bad.map(([p]) => p).join(', ') };
 });
 

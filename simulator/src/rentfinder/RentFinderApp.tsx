@@ -9,6 +9,7 @@ import {
   NumberInput,
   Select,
   Stat,
+  Toggle,
 } from '../components/ui';
 import { money, percent } from '../engine/format';
 import {
@@ -18,6 +19,14 @@ import {
   RENT_SNAPSHOT,
   type CommuteGrade,
 } from './data';
+import {
+  RENT_LOAN_CAVEATS,
+  RENT_LOAN_RULES,
+  adviseRentLoans,
+  compareRentLoans,
+  type Borrower,
+  type RentTarget,
+} from './loans';
 import {
   DEFAULT_INPUT,
   SORT_LABEL,
@@ -54,7 +63,32 @@ interface Saved {
   input: FinderInput;
   starred: string[];
   memos: Record<string, string>;
+  borrower: Borrower;
+  /** 대출을 계산할 대상 집 — 후보 카드에서 밀어 넣습니다 */
+  target: RentTarget;
 }
+
+/**
+ * 신청자 기본값.
+ *
+ * 나이·소득이 자격을 가르는 축이라 0으로 두면 전부 "자격 없음" 이 됩니다.
+ * 흔한 출발점을 넣어 두고 화면에서 고치게 합니다.
+ */
+const DEFAULT_BORROWER: Borrower = {
+  age: 32,
+  militaryServed: true,
+  married: false,
+  marriedYears: 0,
+  newbornWithin2y: false,
+  smeEmployed: false,
+  income: 40000000,
+  spouseIncome: 35000000,
+  netWorth: 80000000,
+  householder: true,
+  noHouse: true,
+};
+
+const DEFAULT_TARGET: RentTarget = { deposit: 60000000, rent: 0, areaSqm: 59 };
 
 function load(): Saved {
   if (typeof window !== 'undefined') {
@@ -66,13 +100,21 @@ function load(): Saved {
           input: { ...DEFAULT_INPUT, ...p.input },
           starred: p.starred ?? [],
           memos: p.memos ?? {},
+          borrower: { ...DEFAULT_BORROWER, ...p.borrower },
+          target: { ...DEFAULT_TARGET, ...p.target },
         };
       }
     } catch {
       // 손상된 저장값은 무시하고 기본 조건으로 시작합니다.
     }
   }
-  return { input: DEFAULT_INPUT, starred: [], memos: {} };
+  return {
+    input: DEFAULT_INPUT,
+    starred: [],
+    memos: {},
+    borrower: DEFAULT_BORROWER,
+    target: DEFAULT_TARGET,
+  };
 }
 
 /** 월 환산 주거비를 만원 단위로 — 이 화면의 공용 단위입니다. */
@@ -84,12 +126,14 @@ function CandidateCard({
   memo,
   onStar,
   onMemo,
+  onPickForLoan,
 }: {
   c: Candidate;
   starred: boolean;
   memo: string;
   onStar: () => void;
   onMemo: (v: string) => void;
+  onPickForLoan: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const age = c.complex.buildYear
@@ -184,6 +228,14 @@ function CandidateCard({
         >
           {open ? '메모 접기' : '메모 · 확인할 것'}
         </button>
+        {/* 찾기와 대출을 잇는 자리 — 이 집 보증금으로 상품 표가 다시 계산됩니다. */}
+        <button
+          type="button"
+          onClick={onPickForLoan}
+          className="text-sky-400 underline decoration-dotted underline-offset-2 hover:text-sky-300"
+        >
+          이 집으로 대출 계산 ↓
+        </button>
       </div>
 
       {c.notes.length > 0 && (
@@ -212,6 +264,247 @@ function CandidateCard({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * 전세 보증금 대출 비교.
+ *
+ * 찾기 화면과 한 페이지에 두는 이유는 **둘이 서로를 바꾸기** 때문입니다 —
+ * 보증금이 정해져야 어떤 상품이 되는지 알 수 있고, 어떤 상품이 되는지에 따라
+ * 감당할 보증금이 달라집니다. 후보 카드의 "이 집으로 대출 계산" 이 그 고리입니다.
+ */
+function LoanTable({
+  borrower,
+  target,
+  onBorrower,
+  onTarget,
+  onUseRate,
+}: {
+  borrower: Borrower;
+  target: RentTarget;
+  onBorrower: (p: Partial<Borrower>) => void;
+  onTarget: (p: Partial<RentTarget>) => void;
+  onUseRate: (rate: number) => void;
+}) {
+  const results = useMemo(() => compareRentLoans(borrower, target), [borrower, target]);
+  const advice = useMemo(
+    () => adviseRentLoans(borrower, target, results),
+    [borrower, target, results]
+  );
+  const best = results.find((r) => r.eligible);
+
+  return (
+    <Card
+      title="이 보증금에 맞는 대출 — 어느 상품이 되나"
+      subtitle="자격이 먼저입니다. 전세대출은 한도가 막히는 게 아니라 자격에서 떨어집니다"
+      action={<Badge tone="info">기준 {RENT_LOAN_RULES.effectiveFrom}</Badge>}
+    >
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Field label="보증금" hint="후보 목록에서 밀어 넣을 수 있습니다">
+          <MoneyInput value={target.deposit} onChange={(v) => onTarget({ deposit: v })} />
+        </Field>
+        <Field label="월세" hint="전세면 0">
+          <MoneyInput value={target.rent} onChange={(v) => onTarget({ rent: v })} />
+        </Field>
+        <Field label="전용면적" hint="정책상품은 85㎡ 이하만">
+          <NumberInput
+            value={target.areaSqm}
+            step={1}
+            suffix="㎡"
+            onChange={(v) => onTarget({ areaSqm: Math.max(0, v) })}
+          />
+        </Field>
+        <Field label="나이" hint="청년 상품은 만 34세까지">
+          <NumberInput
+            value={borrower.age}
+            step={1}
+            suffix="세"
+            onChange={(v) => onBorrower({ age: Math.max(0, v) })}
+          />
+        </Field>
+        <Field label="본인 연소득" hint="세전">
+          <MoneyInput value={borrower.income} onChange={(v) => onBorrower({ income: v })} />
+        </Field>
+        <Field
+          label="상대방 연소득"
+          hint={borrower.married ? '혼인신고를 해서 합산합니다' : '혼인신고 전이라 합산하지 않습니다'}
+        >
+          <MoneyInput
+            value={borrower.spouseIncome}
+            onChange={(v) => onBorrower({ spouseIncome: v })}
+          />
+        </Field>
+        <Field label="순자산" hint="정책상품은 3.37억 이하">
+          <MoneyInput value={borrower.netWorth} onChange={(v) => onBorrower({ netWorth: v })} />
+        </Field>
+        <Field label="혼인 연차" hint="신혼부부 상품은 7년 이내">
+          <NumberInput
+            value={borrower.marriedYears}
+            step={1}
+            suffix="년"
+            onChange={(v) => onBorrower({ marriedYears: Math.max(0, v) })}
+          />
+        </Field>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <Toggle
+          label="혼인신고를 했다"
+          hint="같이 사는 것만으로는 신혼부부 상품 자격이 없습니다. 대신 소득도 합산하지 않습니다."
+          checked={borrower.married}
+          onChange={(v) => onBorrower({ married: v })}
+        />
+        <Toggle
+          label="중소·중견기업 재직"
+          hint="중기청 전월세보증금대출은 연 1.5% 로 가장 쌉니다."
+          checked={borrower.smeEmployed}
+          onChange={(v) => onBorrower({ smeEmployed: v })}
+        />
+        <Toggle
+          label="군 복무를 했다"
+          hint="중기청 나이 상한이 만 34세 → 39세로 늘어납니다."
+          checked={borrower.militaryServed}
+          onChange={(v) => onBorrower({ militaryServed: v })}
+        />
+        <Toggle
+          label="2년 이내 출산·입양"
+          hint="신생아 특례 전세자금 자격입니다."
+          checked={borrower.newbornWithin2y}
+          onChange={(v) => onBorrower({ newbornWithin2y: v })}
+        />
+        <Toggle
+          label="무주택 세대주가 된다"
+          hint="거의 모든 정책상품의 전제입니다."
+          checked={borrower.householder && borrower.noHouse}
+          onChange={(v) => onBorrower({ householder: v, noHouse: v })}
+        />
+      </div>
+
+      {advice.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {advice.map((a) => (
+            <div
+              key={a.headline}
+              className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2"
+            >
+              <div className="text-xs font-semibold text-sky-200">{a.headline}</div>
+              <div className="mt-0.5 text-[11px] leading-relaxed text-sky-100/80">{a.detail}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[46rem] text-left text-[11px]">
+          <thead className="text-slate-500">
+            <tr className="border-b border-slate-800">
+              <th className="py-1.5 pr-3 font-medium">상품</th>
+              <th className="py-1.5 pr-3 text-right font-medium">한도</th>
+              <th className="py-1.5 pr-3 text-right font-medium">내 돈</th>
+              <th className="py-1.5 pr-3 text-right font-medium">금리</th>
+              <th className="py-1.5 pr-3 text-right font-medium">월 이자</th>
+              <th className="py-1.5 font-medium">판정</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((r) => (
+              <tr
+                key={r.product.id}
+                className={`border-b border-slate-900 ${r.eligible ? '' : 'opacity-60'}`}
+              >
+                <td className="py-2 pr-3">
+                  <div className="font-medium text-slate-200">{r.product.shortName}</div>
+                  <div className="text-[10px] text-slate-600">{r.product.name}</div>
+                </td>
+                <td className="py-2 pr-3 text-right tabular-nums text-slate-200">
+                  {r.eligible ? money(r.limit) : '—'}
+                  {r.eligible && r.bindingConstraint === 'CAP' && (
+                    <div className="text-[10px] text-amber-500/80">상품 상한</div>
+                  )}
+                </td>
+                <td className="py-2 pr-3 text-right tabular-nums text-slate-300">
+                  {r.eligible ? money(r.ownCash) : '—'}
+                </td>
+                <td className="py-2 pr-3 text-right tabular-nums text-slate-300">
+                  {percent(r.product.rate.min, 1)}~{percent(r.product.rate.max, 1)}
+                </td>
+                <td className="py-2 pr-3 text-right tabular-nums text-slate-100">
+                  {r.eligible
+                    ? `${Math.round(r.monthlyInterest.min / 10000).toLocaleString('ko-KR')}~${Math.round(
+                        r.monthlyInterest.max / 10000
+                      ).toLocaleString('ko-KR')}만`
+                    : '—'}
+                </td>
+                <td className="py-2">
+                  {r.eligible ? (
+                    <span className="text-emerald-300">가능</span>
+                  ) : (
+                    <details>
+                      <summary className="cursor-pointer text-rose-300">
+                        불가 ({r.rejectReasons.length})
+                      </summary>
+                      <ul className="mt-1 space-y-0.5">
+                        {r.rejectReasons.map((x) => (
+                          <li key={x} className="text-[10px] leading-relaxed text-slate-500">
+                            · {x}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {best && (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onUseRate(best.rate.min)}
+            className="rounded-lg bg-slate-800 px-3 py-1.5 text-[11px] text-slate-200 transition hover:bg-slate-700"
+          >
+            {best.product.shortName} 금리 {percent(best.rate.min, 1)} 를 기회비용률로 가져오기
+          </button>
+          <span className="text-[11px] text-slate-500">
+            보증금을 대출로 채우면 그 이자가 곧 비용입니다 — 위 목록의 월 환산이 다시 계산됩니다.
+          </span>
+        </div>
+      )}
+
+      {best && best.product.watchOuts.length > 0 && (
+        <Foldable
+          summary={`${best.product.shortName} 에서 놓치면 손해 보는 것`}
+          count={best.product.watchOuts.length}
+        >
+          <ul className="space-y-1">
+            {best.product.watchOuts.map((w) => (
+              <li key={w} className="text-[10px] leading-relaxed text-slate-500">
+                · {w}
+              </li>
+            ))}
+            <li className="text-[10px] leading-relaxed text-slate-600">근거 · {best.product.basis}</li>
+          </ul>
+        </Foldable>
+      )}
+
+      <Foldable summary="이 표가 못 하는 것" count={RENT_LOAN_CAVEATS.length}>
+        <ul className="space-y-1">
+          {RENT_LOAN_CAVEATS.map((c) => (
+            <li key={c} className="text-[10px] leading-relaxed text-slate-500">
+              · {c}
+            </li>
+          ))}
+        </ul>
+      </Foldable>
+
+      <p className="mt-3 text-[10px] leading-relaxed text-slate-600">
+        {RENT_LOAN_RULES.disclaimer} · 출처 {RENT_LOAN_RULES.sources.join(' · ')}
+      </p>
+    </Card>
   );
 }
 
@@ -457,6 +750,19 @@ export function RentFinderApp() {
                   onMemo={(v) =>
                     setState((s) => ({ ...s, memos: { ...s.memos, [c.key]: v } }))
                   }
+                  onPickForLoan={() => {
+                    setState((s) => ({
+                      ...s,
+                      target: {
+                        deposit: c.best.deposit,
+                        rent: c.best.rent,
+                        areaSqm: c.size.area,
+                      },
+                    }));
+                    document
+                      .getElementById('loan-table')
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
                 />
               ))}
               {list.length > 60 && (
@@ -467,6 +773,16 @@ export function RentFinderApp() {
             </div>
           )}
         </Card>
+
+        <div id="loan-table">
+          <LoanTable
+            borrower={state.borrower}
+            target={state.target}
+            onBorrower={(p) => setState((s) => ({ ...s, borrower: { ...s.borrower, ...p } }))}
+            onTarget={(p) => setState((s) => ({ ...s, target: { ...s.target, ...p } }))}
+            onUseRate={(rate) => patch({ opportunityRate: rate })}
+          />
+        </div>
 
         <Card title="이 자료가 못 하는 것">
           <ul className="space-y-1.5">

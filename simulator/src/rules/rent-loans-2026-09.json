@@ -1,0 +1,188 @@
+{
+  "version": "2026-09",
+  "effectiveFrom": "2026-09-01",
+  "label": "전월세 보증금 대출 — 주택도시기금 + 은행 보증부",
+  "disclaimer": "공개된 제도 정보를 전제로 한 추정치입니다. 소득·순자산 요건과 금리 구간은 수시로 바뀌므로 주택도시기금(nhuf.molit.go.kr)·한국주택금융공사·은행 공고로 반드시 재확인하세요. 실제 승인 한도와 금리는 심사 결과에 따릅니다.",
+  "sources": [
+    "주택도시기금 buy.molit.go.kr 개인상품 안내",
+    "한국주택금융공사 hf.go.kr 전세자금보증",
+    "ECOS 예금은행 전세자금대출 금리 (은행 상품 기준금리)"
+  ],
+  "note": "지역 구분은 수도권/비수도권입니다. 마산·창원·함안·의령은 전부 비수도권이라 이 도구는 비수도권 값을 씁니다.",
+  "products": [
+    {
+      "id": "jungsocheong",
+      "name": "중소기업취업청년 전월세보증금대출",
+      "shortName": "중기청",
+      "type": "policy",
+      "order": 1,
+      "eligibility": {
+        "age_min": 19,
+        "age_max": 34,
+        "age_max_military": 39,
+        "requires_sme": true,
+        "income_max_single": 35000000,
+        "income_max_couple": 50000000,
+        "networth_max": 337000000,
+        "deposit_max": 200000000,
+        "area_max_sqm": 85,
+        "requires_no_house": true,
+        "requires_householder": true
+      },
+      "limits": { "cap": 100000000, "depositRatio": 1.0 },
+      "rate": { "min": 0.015, "max": 0.015 },
+      "term": { "years": 2, "extensions": 4, "maxYears": 10 },
+      "basis": "중소·중견기업 재직 또는 청년창업 지원 대상. 금리가 가장 낮아 자격이 되면 1순위로 봐야 합니다.",
+      "watchOuts": [
+        "중소기업 재직 증명이 필요합니다 — 재직증명서·사업자등록증명으로 기업 규모를 확인합니다.",
+        "보증금 2억 이하, 전용 85㎡ 이하 주택만 됩니다.",
+        "최장 10년이고 그 뒤에는 다른 상품으로 갈아타야 합니다."
+      ]
+    },
+    {
+      "id": "beotimmok_youth",
+      "name": "청년전용 버팀목 전세자금대출",
+      "shortName": "청년버팀목",
+      "type": "policy",
+      "order": 2,
+      "eligibility": {
+        "age_min": 19,
+        "age_max": 34,
+        "income_max_single": 50000000,
+        "income_max_couple": 50000000,
+        "networth_max": 337000000,
+        "deposit_max": 300000000,
+        "area_max_sqm": 85,
+        "requires_no_house": true,
+        "requires_householder": true
+      },
+      "limits": { "cap": 200000000, "depositRatio": 0.8 },
+      "rate": { "min": 0.02, "max": 0.031 },
+      "term": { "years": 2, "extensions": 4, "maxYears": 10 },
+      "basis": "만 34세 이하 단독세대주도 됩니다. 중기청이 안 될 때 다음 선택지입니다.",
+      "watchOuts": [
+        "보증금의 80% 까지라 나머지 20% 는 자기 돈이 필요합니다.",
+        "소득 구간과 보증금 구간에 따라 금리가 달라집니다 — 표의 금리는 범위입니다."
+      ]
+    },
+    {
+      "id": "beotimmok",
+      "name": "버팀목 전세자금대출 (일반)",
+      "shortName": "버팀목",
+      "type": "policy",
+      "order": 3,
+      "eligibility": {
+        "income_max_single": 50000000,
+        "income_max_couple": 50000000,
+        "networth_max": 337000000,
+        "deposit_max": 200000000,
+        "area_max_sqm": 85,
+        "requires_no_house": true,
+        "requires_householder": true
+      },
+      "limits": { "cap": 80000000, "depositRatio": 0.7 },
+      "rate": { "min": 0.023, "max": 0.033 },
+      "term": { "years": 2, "extensions": 4, "maxYears": 10 },
+      "basis": "나이 제한이 없는 기본형입니다. 비수도권 한도가 8천만원이라 보증금이 크면 모자랍니다.",
+      "watchOuts": [
+        "비수도권 한도가 8천만원입니다 — 보증금이 1억을 넘으면 이 상품만으로는 부족합니다.",
+        "보증금의 70% 까지입니다 (청년·신혼은 80%)."
+      ]
+    },
+    {
+      "id": "newlywed",
+      "name": "신혼부부 전용 전세자금대출",
+      "shortName": "신혼부부",
+      "type": "policy",
+      "order": 4,
+      "eligibility": {
+        "requires_marriage": true,
+        "marriage_within_years": 7,
+        "income_max_couple": 75000000,
+        "networth_max": 337000000,
+        "deposit_max": 300000000,
+        "area_max_sqm": 85,
+        "requires_no_house": true,
+        "requires_householder": true
+      },
+      "limits": { "cap": 200000000, "depositRatio": 0.8 },
+      "rate": { "min": 0.019, "max": 0.031 },
+      "term": { "years": 2, "extensions": 4, "maxYears": 10 },
+      "basis": "혼인신고일 기준 7년 이내 또는 3개월 내 결혼예정. 동거만으로는 자격이 없습니다.",
+      "watchOuts": [
+        "혼인신고를 해야 자격이 생깁니다 — 같이 살기만 해서는 안 됩니다.",
+        "소득 상한이 부부합산 7,500만원이라 맞벌이면 넘기 쉽습니다."
+      ]
+    },
+    {
+      "id": "sinsaenga_jeonse",
+      "name": "신생아 특례 전세자금대출",
+      "shortName": "신생아특례",
+      "type": "policy",
+      "order": 5,
+      "eligibility": {
+        "requires_newborn_within_2y": true,
+        "income_max_couple": 200000000,
+        "networth_max": 337000000,
+        "deposit_max": 400000000,
+        "area_max_sqm": 85,
+        "requires_no_house": true,
+        "requires_householder": true
+      },
+      "limits": { "cap": 300000000, "depositRatio": 0.8 },
+      "rate": { "min": 0.011, "max": 0.03 },
+      "term": { "years": 2, "extensions": 4, "maxYears": 12 },
+      "basis": "2년 이내 출산·입양 가구. 소득 상한이 2억으로 넓고 금리가 가장 낮은 축입니다.",
+      "watchOuts": [
+        "임신 중은 안 되고 출산·입양이 있어야 합니다.",
+        "아이가 더 생기면 금리 우대와 기간 연장이 붙습니다."
+      ]
+    },
+    {
+      "id": "bank_jeonse",
+      "name": "은행 전세자금대출 (HF·HUG·SGI 보증)",
+      "shortName": "은행 전세",
+      "type": "bank",
+      "order": 6,
+      "eligibility": {
+        "requires_householder": true
+      },
+      "limits": { "cap": 222000000, "depositRatio": 0.8 },
+      "rate": { "min": 0.038, "max": 0.048 },
+      "term": { "years": 2, "extensions": 4, "maxYears": 10 },
+      "basis": "자격 제한이 거의 없는 대신 금리가 높습니다. 정책상품이 하나도 안 될 때의 기본값입니다. 한도는 보증기관에 따라 달라집니다 (HF 2.22억 · HUG·SGI 는 더 큼).",
+      "watchOuts": [
+        "금리가 정책상품의 두 배 안팎입니다 — 정책상품 자격을 먼저 다 확인하세요.",
+        "보증기관(HF·HUG·SGI)에 따라 한도와 보증료가 다릅니다. 은행에서 어느 보증인지 확인하세요.",
+        "전세대출은 원금이 DSR 에 안 들어가지만 이자는 들어갑니다 — 나중에 집을 살 때 주담대 한도를 깎습니다."
+      ]
+    },
+    {
+      "id": "wolse_youth",
+      "name": "청년전용 보증부 월세대출",
+      "shortName": "청년월세",
+      "type": "policy",
+      "order": 7,
+      "mode": "wolse",
+      "eligibility": {
+        "age_min": 19,
+        "age_max": 34,
+        "income_max_single": 50000000,
+        "networth_max": 337000000,
+        "deposit_max": 65000000,
+        "monthly_rent_max": 700000,
+        "area_max_sqm": 85,
+        "requires_no_house": true,
+        "requires_householder": true
+      },
+      "limits": { "cap": 44000000, "depositRatio": 0.8, "monthlyCap": 600000 },
+      "rate": { "min": 0.013, "max": 0.018 },
+      "term": { "years": 2, "extensions": 3, "maxYears": 8 },
+      "basis": "보증금과 월세를 나눠 빌려줍니다. 월세 부분은 매달 나눠 받는 구조입니다.",
+      "watchOuts": [
+        "보증금 6,500만원·월세 70만원 이하 주택만 됩니다.",
+        "월세 대출분은 매달 받아 쓰는 돈이라 다 쓰면 그만큼 갚아야 합니다."
+      ]
+    }
+  ]
+}
