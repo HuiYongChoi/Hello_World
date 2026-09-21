@@ -549,271 +549,268 @@ export function RentFinderApp() {
   };
 
   return (
-    <div className="min-h-full">
-      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/85 backdrop-blur">
-        <div className="mx-auto max-w-6xl px-5 py-3">
-          <h1 className="text-sm font-semibold text-slate-100">
-            마산 전월세 찾기 — 함안 · 의령 출퇴근 기준
-          </h1>
-          <p className="mt-0.5 text-[11px] text-slate-500">
-            국토부 아파트 전월세 실거래 {RENT_SNAPSHOT.stats.deals.toLocaleString('ko-KR')}건 ·
-            단지 {RENT_SNAPSHOT.stats.complexes.toLocaleString('ko-KR')}개 · 기준{' '}
-            {RENT_SNAPSHOT.asOf} — <b className="text-slate-400">매물이 아니라 체결된 계약</b>이라
-            후보를 좁히는 데까지 쓰고 매물 확인은 직접 하셔야 합니다.
+    <div className="space-y-5">
+      <Card
+      title="마산 전월세 찾기 — 함안 · 의령 출퇴근 기준"
+      subtitle={`국토부 아파트 전월세 실거래 ${RENT_SNAPSHOT.stats.deals.toLocaleString('ko-KR')}건 · 단지 ${RENT_SNAPSHOT.stats.complexes.toLocaleString('ko-KR')}개 · 기준 ${RENT_SNAPSHOT.asOf}`}
+      action={<Badge tone="info">집을 사기 전까지 살 집</Badge>}
+      >
+      <p className="text-xs leading-relaxed text-slate-500">
+        <b className="text-slate-300">매물이 아니라 체결된 계약</b>입니다 — 후보를 좁히는
+        데까지 쓰고 매물 확인은 직접 하셔야 합니다. 전세와 월세는{' '}
+        <b className="text-slate-300">월 환산 주거비</b>(월세 + 보증금 × 기회비용 ÷ 12)로
+        한 자에 올려 견줍니다.
+      </p>
+      </Card>
+
+      <Card
+        title="조건"
+        subtitle="조건을 움직이면 아래 후보 수가 바로 바뀝니다 — 얼마를 더 내면 선택지가 늘어나는지 보세요"
+        action={<Badge tone="info">후보 {sum.candidates}개</Badge>}
+      >
+        <div>
+          <div className="mb-1.5 text-[11px] font-medium text-slate-400">지역</div>
+          <div className="flex flex-wrap gap-1.5">
+            {RENT_REGIONS.map((r) => {
+              const on = input.regionCodes.includes(r.code);
+              const n = RENT_SNAPSHOT.stats.perRegion[r.code] ?? 0;
+              return (
+                <button
+                  key={r.code}
+                  type="button"
+                  onClick={() => toggleRegion(r.code)}
+                  title={r.note}
+                  className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${
+                    on
+                      ? 'bg-sky-500/15 text-sky-300'
+                      : 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
+                  }`}
+                >
+                  {r.short}
+                  <span className="ml-1 text-[10px] text-slate-600">
+                    {COMMUTE_LABEL[r.commute]} · {n.toLocaleString('ko-KR')}건
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-1 text-[10px] leading-relaxed text-slate-600">
+            출퇴근 등급은 <b className="text-slate-500">소요시간이 아니라 방향 판단</b>입니다 —
+            지도 API 가 없어 분 단위를 낼 수 없습니다. 버튼에 마우스를 올리면 근거가 나옵니다.
           </p>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-6xl space-y-5 px-5 py-6">
-        <Card
-          title="조건"
-          subtitle="조건을 움직이면 아래 후보 수가 바로 바뀝니다 — 얼마를 더 내면 선택지가 늘어나는지 보세요"
-          action={<Badge tone="info">후보 {sum.candidates}개</Badge>}
-        >
-          <div>
-            <div className="mb-1.5 text-[11px] font-medium text-slate-400">지역</div>
-            <div className="flex flex-wrap gap-1.5">
-              {RENT_REGIONS.map((r) => {
-                const on = input.regionCodes.includes(r.code);
-                const n = RENT_SNAPSHOT.stats.perRegion[r.code] ?? 0;
-                return (
-                  <button
-                    key={r.code}
-                    type="button"
-                    onClick={() => toggleRegion(r.code)}
-                    title={r.note}
-                    className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${
-                      on
-                        ? 'bg-sky-500/15 text-sky-300'
-                        : 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
-                    }`}
-                  >
-                    {r.short}
-                    <span className="ml-1 text-[10px] text-slate-600">
-                      {COMMUTE_LABEL[r.commute]} · {n.toLocaleString('ko-KR')}건
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-1 text-[10px] leading-relaxed text-slate-600">
-              출퇴근 등급은 <b className="text-slate-500">소요시간이 아니라 방향 판단</b>입니다 —
-              지도 API 가 없어 분 단위를 낼 수 없습니다. 버튼에 마우스를 올리면 근거가 나옵니다.
-            </p>
-          </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="전용면적 하한" hint="투룸은 대개 전용 36㎡부터">
+            <NumberInput
+              value={input.minArea}
+              step={1}
+              suffix="㎡"
+              onChange={(v) => patch({ minArea: Math.max(0, v) })}
+            />
+          </Field>
+          <Field label="전용면적 상한" hint="0이면 제한 없음">
+            <NumberInput
+              value={input.maxArea}
+              step={1}
+              suffix="㎡"
+              onChange={(v) => patch({ maxArea: Math.max(0, v) })}
+            />
+          </Field>
+          <Field label="낼 수 있는 보증금" hint="이보다 큰 보증금은 빼고 봅니다">
+            <MoneyInput value={input.maxDeposit} onChange={(v) => patch({ maxDeposit: v })} />
+          </Field>
+          <Field label="월 환산 주거비 상한" hint="월세 + 보증금 기회비용">
+            <MoneyInput value={input.maxMonthly} onChange={(v) => patch({ maxMonthly: v })} />
+          </Field>
+          <Field
+            label="보증금 기회비용"
+            hint="전세대출이면 그 금리, 자기 돈이면 예금·투자 수익률"
+          >
+            <NumberInput
+              value={Math.round(input.opportunityRate * 10000) / 100}
+              step={0.1}
+              suffix="%"
+              onChange={(v) => patch({ opportunityRate: v / 100 })}
+            />
+          </Field>
+          <Field label="준공연도 하한" hint="0이면 제한 없음">
+            <NumberInput
+              value={input.minBuildYear}
+              step={1}
+              suffix="년"
+              onChange={(v) => patch({ minBuildYear: Math.max(0, v) })}
+            />
+          </Field>
+          <Field label="최근 거래" hint="이 기간 안에 거래가 있던 평형만">
+            <NumberInput
+              value={input.freshMonths}
+              step={1}
+              suffix="개월"
+              onChange={(v) => patch({ freshMonths: Math.max(0, v) })}
+            />
+          </Field>
+          <Field label="최소 거래 건수" hint="1건짜리 중위가는 그 집 한 채 가격입니다">
+            <NumberInput
+              value={input.minDeals}
+              step={1}
+              suffix="건"
+              onChange={(v) => patch({ minDeals: Math.max(0, v) })}
+            />
+          </Field>
+          <Field label="정렬">
+            <Select<SortKey>
+              value={sort}
+              onChange={setSort}
+              options={(Object.keys(SORT_LABEL) as SortKey[]).map((k) => ({
+                value: k,
+                label: SORT_LABEL[k],
+              }))}
+            />
+          </Field>
+        </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="전용면적 하한" hint="투룸은 대개 전용 36㎡부터">
-              <NumberInput
-                value={input.minArea}
-                step={1}
-                suffix="㎡"
-                onChange={(v) => patch({ minArea: Math.max(0, v) })}
-              />
-            </Field>
-            <Field label="전용면적 상한" hint="0이면 제한 없음">
-              <NumberInput
-                value={input.maxArea}
-                step={1}
-                suffix="㎡"
-                onChange={(v) => patch({ maxArea: Math.max(0, v) })}
-              />
-            </Field>
-            <Field label="낼 수 있는 보증금" hint="이보다 큰 보증금은 빼고 봅니다">
-              <MoneyInput value={input.maxDeposit} onChange={(v) => patch({ maxDeposit: v })} />
-            </Field>
-            <Field label="월 환산 주거비 상한" hint="월세 + 보증금 기회비용">
-              <MoneyInput value={input.maxMonthly} onChange={(v) => patch({ maxMonthly: v })} />
-            </Field>
-            <Field
-              label="보증금 기회비용"
-              hint="전세대출이면 그 금리, 자기 돈이면 예금·투자 수익률"
-            >
-              <NumberInput
-                value={Math.round(input.opportunityRate * 10000) / 100}
-                step={0.1}
-                suffix="%"
-                onChange={(v) => patch({ opportunityRate: v / 100 })}
-              />
-            </Field>
-            <Field label="준공연도 하한" hint="0이면 제한 없음">
-              <NumberInput
-                value={input.minBuildYear}
-                step={1}
-                suffix="년"
-                onChange={(v) => patch({ minBuildYear: Math.max(0, v) })}
-              />
-            </Field>
-            <Field label="최근 거래" hint="이 기간 안에 거래가 있던 평형만">
-              <NumberInput
-                value={input.freshMonths}
-                step={1}
-                suffix="개월"
-                onChange={(v) => patch({ freshMonths: Math.max(0, v) })}
-              />
-            </Field>
-            <Field label="최소 거래 건수" hint="1건짜리 중위가는 그 집 한 채 가격입니다">
-              <NumberInput
-                value={input.minDeals}
-                step={1}
-                suffix="건"
-                onChange={(v) => patch({ minDeals: Math.max(0, v) })}
-              />
-            </Field>
-            <Field label="정렬">
-              <Select<SortKey>
-                value={sort}
-                onChange={setSort}
-                options={(Object.keys(SORT_LABEL) as SortKey[]).map((k) => ({
-                  value: k,
-                  label: SORT_LABEL[k],
-                }))}
-              />
-            </Field>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {(['jeonse', 'wolse'] as TenureMode[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => toggleMode(m)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                  input.modes.includes(m)
-                    ? 'bg-slate-700 text-slate-100'
-                    : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                {m === 'jeonse' ? '전세' : '월세 · 반전세'}
-              </button>
-            ))}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {(['jeonse', 'wolse'] as TenureMode[]).map((m) => (
             <button
+              key={m}
               type="button"
-              onClick={() => setOnlyStarred((v) => !v)}
+              onClick={() => toggleMode(m)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                onlyStarred ? 'bg-amber-500/15 text-amber-300' : 'text-slate-500 hover:text-slate-300'
+                input.modes.includes(m)
+                  ? 'bg-slate-700 text-slate-100'
+                  : 'text-slate-500 hover:text-slate-300'
               }`}
             >
-              ★ 담은 것만 ({state.starred.length})
+              {m === 'jeonse' ? '전세' : '월세 · 반전세'}
             </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => setOnlyStarred((v) => !v)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+              onlyStarred ? 'bg-amber-500/15 text-amber-300' : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            ★ 담은 것만 ({state.starred.length})
+          </button>
+        </div>
+      </Card>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat
+          label="조건에 맞는 평형"
+          value={`${sum.candidates}개`}
+          hint={`단지 ${sum.complexes}곳`}
+        />
+        <Stat
+          label="월 환산 주거비 중위"
+          value={sum.candidates ? manwonPerMonth(sum.medianMonthly) : '—'}
+          hint="보증금 기회비용 포함"
+        />
+        <Stat
+          label="가장 싼 후보"
+          value={sum.cheapest ? manwonPerMonth(sum.cheapest.best.monthly) : '—'}
+          hint={sum.cheapest ? `${sum.cheapest.complex.name} 전용 ${sum.cheapest.size.area}㎡` : ''}
+        />
+        <Stat
+          label="지역 분포"
+          value={sum.perRegion.length ? sum.perRegion[0].label : '—'}
+          hint={sum.perRegion.map((r) => `${r.label} ${r.n}`).join(' · ')}
+        />
+      </div>
+
+      <Card
+        title={`후보 ${list.length}개`}
+        subtitle="월 환산 주거비 = 월세 + 보증금 × 기회비용 ÷ 12 — 전세와 월세를 한 자에 올립니다"
+      >
+        {list.length === 0 ? (
+          <Empty>
+            조건에 맞는 평형이 없습니다. 보증금 상한이나 월 환산 상한을 올리거나, 전용면적
+            하한을 낮춰 보세요.
+          </Empty>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {list.slice(0, 60).map((c) => (
+              <CandidateCard
+                key={c.key}
+                c={c}
+                starred={state.starred.includes(c.key)}
+                memo={state.memos[c.key] ?? ''}
+                onStar={() =>
+                  setState((s) => ({
+                    ...s,
+                    starred: s.starred.includes(c.key)
+                      ? s.starred.filter((k) => k !== c.key)
+                      : [...s.starred, c.key],
+                  }))
+                }
+                onMemo={(v) =>
+                  setState((s) => ({ ...s, memos: { ...s.memos, [c.key]: v } }))
+                }
+                onPickForLoan={() => {
+                  setState((s) => ({
+                    ...s,
+                    target: {
+                      deposit: c.best.deposit,
+                      rent: c.best.rent,
+                      areaSqm: c.size.area,
+                    },
+                  }));
+                  document
+                    .getElementById('loan-table')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              />
+            ))}
+            {list.length > 60 && (
+              <p className="pt-1 text-[11px] text-slate-500">
+                {list.length}개 중 60개만 보입니다 — 조건을 좁히면 나머지가 드러납니다.
+              </p>
+            )}
           </div>
-        </Card>
+        )}
+      </Card>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat
-            label="조건에 맞는 평형"
-            value={`${sum.candidates}개`}
-            hint={`단지 ${sum.complexes}곳`}
-          />
-          <Stat
-            label="월 환산 주거비 중위"
-            value={sum.candidates ? manwonPerMonth(sum.medianMonthly) : '—'}
-            hint="보증금 기회비용 포함"
-          />
-          <Stat
-            label="가장 싼 후보"
-            value={sum.cheapest ? manwonPerMonth(sum.cheapest.best.monthly) : '—'}
-            hint={sum.cheapest ? `${sum.cheapest.complex.name} 전용 ${sum.cheapest.size.area}㎡` : ''}
-          />
-          <Stat
-            label="지역 분포"
-            value={sum.perRegion.length ? sum.perRegion[0].label : '—'}
-            hint={sum.perRegion.map((r) => `${r.label} ${r.n}`).join(' · ')}
-          />
-        </div>
+      <div id="loan-table">
+        <LoanTable
+          borrower={state.borrower}
+          target={state.target}
+          onBorrower={(p) => setState((s) => ({ ...s, borrower: { ...s.borrower, ...p } }))}
+          onTarget={(p) => setState((s) => ({ ...s, target: { ...s.target, ...p } }))}
+          onUseRate={(rate) => patch({ opportunityRate: rate })}
+        />
+      </div>
 
-        <Card
-          title={`후보 ${list.length}개`}
-          subtitle="월 환산 주거비 = 월세 + 보증금 × 기회비용 ÷ 12 — 전세와 월세를 한 자에 올립니다"
-        >
-          {list.length === 0 ? (
-            <Empty>
-              조건에 맞는 평형이 없습니다. 보증금 상한이나 월 환산 상한을 올리거나, 전용면적
-              하한을 낮춰 보세요.
-            </Empty>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {list.slice(0, 60).map((c) => (
-                <CandidateCard
-                  key={c.key}
-                  c={c}
-                  starred={state.starred.includes(c.key)}
-                  memo={state.memos[c.key] ?? ''}
-                  onStar={() =>
-                    setState((s) => ({
-                      ...s,
-                      starred: s.starred.includes(c.key)
-                        ? s.starred.filter((k) => k !== c.key)
-                        : [...s.starred, c.key],
-                    }))
-                  }
-                  onMemo={(v) =>
-                    setState((s) => ({ ...s, memos: { ...s.memos, [c.key]: v } }))
-                  }
-                  onPickForLoan={() => {
-                    setState((s) => ({
-                      ...s,
-                      target: {
-                        deposit: c.best.deposit,
-                        rent: c.best.rent,
-                        areaSqm: c.size.area,
-                      },
-                    }));
-                    document
-                      .getElementById('loan-table')
-                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }}
-                />
-              ))}
-              {list.length > 60 && (
-                <p className="pt-1 text-[11px] text-slate-500">
-                  {list.length}개 중 60개만 보입니다 — 조건을 좁히면 나머지가 드러납니다.
-                </p>
-              )}
-            </div>
-          )}
-        </Card>
-
-        <div id="loan-table">
-          <LoanTable
-            borrower={state.borrower}
-            target={state.target}
-            onBorrower={(p) => setState((s) => ({ ...s, borrower: { ...s.borrower, ...p } }))}
-            onTarget={(p) => setState((s) => ({ ...s, target: { ...s.target, ...p } }))}
-            onUseRate={(rate) => patch({ opportunityRate: rate })}
-          />
-        </div>
-
-        <Card title="이 자료가 못 하는 것">
-          <ul className="space-y-1.5">
-            {RENT_CAVEATS.map((c) => (
-              <li key={c} className="text-xs leading-relaxed text-slate-400">
-                · {c}
+      <Card title="이 자료가 못 하는 것">
+        <ul className="space-y-1.5">
+          {RENT_CAVEATS.map((c) => (
+            <li key={c} className="text-xs leading-relaxed text-slate-400">
+              · {c}
+            </li>
+          ))}
+        </ul>
+        <Foldable summary="강아지와 함께 살 집을 볼 때 직접 확인할 것" count={6}>
+          <ul className="space-y-1">
+            {[
+              '반려동물 허용 여부 — 관리규약에 막혀 있는 단지가 있습니다. 관리사무소에 먼저 확인하세요.',
+              '엘리베이터 유무와 층 — 노견이 되면 계단은 매일의 문제가 됩니다.',
+              '산책 동선 — 단지 밖으로 바로 나가는 길, 가까운 하천·공원 유무.',
+              '바닥재와 소음 — 강아지 발톱 소리는 아랫집 민원으로 이어집니다.',
+              '주차 대수와 방문차량 — 구축은 세대당 1대 미만인 곳이 많습니다.',
+              '관리비에 무엇이 포함되는지 — 이 자료의 월 환산에는 관리비가 빠져 있습니다.',
+            ].map((t) => (
+              <li key={t} className="text-[11px] leading-relaxed text-slate-500">
+                · {t}
               </li>
             ))}
           </ul>
-          <Foldable summary="강아지와 함께 살 집을 볼 때 직접 확인할 것" count={6}>
-            <ul className="space-y-1">
-              {[
-                '반려동물 허용 여부 — 관리규약에 막혀 있는 단지가 있습니다. 관리사무소에 먼저 확인하세요.',
-                '엘리베이터 유무와 층 — 노견이 되면 계단은 매일의 문제가 됩니다.',
-                '산책 동선 — 단지 밖으로 바로 나가는 길, 가까운 하천·공원 유무.',
-                '바닥재와 소음 — 강아지 발톱 소리는 아랫집 민원으로 이어집니다.',
-                '주차 대수와 방문차량 — 구축은 세대당 1대 미만인 곳이 많습니다.',
-                '관리비에 무엇이 포함되는지 — 이 자료의 월 환산에는 관리비가 빠져 있습니다.',
-              ].map((t) => (
-                <li key={t} className="text-[11px] leading-relaxed text-slate-500">
-                  · {t}
-                </li>
-              ))}
-            </ul>
-          </Foldable>
-          <p className="mt-3 text-[10px] leading-relaxed text-slate-600">
-            출처 {RENT_SNAPSHOT.source.name} · {RENT_SNAPSHOT.source.license} · 수집{' '}
-            {RENT_SNAPSHOT.asOf} · 범위 {RENT_SNAPSHOT.range.from}~{RENT_SNAPSHOT.range.to}
-          </p>
-        </Card>
-      </main>
+        </Foldable>
+        <p className="mt-3 text-[10px] leading-relaxed text-slate-600">
+          출처 {RENT_SNAPSHOT.source.name} · {RENT_SNAPSHOT.source.license} · 수집{' '}
+          {RENT_SNAPSHOT.asOf} · 범위 {RENT_SNAPSHOT.range.from}~{RENT_SNAPSHOT.range.to}
+        </p>
+      </Card>
     </div>
   );
 }

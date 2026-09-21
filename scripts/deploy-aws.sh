@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
 #
-# 사이트를 AWS(Bitnami) 서버로 배포합니다.
+# realty 사이트를 AWS(Bitnami) 서버로 배포합니다.
 #
-# 저장소에 사이트가 둘입니다.
-#   realty  주택 매수 의사결정 시뮬레이터  → /hyrealty/
-#   rent    마산 전월세 찾기               → /hyrent/
-#
-#   ./scripts/deploy-aws.sh            # 둘 다
-#   ./scripts/deploy-aws.sh realty     # 하나만
+# 사이트는 하나입니다. 전월세 찾기는 별도 엔트리가 아니라 `＋ 청약 · 전월세`
+# 탭 안에 들어 있습니다 — 엔트리를 둘로 두었다가 공유 청크가 생겨 배포본이
+# 통째로 백지가 된 적이 있습니다.
 #
 # 접속 정보는 이 파일에 넣지 않습니다. 저장소가 공개라 서버 주소·키 경로가
 # 그대로 노출되기 때문입니다. 값은 .env.deploy (gitignore 처리됨) 에 두거나
@@ -30,10 +27,6 @@ fi
 : "${DEPLOY_KEY:?DEPLOY_KEY 가 필요합니다 (SSH 개인키 경로)}"
 DEPLOY_WEB_ROOT="${DEPLOY_WEB_ROOT:-/var/www/html}"
 DEPLOY_SITE_PATH="${DEPLOY_SITE_PATH:-hyrealty}"
-DEPLOY_RENT_PATH="${DEPLOY_RENT_PATH:-hyrent}"
-
-# 인자가 없으면 둘 다 올립니다.
-SITES="${1:-realty rent}"
 
 if [[ ! -f "$DEPLOY_KEY" ]]; then
   echo "✗ SSH 키를 찾을 수 없습니다: $DEPLOY_KEY" >&2
@@ -47,28 +40,20 @@ if [[ "$key_perm" != "400" && "$key_perm" != "600" ]]; then
   chmod 400 "$DEPLOY_KEY"
 fi
 
-for site in $SITES; do
-  case "$site" in
-    realty) build="deploy:realty"; src="realty/index.html"; path="$DEPLOY_SITE_PATH" ;;
-    rent)   build="deploy:rent";   src="hyrent/index.html"; path="$DEPLOY_RENT_PATH" ;;
-    *) echo "✗ 알 수 없는 사이트: $site (realty | rent)" >&2; exit 1 ;;
-  esac
+echo "→ 빌드"
+npm --prefix simulator run deploy:realty
 
-  echo "→ [$site] 빌드"
-  npm --prefix simulator run "$build"
+TARGET="$DEPLOY_WEB_ROOT/$DEPLOY_SITE_PATH"
+STAGE="/tmp/realty-$$.html"
 
-  TARGET="$DEPLOY_WEB_ROOT/$path"
-  STAGE="/tmp/$site-$$.html"
+echo "→ 업로드: $DEPLOY_HOST:$TARGET/index.html"
+# bitnami 사용자는 웹 루트에 직접 쓸 수 없어 /tmp 경유 후 sudo 로 옮깁니다.
+scp -i "$DEPLOY_KEY" -o StrictHostKeyChecking=accept-new \
+  realty/index.html "$DEPLOY_HOST:$STAGE"
 
-  echo "→ [$site] 업로드: $DEPLOY_HOST:$TARGET/index.html"
-  # bitnami 사용자는 웹 루트에 직접 쓸 수 없어 /tmp 경유 후 sudo 로 옮깁니다.
-  scp -i "$DEPLOY_KEY" -o StrictHostKeyChecking=accept-new \
-    "$src" "$DEPLOY_HOST:$STAGE"
+ssh -i "$DEPLOY_KEY" -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST" \
+  "sudo mkdir -p '$TARGET' \
+   && sudo mv '$STAGE' '$TARGET/index.html' \
+   && sudo chmod 644 '$TARGET/index.html'"
 
-  ssh -i "$DEPLOY_KEY" -o StrictHostKeyChecking=accept-new "$DEPLOY_HOST" \
-    "sudo mkdir -p '$TARGET' \
-     && sudo mv '$STAGE' '$TARGET/index.html' \
-     && sudo chmod 644 '$TARGET/index.html'"
-
-  echo "✓ [$site] 배포 완료 → /$path/"
-done
+echo "✓ 배포 완료 → /$DEPLOY_SITE_PATH/"

@@ -7,6 +7,7 @@ import { PropertiesPage } from './pages/PropertiesPage';
 import { ReportPage } from './pages/ReportPage';
 import { ScenarioPage } from './pages/ScenarioPage';
 import { SubscriptionPage } from './pages/SubscriptionPage';
+import { RentFinderApp } from './rentfinder/RentFinderApp';
 import { MarketPage } from './pages/MarketPage';
 import { HandbookDrawer } from './pages/HandbookDrawer';
 import { TenurePage } from './pages/TenurePage';
@@ -16,6 +17,14 @@ type TabId = 'input' | 'compare' | 'tenure' | 'subscription' | 'market' | 'repor
 
 /** 입력 탭 안의 세 단계 — 탭을 늘리지 않고 안에서 오갑니다. */
 type InputStep = 'profile' | 'scenarios' | 'properties';
+
+/**
+ * 선택 탭 안의 두 갈래.
+ *
+ * 청약과 전월세는 둘 다 **선택**이고 둘 다 "집을 사기 전/대신" 의 이야기라
+ * 한 탭 안에 둡니다. 탭을 하나 더 늘리는 대신 입력 탭과 같은 패턴을 씁니다.
+ */
+type OptionalStep = 'subscription' | 'rent';
 
 /**
  * 탭 8개를 6개로 줄이고 3층으로 묶습니다.
@@ -34,8 +43,8 @@ const TAB_GROUPS: { label: string; tabs: { id: TabId; label: string; step: strin
     tabs: [
       { id: 'compare', label: '비교 매트릭스', step: '2' },
       { id: 'tenure', label: '매수 · 전세 · 월세', step: '3' },
-      // 청약은 선택입니다 — 비워 두면 나머지 화면은 그대로 3갈래입니다.
-      { id: 'subscription', label: '청약 · 공고', step: '＋' },
+      // 선택 갈래 둘 — 청약(살 집을 미리)과 전월세(사기 전까지 살 집).
+      { id: 'subscription', label: '청약 · 전월세', step: '＋' },
     ],
   },
   {
@@ -53,9 +62,15 @@ const INPUT_STEPS: { id: InputStep; label: string }[] = [
   { id: 'properties', label: '물건 · 입지' },
 ];
 
+const OPTIONAL_STEPS: { id: OptionalStep; label: string }[] = [
+  { id: 'subscription', label: '청약 공고 · 안전마진' },
+  { id: 'rent', label: '전월세 찾기 · 보증금 대출' },
+];
+
 export function App() {
   const [tab, setTab] = useState<TabId>('compare');
   const [inputStep, setInputStep] = useState<InputStep>('profile');
+  const [optionalStep, setOptionalStep] = useState<OptionalStep>('subscription');
   const { reset, matrix } = useStore();
 
   const feasible = Object.values(matrix.cells).filter((c) => c.best?.feasible).length;
@@ -163,7 +178,28 @@ export function App() {
             {inputStep === 'properties' && <PropertiesPage />}
           </div>
         )}
-        {tab === 'subscription' && <SubscriptionPage />}
+        {tab === 'subscription' && (
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              {OPTIONAL_STEPS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setOptionalStep(s.id)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                    optionalStep === s.id
+                      ? 'bg-sky-500/15 text-sky-300'
+                      : 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            {optionalStep === 'subscription' && <SubscriptionPage />}
+            {optionalStep === 'rent' && <RentFinderApp />}
+          </div>
+        )}
         {tab === 'compare' && <ComparePage />}
         {tab === 'tenure' && <TenurePage />}
         {tab === 'market' && <MarketPage />}

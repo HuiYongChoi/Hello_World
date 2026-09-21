@@ -190,29 +190,53 @@ check('검증', 10, '엔진 단위 테스트 전부 통과', () => {
 });
 
 // ── 산출물 ───────────────────────────────────────────────────────────
-check('산출물', 8, '두 사이트가 각각 단일 HTML 로 빌드됨', () => {
+check('산출물', 5, '단일 HTML 로 빌드됨', () => {
   if (FAST) return { ok: true, detail: '건너뜀(--fast)', skipped: true };
-  const sites = [
-    { cmd: 'npm run deploy:realty', out: 'realty/index.html' },
-    { cmd: 'npm run deploy:rent', out: 'hyrent/index.html' },
-  ];
-  const parts = [];
-  for (const s of sites) {
-    const r = run(s.cmd);
-    const out = join(ROOT, s.out);
-    if (!r.ok || !existsSync(out)) {
-      return { ok: false, detail: `${s.out}: ${r.out.trim().split('\n').slice(-2).join(' / ')}` };
-    }
-    parts.push(`${s.out} ${Math.round(statSync(out).size / 1024)}KB`);
+  const r = run('npm run deploy:realty');
+  const out = join(ROOT, 'realty/index.html');
+  if (!r.ok || !existsSync(out)) {
+    return { ok: false, detail: r.out.trim().split('\n').slice(-3).join(' / ') };
   }
-  return { ok: true, detail: parts.join(' · ') };
+  return { ok: true, detail: `realty/index.html ${Math.round(statSync(out).size / 1024)}KB` };
+});
+
+/*
+ * 이 검사가 없어서 사이트가 통째로 백지가 된 적이 있습니다.
+ *
+ * 엔트리를 둘로 늘리자 Vite 가 공통 코드를 공유 청크로 분리했고, 단일 HTML
+ * 빌더는 `<script src>` 태그만 인라인하므로 엔트리 코드 안의
+ * `import "./index-*.js"` 가 그대로 남았습니다. 파일은 3.4MB 로 멀쩡해 보였고
+ * 외부 http 참조도 없었지만, 브라우저는 그 파일을 못 찾아 **아무것도 렌더하지
+ * 않았습니다.** 크기와 존재만 보는 검사로는 절대 안 잡힙니다.
+ */
+check('산출물', 3, '인라인 문서에 미해결 모듈 참조가 없음', () => {
+  const out = join(ROOT, 'realty/index.html');
+  if (!existsSync(out)) return { ok: false, detail: '빌드 산출물이 없습니다' };
+  const html = readFileSync(out, 'utf8');
+  const dangling = [
+    ...(html.match(/from\s*["']\.\/[^"']+["']/g) ?? []),
+    ...(html.match(/import\s*\(?\s*["']\.\/[^"']+["']/g) ?? []),
+  ];
+  /*
+   * script 태그 **개수**를 세면 안 됩니다. React 내부 코드에 `"<script><\/script>"`
+   * 라는 문자열이 있어 늘 2개로 잡힙니다. 세야 할 것은 개수가 아니라
+   * **바깥 파일을 가리키는 참조**입니다.
+   */
+  const external = [
+    ...(html.match(/<script[^>]*\ssrc=/gi) ?? []),
+    ...(html.match(/<link[^>]*rel=["']stylesheet["']/gi) ?? []),
+  ];
+  return dangling.length === 0 && external.length === 0
+    ? { ok: true, detail: '상대경로 모듈 참조 0건 · 바깥 파일 참조 0건' }
+    : {
+        ok: false,
+        detail: `미해결 모듈 ${dangling.length}건 ${dangling.slice(0, 2).join(' ')} · 바깥 파일 ${external.length}건 — 배포하면 백지가 됩니다`,
+      };
 });
 
 check('산출물', 5, 'charset 이 첫 1024바이트 안 · 외부 요청 0건', () => {
-  const outs = ['realty/index.html', 'hyrent/index.html']
-    .map((p) => join(ROOT, p))
-    .filter((p) => existsSync(p));
-  if (outs.length < 2) return { ok: false, detail: '두 사이트 산출물이 다 있어야 합니다' };
+  const outs = [join(ROOT, 'realty/index.html')].filter((p) => existsSync(p));
+  if (outs.length === 0) return { ok: false, detail: '빌드 산출물이 없습니다' };
   const details = [];
   for (const out of outs) {
   const buf = readFileSync(out);

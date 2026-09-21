@@ -4,8 +4,26 @@
     {
       "name": "simulator",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "simulator", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "simulator",
+        "run",
+        "dev"
+      ],
       "port": 5173
+    },
+    {
+      "name": "built-realty",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "realty",
+        "-p",
+        "4180",
+        "-c-1"
+      ],
+      "port": 4180
     }
   ]
 }
