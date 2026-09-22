@@ -76,29 +76,52 @@ function EntryDetail({ entry }: { entry: HandbookEntry }) {
             {sec.title}
           </h4>
           <dl className="divide-y divide-slate-900 rounded-lg border border-slate-800 bg-slate-950/40">
-            {sec.rows.map((r) => (
-              <div key={r.key} className="px-3 py-2">
-                <div className="flex items-baseline justify-between gap-3">
-                  <dt className="text-[11px] text-slate-400">
-                    {r.label}
-                    {r.unlabeled && (
-                      <span
-                        className="ml-1 text-amber-500/70"
-                        title="룰셋에 새로 생긴 항목입니다. 설명서에 라벨을 붙여 주세요."
-                      >
-                        ⚑
-                      </span>
-                    )}
-                  </dt>
-                  <dd className="shrink-0 text-right text-[11px] font-medium text-slate-100 tabular-nums">
-                    {r.value}
-                  </dd>
+            {sec.rows.map((r) => {
+              /*
+               * 값이 길면 **줄을 바꿔 아래**에 놓습니다.
+               *
+               * 한 줄에 라벨과 값을 좌우로 밀어 붙이면, 값이 긴 항목(규제지역
+               * 시군구 목록 같은)에서 값이 폭을 다 가져가고 라벨이 0폭까지
+               * 찌그러져 **한 글자씩 세로로** 떨어집니다. 실제로 "규제지역
+               * 시군구" 가 그렇게 깨졌습니다.
+               */
+              const stacked = r.value.length > 24;
+              const label = (
+                <dt className="shrink-0 text-[11px] whitespace-nowrap text-slate-400">
+                  {r.label}
+                  {r.unlabeled && (
+                    <span
+                      className="ml-1 text-amber-500/70"
+                      title="룰셋에 새로 생긴 항목입니다. 설명서에 라벨을 붙여 주세요."
+                    >
+                      ⚑
+                    </span>
+                  )}
+                </dt>
+              );
+              return (
+                <div key={r.key} className="px-3 py-2">
+                  {stacked ? (
+                    <>
+                      {label}
+                      <dd className="mt-1 text-[11px] leading-relaxed font-medium break-words text-slate-100">
+                        {r.value}
+                      </dd>
+                    </>
+                  ) : (
+                    <div className="flex items-baseline justify-between gap-3">
+                      {label}
+                      <dd className="min-w-0 text-right text-[11px] font-medium break-words text-slate-100 tabular-nums">
+                        {r.value}
+                      </dd>
+                    </div>
+                  )}
+                  {r.note && (
+                    <p className="mt-0.5 text-[10px] leading-relaxed text-slate-600">{r.note}</p>
+                  )}
                 </div>
-                {r.note && (
-                  <p className="mt-0.5 text-[10px] leading-relaxed text-slate-600">{r.note}</p>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </dl>
         </section>
       ))}
