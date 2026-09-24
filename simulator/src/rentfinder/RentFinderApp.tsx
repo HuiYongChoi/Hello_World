@@ -20,11 +20,20 @@ import {
   type CommuteGrade,
 } from './data';
 import {
+  REGISTRY_CHECKLIST,
+  SAFETY_CAVEATS,
+  SAFETY_LABEL,
+  SAFETY_RULES,
+  type SafetyGrade,
+} from './safety';
+import {
   RENT_LOAN_CAVEATS,
   RENT_LOAN_RULES,
   adviseRentLoans,
   compareRentLoans,
+  jeonseLoanFit,
   type Borrower,
+  type JeonseLoanFit,
   type RentTarget,
 } from './loans';
 import {
@@ -54,6 +63,14 @@ import {
  */
 
 const STORAGE_KEY = 'masan-rent-finder-v1';
+
+const SAFETY_TONE: Record<SafetyGrade, 'good' | 'info' | 'warn' | 'bad' | 'neutral'> = {
+  low: 'good',
+  mid: 'info',
+  high: 'warn',
+  danger: 'bad',
+  unknown: 'neutral',
+};
 
 const COMMUTE_TONE: Record<CommuteGrade, 'good' | 'info' | 'neutral' | 'warn'> = {
   onsite: 'good',
@@ -135,7 +152,25 @@ const PRESETS: {
   note: string;
   input: Partial<FinderInput>;
   sort?: SortKey;
+  /** 전세대출이 되는 집만 남길까 */
+  loanable?: boolean;
 }[] = [
+  {
+    label: '안전한 전세 · 신축 · 방2↑',
+    note: '전세만 · 전용 45㎡ 이상 · 2005년 이후 준공 · 내 조건으로 전세대출이 되는 집만 · 전세가율 낮은 순. 전세는 목돈 전부가 걸리므로 값보다 전세가율을 먼저 봅니다.',
+    input: {
+      regionCodes: ['48127', '48125'],
+      minArea: TWO_ROOM_SAFE_SQM,
+      minBuildYear: 2005,
+      modes: ['jeonse'],
+      minDeals: 2,
+      freshMonths: 12,
+      maxDeposit: 250000000,
+      maxMonthly: 1200000,
+    },
+    sort: 'safety',
+    loanable: true,
+  },
   {
     label: '함안·의령 출퇴근 · 방2↑ · 15평↑',
     note: '마산회원구(내서읍이 함안 칠원과 맞붙음) · 전용 45㎡ 이상 — 공급 15평이면 전용은 40㎡ 안팎이라, 방 둘을 확실히 하려고 45㎡로 잡습니다.',
@@ -175,14 +210,18 @@ function CandidateCard({
   onStar,
   onMemo,
   onPickForLoan,
+  loanFit,
 }: {
   c: Candidate;
+  loanFit: JeonseLoanFit | null;
   starred: boolean;
   memo: string;
   onStar: () => void;
   onMemo: (v: string) => void;
   onPickForLoan: () => void;
 }) {
+  const s = c.safety;
+  const man = (v: number) => `${Math.round(v / 10000).toLocaleString('ko-KR')}만원`;
   const [open, setOpen] = useState(false);
   const age = c.complex.buildYear
     ? new Date(RENT_SNAPSHOT.asOf).getFullYear() - c.complex.buildYear
@@ -198,6 +237,18 @@ function CandidateCard({
               {c.regionLabel} · {COMMUTE_LABEL[c.commute]}
             </Badge>
             {c.thin && <Badge tone="warn">거래 {c.size.n}건</Badge>}
+            {/*
+              전세는 목돈 전부가 걸리므로 이 배지가 가격보다 먼저 보여야 합니다.
+            */}
+            {c.safety && (
+              <Badge
+                tone={SAFETY_TONE[c.safety.grade]}
+                title={`${c.safety.headline} · ${c.safety.notes[0]}`}
+              >
+                전세가율 {c.safety.ratio !== null ? percent(c.safety.ratio, 0) : '—'} ·{' '}
+                {SAFETY_LABEL[c.safety.grade]}
+              </Badge>
+            )}
           </div>
           <div className="mt-0.5 text-[11px] text-slate-500">
             {c.complex.umd}
@@ -255,6 +306,38 @@ function CandidateCard({
         ))}
       </div>
 
+      {/*
+        전세대출이 되는지가 이 집을 볼지 말지를 가릅니다 — 표까지 내려가지
+        않아도 카드에서 보이게 합니다.
+      */}
+      {loanFit && (
+        <div className="mt-1.5 text-[11px] leading-relaxed">
+          {loanFit.best ? (
+            <span className="text-emerald-300/90">
+              전세대출{' '}
+              {loanFit.eligible.slice(0, 3).map((r, i) => (
+                <span key={r.product.id}>
+                  {i > 0 && ' · '}
+                  <b className="font-medium">{r.product.shortName}</b>{' '}
+                  <span className="tabular-nums">
+                    {money(r.limit)} (연 {percent(r.rate.min, 1)}
+                    {r.rate.max > r.rate.min && `~${percent(r.rate.max, 1)}`})
+                  </span>
+                </span>
+              ))}
+              <span className="text-slate-500">
+                {' '}
+                — 자기 돈 {money(loanFit.best.ownCash)} · 월 이자 {man(loanFit.best.monthlyInterest.min)}
+              </span>
+            </span>
+          ) : (
+            <span className="text-rose-300/80">
+              내 조건으로 되는 전세대출이 없습니다 — 아래 "이 집으로 대출 계산" 에서 탈락 사유를 보세요
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500">
         <span>
           최근 거래 {c.staleMonths === 0 ? '이번 달' : `${c.staleMonths}개월 전`}
@@ -275,7 +358,7 @@ function CandidateCard({
           onClick={() => setOpen((v) => !v)}
           className="text-slate-500 underline decoration-dotted underline-offset-2 hover:text-slate-300"
         >
-          {open ? '메모 접기' : '메모 · 확인할 것'}
+          {open ? '접기' : s ? '융자 허용선 · 메모' : '메모 · 확인할 것'}
         </button>
         {/* 찾기와 대출을 잇는 자리 — 이 집 보증금으로 상품 표가 다시 계산됩니다. */}
         <button
@@ -299,6 +382,65 @@ function CandidateCard({
 
       {open && (
         <div className="mt-2 border-t border-slate-800 pt-2">
+          {s && s.seniorRoom && (
+            <div className="mb-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+              <div className="grid gap-x-4 gap-y-1 text-[11px] sm:grid-cols-2">
+                <span className="text-slate-400">
+                  같은 평형 매매 중위{' '}
+                  <b className="font-medium text-slate-100 tabular-nums">
+                    {money(s.salePrice ?? 0)}
+                  </b>{' '}
+                  <span className="text-slate-600">
+                    ({s.saleQuarter} · {s.saleDeals}건)
+                  </span>
+                </span>
+                <span className="text-slate-400">
+                  1년 매매가 추세{' '}
+                  <b
+                    className={`font-medium tabular-nums ${
+                      s.priceTrend && s.priceTrend.change < 0 ? 'text-amber-300' : 'text-slate-100'
+                    }`}
+                  >
+                    {s.priceTrend
+                      ? `${s.priceTrend.change >= 0 ? '+' : ''}${(s.priceTrend.change * 100).toFixed(1)}%`
+                      : '잴 수 없음'}
+                  </b>
+                  {s.priceTrend && (
+                    <span className="text-slate-600">
+                      {' '}
+                      ({s.priceTrend.from} → {s.priceTrend.to})
+                    </span>
+                  )}
+                </span>
+                <span className="text-slate-400">
+                  근저당 허용선 (경매 {percent(SAFETY_RULES.auctionRatio, 0)} 가정){' '}
+                  <b
+                    className={`font-medium tabular-nums ${
+                      s.seniorRoom.auction > 0 ? 'text-emerald-300' : 'text-rose-300'
+                    }`}
+                  >
+                    {s.seniorRoom.auction > 0
+                      ? `채권최고액 ${money(s.seniorRoom.auction)} 이하`
+                      : `근저당 없어도 ${money(-s.seniorRoom.auction)} 부족`}
+                  </b>
+                </span>
+                <span className="text-slate-400">
+                  보증보험 기준 (집값 {percent(SAFETY_RULES.guaranteeRatio, 0)}, 시세로 잼){' '}
+                  <b className="font-medium text-slate-100 tabular-nums">
+                    {s.seniorRoom.guarantee > 0
+                      ? `선순위 ${money(s.seniorRoom.guarantee)} 이하`
+                      : '보증금만으로 초과'}
+                  </b>
+                </span>
+              </div>
+              <p className="mt-1.5 text-[10px] leading-relaxed text-slate-600">
+                융자(근저당)가 있는지는 이 자료에 없습니다. 중개사가 등기부등본을 보여 주면 을구의{' '}
+                <b className="text-slate-500">채권최고액 합계</b>를 위 허용선과 견주세요 — "융자가
+                있다/없다" 가 아니라 "그 융자가 괜찮은 크기인가" 가 질문입니다. 보증보험 실제 심사는
+                공시가격 기준이라 시세로 잰 이 값보다 빡빡합니다.
+              </p>
+            </div>
+          )}
           <textarea
             value={memo}
             onChange={(e) => onMemo(e.target.value)}
@@ -561,6 +703,7 @@ export function RentFinderApp() {
   const [state, setState] = useState<Saved>(load);
   const [sort, setSort] = useState<SortKey>('monthly');
   const [onlyStarred, setOnlyStarred] = useState(false);
+  const [onlyLoanable, setOnlyLoanable] = useState(false);
   const { input } = state;
 
   useEffect(() => {
@@ -575,10 +718,27 @@ export function RentFinderApp() {
     setState((s) => ({ ...s, input: { ...s.input, ...p } }));
 
   const all = useMemo(() => findRentals(input), [input]);
+  /*
+   * 후보마다 내 조건으로 되는 전세대출 — 전세 선택지가 있는 후보만 냅니다.
+   * 보증금이 정해져야 상품이 갈리므로 카드마다 따로 잽니다.
+   */
+  const fits = useMemo(() => {
+    const m = new Map<string, JeonseLoanFit>();
+    for (const c of all) {
+      const j = c.options.find((o) => o.mode === 'jeonse');
+      if (j) m.set(c.key, jeonseLoanFit(state.borrower, j.deposit, c.size.area));
+    }
+    return m;
+  }, [all, state.borrower]);
   const list = useMemo(() => {
-    const base = onlyStarred ? all.filter((c) => state.starred.includes(c.key)) : all;
+    let base = onlyStarred ? all.filter((c) => state.starred.includes(c.key)) : all;
+    if (onlyLoanable) base = base.filter((c) => fits.get(c.key)?.best);
     return sortCandidates(base, sort);
-  }, [all, sort, onlyStarred, state.starred]);
+  }, [all, sort, onlyStarred, onlyLoanable, fits, state.starred]);
+  const loanableCount = useMemo(
+    () => [...fits.values()].filter((f) => f.best).length,
+    [fits]
+  );
   const sum = useMemo(() => summarize(all), [all]);
 
   const toggleRegion = (code: string) => {
@@ -630,6 +790,7 @@ export function RentFinderApp() {
               onClick={() => {
                 patch(p.input);
                 if (p.sort) setSort(p.sort);
+                setOnlyLoanable(p.loanable ?? false);
               }}
               title={p.note}
               className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] text-slate-300 transition hover:border-sky-500/60 hover:text-sky-300"
@@ -779,6 +940,18 @@ export function RentFinderApp() {
           >
             ★ 담은 것만 ({state.starred.length})
           </button>
+          <button
+            type="button"
+            onClick={() => setOnlyLoanable((v) => !v)}
+            title="아래 대출 표의 신청자 조건(나이·소득·세대주)으로 전세대출이 되는 집만 남깁니다"
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+              onlyLoanable
+                ? 'bg-emerald-500/15 text-emerald-300'
+                : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            전세대출 되는 집만 ({loanableCount})
+          </button>
         </div>
       </Card>
 
@@ -820,6 +993,7 @@ export function RentFinderApp() {
               <CandidateCard
                 key={c.key}
                 c={c}
+                loanFit={fits.get(c.key) ?? null}
                 starred={state.starred.includes(c.key)}
                 memo={state.memos[c.key] ?? ''}
                 onStar={() =>
@@ -867,9 +1041,37 @@ export function RentFinderApp() {
         />
       </div>
 
+      <Card
+        title="융자 · 권리관계 — 계약 전에 서류로 볼 것"
+        subtitle="근저당(융자)은 공개 자료에 없습니다. 후보 카드의 근저당 허용선을 들고 아래 순서로 확인하세요"
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-[11px]">
+            <thead className="text-slate-500">
+              <tr className="border-b border-slate-800">
+                <th className="py-1.5 pr-3 font-medium">무엇</th>
+                <th className="py-1.5 pr-3 font-medium">어디서</th>
+                <th className="py-1.5 font-medium">무엇을 보나</th>
+              </tr>
+            </thead>
+            <tbody>
+              {REGISTRY_CHECKLIST.map((r) => (
+                <tr key={r.what} className="border-b border-slate-900 align-top">
+                  <td className="py-1.5 pr-3 font-medium whitespace-nowrap text-slate-200">
+                    {r.what}
+                  </td>
+                  <td className="py-1.5 pr-3 text-slate-400">{r.where}</td>
+                  <td className="py-1.5 leading-relaxed text-slate-400">{r.look}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
       <Card title="이 자료가 못 하는 것">
         <ul className="space-y-1.5">
-          {RENT_CAVEATS.map((c) => (
+          {[...RENT_CAVEATS, ...SAFETY_CAVEATS].map((c) => (
             <li key={c} className="text-xs leading-relaxed text-slate-400">
               · {c}
             </li>

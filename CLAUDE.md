@@ -69,7 +69,8 @@ src/rules/rent-loans-YYYY-MM.json ← 전월세 보증금 대출 룰셋 (매수 
 src/rentfinder/          전월세 찾기 — `＋ 청약 · 전월세` 탭 안의 한 갈래
   data.ts        전월세 스냅샷 로더 + 출퇴근 등급
   finder.ts      조건 필터 + 월 환산 주거비 + 정렬 (UI 를 모릅니다)
-  loans.ts       전세대출 자격·한도 비교 + 다음 행동 조언
+  loans.ts       전세대출 자격·한도 비교 + 다음 행동 조언 + 후보별 되는 상품(jeonseLoanFit)
+  safety.ts      전세가율 · 근저당 허용선 · 매매가 추세 · 등기부 확인 목록
   RentFinderApp.tsx  화면 — 매수 쪽 스토어를 공유하지 않습니다
 src/state/store.tsx      React 상태 + localStorage
 src/pages/               화면
@@ -226,7 +227,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 486건)
+npm test                 # 엔진 단위 테스트 (현재 502건)
 npm run scorecard        # 채점표 — 구조·연결·검증·산출물 100점 만점
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
@@ -241,6 +242,7 @@ npm run fetch:population # 행안부 통계연보 지역별 인구 → src/data/
 npm run fetch:repair     # K-apt 장기수선충당금 → src/data/repair.json
 npm run fetch:applyhome  # 청약홈 분양정보·경쟁률 → src/data/applyhome-*.json
 node ../scripts/fetch-masan-rent.mjs   # 마산 생활권 전월세 → src/data/masan-rent-*.json
+node ../scripts/fetch-masan-landlord.mjs  # 갭투자 흔적 재현용 (결과는 잡음 — 앱에 안 씀)
 node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 룰셋
 ```
 
@@ -706,6 +708,35 @@ CAGR 만 내면 진입시점이 감춰지므로 같은 보유기간의 분포를
 **이 룰셋의 수치는 추정입니다.** 주택도시기금 상품의 소득·순자산 요건과 금리
 구간은 수시로 바뀝니다. `disclaimer` 와 상품별 `basis` 를 화면에 상시 노출하고,
 공고로 재확인하라고 적습니다 — 매수 룰셋과 같은 규율입니다.
+
+### 전세는 싼가보다 돌려받느냐가 먼저입니다
+
+`safety.ts` 가 전세 후보마다 **같은 단지·평형 매매 중위가**(`market-*.json`,
+같은 `aptSeq`)와 맞대 셋을 냅니다. 경계·낙찰가율 같은 수치는 전부
+`rent-loans-*.json` 의 `jeonseSafety` 에 있습니다.
+
+```
+전세가율       = 보증금 ÷ 매매 중위가          (60·70·80% 에서 끊음)
+근저당 허용선   = 매매 중위가 × 낙찰가율 − 보증금  (낙찰가율 80% 가정)
+매매가 추세    = 최근 분기 ÷ 4분기 이상 앞선 분기 − 1
+```
+
+**융자(근저당)가 있는지는 어느 공개 API 에도 없습니다.** 등기부는 호수 단위
+인터넷등기소 열람뿐이고, 공시가격 API(NSDI)는 폐기됐고, 건축물대장 API 는
+이 키로 활용신청이 안 돼 있습니다. 그래서 "융자가 있나" 대신 **"융자가 얼마까지면
+괜찮은가"** 를 냅니다 — 중개사가 등기부를 보여 줄 때 을구 채권최고액 합계를
+허용선과 견주면 됩니다. 허용선이 음수면 "근저당 없어도 부족" 으로 말하고,
+화면 하단에 등기부·납세증명·잔금일 재확인 순서표(`REGISTRY_CHECKLIST`)를 둡니다.
+
+**갭투자 흔적은 재 봤지만 뺐습니다.** 매매 뒤 120일 안에 같은 단지·평형·층에서
+신규 전세가 체결된 건을 셌더니 2년 4,502건, 그런데 동·호수가 없어 같은 층 다른
+호가 우연히 겹칠 기대치가 4,257건이었습니다. 6% 차이는 신호가 아니라 잡음이라
+화면에 올리지 않았고, 재현 스크립트(`scripts/fetch-masan-landlord.mjs`)만 남깁니다.
+
+카드마다 **내 조건으로 되는 전세대출**이 한 줄로 붙고(`jeonseLoanFit`, 월세 전용
+상품 제외), "전세대출 되는 집만" 토글로 거를 수 있습니다. 빠른 조건 첫 번째
+`안전한 전세 · 신축 · 방2↑` 가 전세만 · 전용 45㎡↑ · 2005년 이후 · 대출 되는 집만 ·
+전세가율 낮은 순을 한 번에 겁니다.
 
 ### 함안·의령에는 살 집이 거의 없습니다
 

@@ -293,6 +293,30 @@ export function compareRentLoans(b: Borrower, t: RentTarget): RentLoanResult[] {
   return [...ok, ...no];
 }
 
+/**
+ * 전세 후보 한 채에 **되는 전세대출**을 추립니다 — 후보 카드에 한 줄로 붙습니다.
+ *
+ * 대출을 먼저 정하고 집을 고르는 순서라면, 목록을 보는 순간 "이 집은 중기청이
+ * 되나" 가 보여야 합니다. 표까지 내려가 한 채씩 밀어 넣게 하면 그 비교를 안 합니다.
+ * 월세 전용 상품은 뺍니다.
+ */
+export interface JeonseLoanFit {
+  /** 되는 상품 — 금리 낮은 순 */
+  eligible: RentLoanResult[];
+  /** 가장 싼 것 */
+  best: RentLoanResult | null;
+  /** 떨어진 전세 상품 수 */
+  rejected: number;
+}
+
+export function jeonseLoanFit(b: Borrower, deposit: number, areaSqm: number): JeonseLoanFit {
+  const all = compareRentLoans(b, { deposit, rent: 0, areaSqm }).filter(
+    (r) => r.product.mode !== 'wolse'
+  );
+  const eligible = all.filter((r) => r.eligible);
+  return { eligible, best: eligible[0] ?? null, rejected: all.length - eligible.length };
+}
+
 export interface RentLoanAdvice {
   headline: string;
   detail: string;

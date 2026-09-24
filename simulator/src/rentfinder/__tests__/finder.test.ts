@@ -14,6 +14,9 @@ import {
   type FinderInput,
 } from '../finder';
 
+import { REGISTRY_CHECKLIST, SAFETY_RULES } from '../safety';
+import { jeonseLoanFit } from '../loans';
+
 const find = (over: Partial<FinderInput> = {}) => findRentals({ ...DEFAULT_INPUT, ...over });
 
 describe('전월세 스냅샷', () => {
@@ -242,5 +245,171 @@ describe('평 환산과 출퇴근 정렬', () => {
     }
     // 함안 방향이 가까운 마산회원이 먼저 나와야 합니다.
     expect(sorted[0].commute).toBe('near');
+  });
+});
+
+describe('전세가율 — 안전 축', () => {
+  const jeonseOnly = () =>
+    find({ modes: ['jeonse'], minArea: TWO_ROOM_SAFE_SQM, regionCodes: ['48127', '48125'] });
+
+  it('전세 선택지가 있으면 전세가율을 냅니다', () => {
+    const list = jeonseOnly();
+    expect(list.length).toBeGreaterThan(0);
+    for (const c of list) expect(c.safety).not.toBeNull();
+  });
+
+  it('전세가율 = 보증금 ÷ 같은 단지·평형 매매 중위가', () => {
+    for (const c of jeonseOnly()) {
+      const s = c.safety!;
+      if (s.ratio === null || s.salePrice === null) continue;
+      const deposit = c.options.find((o) => o.mode === 'jeonse')!.deposit;
+      expect(s.ratio).toBeCloseTo(deposit / s.salePrice, 10);
+    }
+  });
+
+  it('등급 경계가 지켜집니다', () => {
+    for (const c of jeonseOnly()) {
+      const s = c.safety!;
+      if (s.ratio === null) {
+        expect(s.grade).toBe('unknown');
+        continue;
+      }
+      const expected =
+        s.ratio < 0.6 ? 'low' : s.ratio < 0.7 ? 'mid' : s.ratio < 0.8 ? 'high' : 'danger';
+      expect(s.grade).toBe(expected);
+    }
+  });
+
+  /** 실제 안전은 등기부에서 갈립니다 — 그 사실을 숫자 옆에 늘 답니다. */
+  it('선순위 근저당을 모른다는 것을 매번 적습니다', () => {
+    for (const c of jeonseOnly()) {
+      if (c.safety?.ratio === null) continue;
+      expect(c.safety!.notes.join(' ')).toContain('근저당');
+    }
+  });
+
+  it('위험·주의 등급이면 후보 메모에도 경고가 붙습니다', () => {
+    for (const c of jeonseOnly()) {
+      if (c.safety?.grade === 'danger' || c.safety?.grade === 'high') {
+        expect(c.notes.join(' ')).toContain('등기부등본');
+      }
+    }
+  });
+
+  /** 모르는 것을 앞에 두면 "위험이 낮아서 위에 있나" 로 읽힙니다. */
+  it('전세가율 순 정렬은 못 잰 후보를 뒤로 보냅니다', () => {
+    const sorted = sortCandidates(jeonseOnly(), 'safety');
+    let seenUnknown = false;
+    for (const c of sorted) {
+      const known = c.safety?.ratio !== null && c.safety?.ratio !== undefined;
+      if (!known) seenUnknown = true;
+      else expect(seenUnknown).toBe(false);
+    }
+  });
+
+  it('신축 순 정렬은 준공연도 내림차순입니다', () => {
+    const sorted = sortCandidates(jeonseOnly(), 'newest');
+    for (let i = 1; i < sorted.length; i++) {
+      expect(sorted[i - 1].complex.buildYear).toBeGreaterThanOrEqual(
+        sorted[i].complex.buildYear
+      );
+    }
+  });
+});
+
+describe('융자 허용선 · 매매가 추세', () => {
+  const list = () =>
+    find({ modes: ['jeonse'], minArea: TWO_ROOM_SAFE_SQM, regionCodes: ['48127', '48125'] });
+
+  it('근저당 허용선 = 매매 중위가 × 낙찰가율 − 보증금 (룰셋 값)', () => {
+    let seen = 0;
+    for (const c of list()) {
+      const s = c.safety!;
+      if (s.salePrice === null) {
+        expect(s.seniorRoom).toBeNull();
+        continue;
+      }
+      seen++;
+      const deposit = c.options.find((o) => o.mode === 'jeonse')!.deposit;
+      expect(s.seniorRoom!.auction).toBeCloseTo(s.salePrice * SAFETY_RULES.auctionRatio - deposit, 6);
+      expect(s.seniorRoom!.guarantee).toBeCloseTo(
+        s.salePrice * SAFETY_RULES.guaranteeRatio - deposit,
+        6
+      );
+      // 보증보험 선은 경매 선보다 느슨합니다 (90% > 80%)
+      expect(s.seniorRoom!.guarantee).toBeGreaterThan(s.seniorRoom!.auction);
+    }
+    expect(seen).toBeGreaterThan(0);
+  });
+
+  it('허용선이 음수면 "근저당 없어도 부족" 으로 말합니다 — 양수인 척하지 않습니다', () => {
+    for (const c of list()) {
+      const s = c.safety!;
+      if (!s.seniorRoom) continue;
+      const text = s.notes.join(' ');
+      if (s.seniorRoom.auction > 0) expect(text).toContain('근저당 허용선');
+      else expect(text).toContain('근저당이 하나도 없어도');
+    }
+  });
+
+  it('융자 여부를 안다고 말하지 않습니다 — 등기부를 가리킵니다', () => {
+    for (const c of list()) {
+      if (c.safety!.ratio === null) continue;
+      expect(c.safety!.notes.join(' ')).toContain('등기부등본');
+    }
+  });
+
+  it('매매가 추세는 1년 이상 앞선 분기와 견줍니다', () => {
+    for (const c of list()) {
+      const t = c.safety!.priceTrend;
+      if (!t) continue;
+      const [fy, fq] = t.from.split('Q').map((x) => parseInt(x, 10));
+      const [ty, tq] = t.to.split('Q').map((x) => parseInt(x, 10));
+      expect(ty * 4 + tq - (fy * 4 + fq)).toBeGreaterThanOrEqual(4);
+    }
+  });
+
+  it('확인 목록에 근저당·소유자·세금 체납·잔금일 재확인이 있습니다', () => {
+    const whats = REGISTRY_CHECKLIST.map((r) => r.what).join(' ');
+    for (const w of ['근저당', '소유자', '세금', '잔금일']) expect(whats).toContain(w);
+  });
+});
+
+describe('후보별 전세대출', () => {
+  const borrower = {
+    age: 32,
+    militaryServed: true,
+    married: false,
+    marriedYears: 0,
+    newbornWithin2y: false,
+    smeEmployed: true,
+    income: 30000000,
+    spouseIncome: 0,
+    netWorth: 50000000,
+    householder: true,
+    noHouse: true,
+  };
+
+  it('월세 전용 상품은 전세 후보에 안 붙습니다', () => {
+    const fit = jeonseLoanFit(borrower, 100000000, 59);
+    for (const r of fit.eligible) expect(r.product.mode).not.toBe('wolse');
+  });
+
+  it('되는 상품은 금리 낮은 순이고 best 가 맨 앞입니다', () => {
+    const fit = jeonseLoanFit(borrower, 100000000, 59);
+    expect(fit.best).toBe(fit.eligible[0]);
+    for (let i = 1; i < fit.eligible.length; i++) {
+      expect(fit.eligible[i].rate.min).toBeGreaterThanOrEqual(fit.eligible[i - 1].rate.min);
+    }
+  });
+
+  it('중소기업 재직 청년이면 중기청이 먼저 옵니다', () => {
+    expect(jeonseLoanFit(borrower, 100000000, 59).best?.product.id).toBe('jungsocheong');
+  });
+
+  it('보증금이 상한을 넘으면 그 상품이 빠집니다', () => {
+    const fit = jeonseLoanFit(borrower, 250000000, 59);
+    expect(fit.eligible.some((r) => r.product.id === 'jungsocheong')).toBe(false);
+    expect(fit.rejected).toBeGreaterThan(0);
   });
 });

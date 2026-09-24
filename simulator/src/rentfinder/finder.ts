@@ -29,6 +29,7 @@ import {
   type RentComplex,
   type RentSize,
 } from './data';
+import { jeonseSafety, type JeonseSafety } from './safety';
 
 export type TenureMode = 'jeonse' | 'wolse';
 
@@ -89,6 +90,13 @@ export interface Candidate {
   thin: boolean;
   /** 이 후보에 대해 자료가 말해 주는 것 */
   notes: string[];
+  /**
+   * 전세 보증금이 집값에 얼마나 가까운가 — **전세에서 가장 중요한 축**입니다.
+   *
+   * 월세는 보증금이 작아 떼일 위험도 작지만, 전세는 목돈 전부가 걸립니다.
+   * 전세 선택지가 있을 때만 냅니다.
+   */
+  safety: JeonseSafety | null;
 }
 
 /** 거래가 이보다 적으면 중위가가 한두 건에 흔들립니다. */
@@ -239,6 +247,14 @@ export function findRentals(input: FinderInput): Candidate[] {
         if (age >= 30) notes.push(`준공 ${c.buildYear}년 — ${age}년차라 설비 노후를 직접 보셔야 합니다.`);
       }
 
+      const jeonseOption = affordable.find((o) => o.mode === 'jeonse');
+      const safety = jeonseOption
+        ? jeonseSafety(c.id, size.area, jeonseOption.deposit)
+        : null;
+      if (safety && (safety.grade === 'danger' || safety.grade === 'high')) {
+        notes.push(`${safety.headline} — 전세로 간다면 등기부등본을 먼저 보세요.`);
+      }
+
       out.push({
         key: `${c.id}|${size.area}`,
         complex: c,
@@ -250,6 +266,7 @@ export function findRentals(input: FinderInput): Candidate[] {
         staleMonths: stale,
         thin: size.n < THIN_DEALS,
         notes,
+        safety,
       });
     }
   }
@@ -260,9 +277,19 @@ export function findRentals(input: FinderInput): Candidate[] {
 /** 스냅샷 기준 연도 — 연식 계산에만 씁니다. */
 const RENT_ASOF_YEAR = new Date().getFullYear();
 
-export type SortKey = 'monthly' | 'deposit' | 'area' | 'recent' | 'perSqm' | 'commute';
+export type SortKey =
+  | 'monthly'
+  | 'deposit'
+  | 'area'
+  | 'recent'
+  | 'perSqm'
+  | 'commute'
+  | 'newest'
+  | 'safety';
 
 export const SORT_LABEL: Record<SortKey, string> = {
+  safety: '전세가율 낮은 순 (위험 적은 쪽)',
+  newest: '신축 순',
   commute: '함안·의령 가까운 순',
   monthly: '월 환산 주거비',
   deposit: '필요한 보증금',
@@ -294,6 +321,18 @@ export function sortCandidates(list: Candidate[], key: SortKey): Candidate[] {
       return copy.sort(
         (a, b) => a.best.monthly / a.size.area - b.best.monthly / b.size.area
       );
+    case 'newest':
+      return copy.sort((a, b) => (b.complex.buildYear || 0) - (a.complex.buildYear || 0));
+    case 'safety':
+      /*
+       * 전세가율을 못 잰 후보(매매 거래 없음)는 **뒤로** 보냅니다. 모르는 것을
+       * 앞에 두면 "위험이 낮아서 위에 있나" 로 읽힙니다.
+       */
+      return copy.sort((a, b) => {
+        const ra = a.safety?.ratio ?? Number.POSITIVE_INFINITY;
+        const rb = b.safety?.ratio ?? Number.POSITIVE_INFINITY;
+        return ra - rb || a.best.monthly - b.best.monthly;
+      });
     case 'commute':
       /*
        * 등급이 같으면 싼 순입니다. 출퇴근만으로 줄을 세우면 같은 등급 안에서
