@@ -227,7 +227,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 502건)
+npm test                 # 엔진 단위 테스트 (현재 503건)
 npm run scorecard        # 채점표 — 구조·연결·검증·산출물 100점 만점
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
@@ -716,7 +716,7 @@ CAGR 만 내면 진입시점이 감춰지므로 같은 보유기간의 분포를
 `rent-loans-*.json` 의 `jeonseSafety` 에 있습니다.
 
 ```
-전세가율       = 보증금 ÷ 매매 중위가          (60·70·80% 에서 끊음)
+전세가율       = 보증금 ÷ 매매 중위가(최근 4분기 묶음)  (60·70·80% 에서 끊음)
 근저당 허용선   = 매매 중위가 × 낙찰가율 − 보증금  (낙찰가율 80% 가정)
 매매가 추세    = 최근 분기 ÷ 4분기 이상 앞선 분기 − 1
 ```

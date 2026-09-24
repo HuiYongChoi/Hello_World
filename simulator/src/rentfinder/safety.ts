@@ -98,6 +98,29 @@ const CUTS = SAFETY_RULES.ratioCuts;
 /** 매매 표본이 이보다 적으면 중위가를 믿기 어렵습니다. */
 const MIN_SALE_DEALS = 3;
 
+/**
+ * 매매가를 몇 분기 묶어 재나.
+ *
+ * 한 분기만 쓰면 그 분기 거래가 1건일 때 비율이 통째로 흔들립니다 — 한일3차
+ * 85㎡ 가 최근 분기 1건으로는 2.42억, 최근 1년 반 26건으로는 2.53억이었습니다.
+ * 1년(4분기)을 묶어 **거래건수로 가중한 중위**를 씁니다.
+ */
+const POOL_QUARTERS = 4;
+
+type Point = { q: number; n: number; price: number };
+
+/** 분기 중위가들을 거래건수로 가중한 중위 */
+function pooledPrice(points: Point[]): { price: number; n: number } {
+  const sorted = [...points].sort((a, b) => a.price - b.price);
+  const total = sorted.reduce((s, p) => s + p.n, 0);
+  let acc = 0;
+  for (const p of sorted) {
+    acc += p.n;
+    if (acc * 2 >= total) return { price: p.price, n: total };
+  }
+  return { price: 0, n: 0 };
+}
+
 /** 전용면적이 이만큼 벌어지면 다른 평형으로 봅니다. */
 const AREA_TOLERANCE = 2;
 
@@ -154,22 +177,28 @@ export function jeonseSafety(
     .sort((a, b) => Math.abs(a.area - areaSqm) - Math.abs(b.area - areaSqm))[0];
   if (!size || size.points.length === 0) return base;
 
-  // 가장 최근 분기의 거래를 씁니다 — 오래된 값이면 그 사실을 같이 냅니다.
+  // 가장 최근 분기에서 1년을 묶습니다 — 오래된 값이면 그 사실을 같이 냅니다.
   const last = size.points.reduce((a, b) => (b.q > a.q ? b : a));
-  if (last.price <= 0) return base;
+  const recentPts = size.points.filter((p) => p.q > last.q - POOL_QUARTERS && p.price > 0);
+  const recent = pooledPrice(recentPts);
+  if (recent.price <= 0) return base;
+  const firstQ = Math.min(...recentPts.map((p) => p.q));
+  const period =
+    firstQ === last.q ? quarterLabel(last.q) : `${quarterLabel(firstQ)}~${quarterLabel(last.q)}`;
+  const salePrice = recent.price;
 
-  const ratio = deposit / last.price;
+  const ratio = deposit / salePrice;
   const grade = gradeOf(ratio);
   const stale = LATEST_Q - last.q;
 
   const man = (v: number) => `${Math.round(v / 1e4).toLocaleString('ko-KR')}만원`;
   const notes: string[] = [
-    `같은 단지 전용 ${size.area}㎡ 매매 중위가 ${man(last.price)} (${quarterLabel(last.q)} · ${last.n}건).`,
+    `같은 단지 전용 ${size.area}㎡ 매매 중위가 ${man(salePrice)} (${period} · ${recent.n}건).`,
   ];
 
   const seniorRoom = {
-    auction: last.price * SAFETY_RULES.auctionRatio - deposit,
-    guarantee: last.price * SAFETY_RULES.guaranteeRatio - deposit,
+    auction: salePrice * SAFETY_RULES.auctionRatio - deposit,
+    guarantee: salePrice * SAFETY_RULES.guaranteeRatio - deposit,
   };
   const auctionPct = Math.round(SAFETY_RULES.auctionRatio * 100);
   if (seniorRoom.auction > 0) {
@@ -183,17 +212,18 @@ export function jeonseSafety(
   }
 
   /*
-   * 1년 전 분기와 견줍니다. 같은 분기가 비어 있으면 그보다 앞선 가장 가까운
-   * 분기를 씁니다 — 그래도 없으면 추세를 내지 않습니다.
+   * 최근 1년 묶음과 그 앞 1년 묶음을 견줍니다. 분기 하나끼리 견주면 1건짜리
+   * 분기가 +52% 같은 추세를 만듭니다 (한일비치맨션 66㎡ 에서 실제로 그랬습니다).
    */
-  const prior = size.points
-    .filter((p) => p.q <= last.q - 4)
-    .reduce<(typeof size.points)[number] | null>((a, b) => (!a || b.q > a.q ? b : a), null);
+  const priorPts = size.points.filter(
+    (p) => p.q <= last.q - POOL_QUARTERS && p.q > last.q - 2 * POOL_QUARTERS && p.price > 0
+  );
+  const prior = priorPts.length ? pooledPrice(priorPts) : null;
   const priceTrend =
     prior && prior.price > 0
       ? {
-          change: last.price / prior.price - 1,
-          from: quarterLabel(prior.q),
+          change: salePrice / prior.price - 1,
+          from: quarterLabel(Math.max(...priorPts.map((p) => p.q))),
           to: quarterLabel(last.q),
         }
       : null;
@@ -202,8 +232,8 @@ export function jeonseSafety(
       `매매가가 ${priceTrend.from} → ${priceTrend.to} 사이 ${(priceTrend.change * 100).toFixed(0)}% 움직였습니다 — 떨어지는 중이면 같은 전세가율도 여유가 줄어듭니다.`
     );
   }
-  if (last.n < MIN_SALE_DEALS) {
-    notes.push(`매매가 ${last.n}건뿐이라 그 값 자체가 흔들립니다 — 비율을 세게 읽지 마세요.`);
+  if (recent.n < MIN_SALE_DEALS) {
+    notes.push(`최근 1년 매매가 ${recent.n}건뿐이라 그 값 자체가 흔들립니다 — 비율을 세게 읽지 마세요.`);
   }
   if (stale >= 4) {
     notes.push(`매매 거래가 ${stale}분기 전입니다. 그 사이 값이 움직였다면 이 비율도 달라집니다.`);
@@ -214,9 +244,9 @@ export function jeonseSafety(
 
   return {
     ratio,
-    salePrice: last.price,
-    saleDeals: last.n,
-    saleQuarter: quarterLabel(last.q),
+    salePrice,
+    saleDeals: recent.n,
+    saleQuarter: period,
     saleStaleQuarters: stale,
     grade,
     seniorRoom,

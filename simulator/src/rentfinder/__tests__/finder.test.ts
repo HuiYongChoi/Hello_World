@@ -369,6 +369,24 @@ describe('융자 허용선 · 매매가 추세', () => {
     }
   });
 
+  it('매매가는 최근 1년(4분기)을 묶어 잽니다 — 1건짜리 분기 하나에 흔들리지 않게', () => {
+    let pooled = 0;
+    for (const c of list()) {
+      const s = c.safety!;
+      if (s.saleQuarter === null) continue;
+      expect(s.saleQuarter).toMatch(/^\d{4}Q\d(~\d{4}Q\d)?$/);
+      if (s.saleQuarter.includes('~')) {
+        pooled++;
+        const [a, b] = s.saleQuarter.split('~').map((x) => {
+          const [y, q] = x.split('Q').map(Number);
+          return y * 4 + q;
+        });
+        expect(b - a).toBeLessThan(4);
+      }
+    }
+    expect(pooled).toBeGreaterThan(0);
+  });
+
   it('확인 목록에 근저당·소유자·세금 체납·잔금일 재확인이 있습니다', () => {
     const whats = REGISTRY_CHECKLIST.map((r) => r.what).join(' ');
     for (const w of ['근저당', '소유자', '세금', '잔금일']) expect(whats).toContain(w);
