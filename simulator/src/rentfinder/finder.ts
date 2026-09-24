@@ -97,6 +97,35 @@ export const THIN_DEALS = 3;
 /** 투룸이 나오기 시작하는 전용면적 — 방 개수 자료가 없어 쓰는 대리선입니다. */
 export const TWO_ROOM_SQM = 36;
 
+/** 방 둘이 안정적으로 나오는 선. 36㎡ 는 원룸·투룸이 섞입니다. */
+export const TWO_ROOM_SAFE_SQM = 45;
+
+export const SQM_PER_PYEONG = 3.3058;
+
+/**
+ * 전용률 — **공급면적이 자료에 없어** 전용에서 되짚을 때 쓰는 추정치입니다.
+ *
+ * 국토부 전월세 실거래에는 전용면적만 옵니다. 그런데 사람은 "15평 아파트" 라고
+ * 말할 때 대개 **공급면적**을 뜻합니다. 전용 40㎡ 를 그대로 평으로 바꾸면
+ * 12.1평이라 "15평이 아니네" 가 되는데, 그 집의 공급면적은 15평 안팎입니다.
+ *
+ * 계단식·복도식·탑상형마다 다르고 단지별로 70~85% 를 오갑니다. 그래서 화면에는
+ * 늘 **"약"** 을 붙이고, 판정(필터·정렬)은 전용면적으로만 합니다 — 추정치로
+ * 거르면 없는 정확도를 만드는 셈입니다.
+ */
+export const SUPPLY_RATIO = 0.78;
+
+/** 전용 ㎡ → 전용 평 */
+export const toPyeong = (sqm: number) => sqm / SQM_PER_PYEONG;
+
+/** 전용 ㎡ → 공급 평 (추정) */
+export const toSupplyPyeong = (exclusiveSqm: number) =>
+  exclusiveSqm / SUPPLY_RATIO / SQM_PER_PYEONG;
+
+/** 공급 평 → 전용 ㎡ (추정) — 화면에서 평으로 입력받을 때 씁니다 */
+export const supplyPyeongToSqm = (pyeong: number) =>
+  pyeong * SQM_PER_PYEONG * SUPPLY_RATIO;
+
 export const DEFAULT_INPUT: FinderInput = {
   minArea: TWO_ROOM_SQM,
   maxArea: 0,
@@ -231,14 +260,23 @@ export function findRentals(input: FinderInput): Candidate[] {
 /** 스냅샷 기준 연도 — 연식 계산에만 씁니다. */
 const RENT_ASOF_YEAR = new Date().getFullYear();
 
-export type SortKey = 'monthly' | 'deposit' | 'area' | 'recent' | 'perSqm';
+export type SortKey = 'monthly' | 'deposit' | 'area' | 'recent' | 'perSqm' | 'commute';
 
 export const SORT_LABEL: Record<SortKey, string> = {
+  commute: '함안·의령 가까운 순',
   monthly: '월 환산 주거비',
   deposit: '필요한 보증금',
   area: '전용면적 넓은 순',
   recent: '최근 거래순',
   perSqm: '㎡당 월 비용',
+};
+
+/** 출퇴근 등급의 순서 — 작을수록 가깝습니다. */
+const COMMUTE_ORDER: Record<CommuteGrade, number> = {
+  onsite: 0,
+  near: 1,
+  mid: 2,
+  far: 3,
 };
 
 export function sortCandidates(list: Candidate[], key: SortKey): Candidate[] {
@@ -255,6 +293,16 @@ export function sortCandidates(list: Candidate[], key: SortKey): Candidate[] {
     case 'perSqm':
       return copy.sort(
         (a, b) => a.best.monthly / a.size.area - b.best.monthly / b.size.area
+      );
+    case 'commute':
+      /*
+       * 등급이 같으면 싼 순입니다. 출퇴근만으로 줄을 세우면 같은 등급 안에서
+       * 순서가 임의가 되어 "왜 이게 위지" 가 됩니다.
+       */
+      return copy.sort(
+        (a, b) =>
+          COMMUTE_ORDER[a.commute] - COMMUTE_ORDER[b.commute] ||
+          a.best.monthly - b.best.monthly
       );
   }
 }

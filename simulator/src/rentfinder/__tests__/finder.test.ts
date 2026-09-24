@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { COMPLEXES, RENT_REGIONS, RENT_SNAPSHOT, monthsAgo } from '../data';
 import {
   DEFAULT_INPUT,
+  TWO_ROOM_SAFE_SQM,
   TWO_ROOM_SQM,
+  supplyPyeongToSqm,
+  toPyeong,
+  toSupplyPyeong,
   findRentals,
   monthlyCost,
   sortCandidates,
@@ -197,5 +201,46 @@ describe('얇은 표본과 부호', () => {
       const note = c.notes.find((n) => n.includes('같은 평형에서'));
       if (note) expect(note).toContain('덜 묶입니다');
     }
+  });
+});
+
+describe('평 환산과 출퇴근 정렬', () => {
+  /**
+   * 사람은 "15평 아파트" 라고 할 때 대개 **공급면적**을 뜻합니다. 전용 40㎡ 를
+   * 그대로 평으로 바꾸면 12.1평이라 "15평이 아니네" 가 되는데, 그 집의 공급은
+   * 15평 안팎입니다. 둘을 갈라 보여 주지 않으면 조건이 어긋납니다.
+   */
+  it('전용 평과 공급 평을 갈라 냅니다', () => {
+    expect(toPyeong(40)).toBeCloseTo(12.1, 1);
+    expect(toSupplyPyeong(40)).toBeCloseTo(15.5, 1);
+    // 되짚기도 맞아야 합니다.
+    expect(supplyPyeongToSqm(toSupplyPyeong(40))).toBeCloseTo(40, 6);
+  });
+
+  it('공급 15평은 전용 40㎡ 안팎입니다', () => {
+    const sqm = supplyPyeongToSqm(15);
+    expect(sqm).toBeGreaterThan(37);
+    expect(sqm).toBeLessThan(41);
+  });
+
+  /** 방 개수 자료가 없어 전용면적으로 대신 재는 선입니다. */
+  it('방 둘 대리선이 원룸 경계보다 큽니다', () => {
+    expect(TWO_ROOM_SAFE_SQM).toBeGreaterThan(TWO_ROOM_SQM);
+  });
+
+  it('출퇴근 순 정렬은 등급이 먼저, 같으면 싼 순입니다', () => {
+    const list = find({ regionCodes: ['48127', '48125', '48123'], minArea: TWO_ROOM_SAFE_SQM });
+    const sorted = sortCandidates(list, 'commute');
+    const order = { onsite: 0, near: 1, mid: 2, far: 3 } as const;
+    for (let i = 1; i < sorted.length; i++) {
+      const a = sorted[i - 1];
+      const b = sorted[i];
+      expect(order[a.commute]).toBeLessThanOrEqual(order[b.commute]);
+      if (a.commute === b.commute) {
+        expect(a.best.monthly).toBeLessThanOrEqual(b.best.monthly + 1);
+      }
+    }
+    // 함안 방향이 가까운 마산회원이 먼저 나와야 합니다.
+    expect(sorted[0].commute).toBe('near');
   });
 });

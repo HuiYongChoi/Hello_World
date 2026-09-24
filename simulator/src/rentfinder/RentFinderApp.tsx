@@ -30,6 +30,9 @@ import {
 import {
   DEFAULT_INPUT,
   SORT_LABEL,
+  TWO_ROOM_SAFE_SQM,
+  toPyeong,
+  toSupplyPyeong,
   findRentals,
   sortCandidates,
   summarize,
@@ -120,6 +123,51 @@ function load(): Saved {
 /** 월 환산 주거비를 만원 단위로 — 이 화면의 공용 단위입니다. */
 const manwonPerMonth = (v: number) => `월 ${Math.round(v / 10000).toLocaleString('ko-KR')}만`;
 
+/**
+ * 빠른 조건 — 자주 쓰는 조합.
+ *
+ * 첫 번째가 이 화면을 만든 이유입니다: 함안·의령 지사로 출퇴근하면서 둘이서
+ * 강아지와 살 집. **방 개수 자료가 없어** 전용면적으로 대신 재는데, 방 둘이
+ * 안정적으로 나오는 선이 전용 45㎡(공급 약 17평) 입니다.
+ */
+const PRESETS: {
+  label: string;
+  note: string;
+  input: Partial<FinderInput>;
+  sort?: SortKey;
+}[] = [
+  {
+    label: '함안·의령 출퇴근 · 방2↑ · 15평↑',
+    note: '마산회원구(내서읍이 함안 칠원과 맞붙음) · 전용 45㎡ 이상 — 공급 15평이면 전용은 40㎡ 안팎이라, 방 둘을 확실히 하려고 45㎡로 잡습니다.',
+    input: {
+      regionCodes: ['48127'],
+      minArea: TWO_ROOM_SAFE_SQM,
+      maxArea: 0,
+      minDeals: 2,
+      freshMonths: 12,
+      modes: ['jeonse', 'wolse'],
+    },
+    sort: 'commute',
+  },
+  {
+    label: '마산 전체 · 방2↑',
+    note: '마산회원 + 마산합포. 출퇴근은 조금 멀어지지만 선택지가 두 배가 됩니다.',
+    input: { regionCodes: ['48127', '48125'], minArea: TWO_ROOM_SAFE_SQM },
+    sort: 'monthly',
+  },
+  {
+    label: '넓게 · 전용 59㎡↑ (공급 약 23평)',
+    note: '방 셋이 나오기 시작하는 선입니다.',
+    input: { minArea: 59 },
+    sort: 'monthly',
+  },
+  {
+    label: '전세만',
+    note: '월세를 빼고 전세만 봅니다.',
+    input: { modes: ['jeonse'] },
+  },
+];
+
 function CandidateCard({
   c,
   starred,
@@ -154,7 +202,8 @@ function CandidateCard({
           <div className="mt-0.5 text-[11px] text-slate-500">
             {c.complex.umd}
             {c.complex.road && ` · ${c.complex.road}`}
-            {' · '}전용 {c.size.area}㎡
+            {' · '}전용 {c.size.area}㎡ ({toPyeong(c.size.area).toFixed(1)}평 · 공급 약{' '}
+            {toSupplyPyeong(c.size.area).toFixed(0)}평)
             {age !== null && ` · 준공 ${c.complex.buildYear}년 (${age}년차)`}
             {c.size.floorMax > 0 && ` · ${c.size.floorMin}~${c.size.floorMax}층 거래`}
           </div>
@@ -568,6 +617,28 @@ export function RentFinderApp() {
         subtitle="조건을 움직이면 아래 후보 수가 바로 바뀝니다 — 얼마를 더 내면 선택지가 늘어나는지 보세요"
         action={<Badge tone="info">후보 {sum.candidates}개</Badge>}
       >
+        {/*
+          자주 쓰는 조합을 버튼 하나로. 매번 일곱 칸을 맞추게 하면 조건을
+          바꿔 보는 일 자체를 안 하게 됩니다.
+        */}
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] text-slate-500">빠른 조건</span>
+          {PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => {
+                patch(p.input);
+                if (p.sort) setSort(p.sort);
+              }}
+              title={p.note}
+              className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] text-slate-300 transition hover:border-sky-500/60 hover:text-sky-300"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
         <div>
           <div className="mb-1.5 text-[11px] font-medium text-slate-400">지역</div>
           <div className="flex flex-wrap gap-1.5">
@@ -601,7 +672,12 @@ export function RentFinderApp() {
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="전용면적 하한" hint="투룸은 대개 전용 36㎡부터">
+          <Field
+            label="전용면적 하한"
+            hint={`전용 ${toPyeong(input.minArea).toFixed(1)}평 · 공급 약 ${toSupplyPyeong(
+              input.minArea
+            ).toFixed(0)}평 — 방 둘은 전용 ${TWO_ROOM_SAFE_SQM}㎡부터 안정적입니다`}
+          >
             <NumberInput
               value={input.minArea}
               step={1}
@@ -609,7 +685,16 @@ export function RentFinderApp() {
               onChange={(v) => patch({ minArea: Math.max(0, v) })}
             />
           </Field>
-          <Field label="전용면적 상한" hint="0이면 제한 없음">
+          <Field
+            label="전용면적 상한"
+            hint={
+              input.maxArea
+                ? `전용 ${toPyeong(input.maxArea).toFixed(1)}평 · 공급 약 ${toSupplyPyeong(
+                    input.maxArea
+                  ).toFixed(0)}평`
+                : '0이면 제한 없음'
+            }
+          >
             <NumberInput
               value={input.maxArea}
               step={1}
