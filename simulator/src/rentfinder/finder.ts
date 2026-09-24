@@ -187,6 +187,38 @@ function optionsOf(size: RentSize, input: FinderInput): CandidateOption[] {
  * 어렵고 예산은 조금씩 움직일 수 있으므로, 예산으로 떨어진 후보는 이유를
  * 남겨 화면이 "얼마를 더 내면 되는지" 를 말할 수 있게 합니다.
  */
+/** 전세 거래가 이보다 적은데 */
+const SPLIT_MAX_DEALS = 3;
+/** 가장 비싼 분기와 싼 분기가 이 배수 넘게 벌어지면 "갈림" */
+const SPLIT_RATIO = 1.5;
+
+/** 갈렸으면 갈린 값들(분기 중위)을, 아니면 null */
+export function jeonseSplit(size: RentSize): number[] | null {
+  if (!size.jeonse || size.jeonse.n > SPLIT_MAX_DEALS) return null;
+  const vals = size.trend.map((t) => t.deposit).filter((v) => v > 0);
+  if (vals.length < 2) return null;
+  const hi = Math.max(...vals);
+  const lo = Math.min(...vals);
+  return hi / lo > SPLIT_RATIO ? [hi, lo] : null;
+}
+
+function splitSafety(vals: number[]): JeonseSafety {
+  return {
+    ratio: null,
+    salePrice: null,
+    saleDeals: 0,
+    saleQuarter: null,
+    saleStaleQuarters: null,
+    grade: 'unknown',
+    headline: '전세 거래가 갈려 전세가율을 못 냅니다',
+    seniorRoom: null,
+    priceTrend: null,
+    notes: [
+      `전세 거래가 ${vals.map((v) => `${(v / 1e8).toFixed(2)}억`).join('·')} 으로 갈려 어느 쪽이 시세인지 알 수 없습니다.`,
+    ],
+  };
+}
+
 export function findRentals(input: FinderInput): Candidate[] {
   const out: Candidate[] = [];
 
@@ -248,9 +280,23 @@ export function findRentals(input: FinderInput): Candidate[] {
       }
 
       const jeonseOption = affordable.find((o) => o.mode === 'jeonse');
+      /*
+       * 전세 거래가 몇 건뿐인데 값이 크게 갈리면 중위가 시세가 아닙니다.
+       * 창원메트로시티석전 52㎡ 가 2.50억·0.34억 두 건이라 중위(=평균) 1.42억이
+       * 되어 전세가율 42% 로 1위에 올라왔습니다. 그런 평형은 전세가율을
+       * 내지 않고 "갈림" 이라고 말합니다.
+       */
+      const split = jeonseSplit(size);
       const safety = jeonseOption
-        ? jeonseSafety(c.id, size.area, jeonseOption.deposit)
+        ? split
+          ? splitSafety(split)
+          : jeonseSafety(c.id, size.area, jeonseOption.deposit)
         : null;
+      if (jeonseOption && split) {
+        notes.push(
+          `전세 거래 ${size.jeonse?.n}건이 ${split.map((v) => `${(v / 1e8).toFixed(2)}억`).join('·')} 으로 갈려 중위가 시세가 아닙니다 — 이 평형의 전세가는 중개사무소에 직접 확인하세요.`
+        );
+      }
       if (safety && (safety.grade === 'danger' || safety.grade === 'high')) {
         notes.push(`${safety.headline} — 전세로 간다면 등기부등본을 먼저 보세요.`);
       }

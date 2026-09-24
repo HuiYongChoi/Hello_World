@@ -227,7 +227,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 503건)
+npm test                 # 엔진 단위 테스트 (현재 505건)
 npm run scorecard        # 채점표 — 구조·연결·검증·산출물 100점 만점
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
@@ -732,6 +732,11 @@ CAGR 만 내면 진입시점이 감춰지므로 같은 보유기간의 분포를
 신규 전세가 체결된 건을 셌더니 2년 4,502건, 그런데 동·호수가 없어 같은 층 다른
 호가 우연히 겹칠 기대치가 4,257건이었습니다. 6% 차이는 신호가 아니라 잡음이라
 화면에 올리지 않았고, 재현 스크립트(`scripts/fetch-masan-landlord.mjs`)만 남깁니다.
+
+**두 건의 평균이 시세 행세를 하면 안 됩니다.** 창원메트로시티석전 52㎡ 는 전세가
+2.50억·0.34억 두 건이라 중위(=평균) 1.42억이 되어 전세가율 42% 로 '안전한 전세'
+1위에 올라왔습니다. 전세 3건 이하인데 분기 중위가 1.5배 넘게 갈리면(`jeonseSplit`)
+전세가율을 내지 않고 "갈림" 이라고 적습니다.
 
 카드마다 **내 조건으로 되는 전세대출**이 한 줄로 붙고(`jeonseLoanFit`, 월세 전용
 상품 제외), "전세대출 되는 집만" 토글로 거를 수 있습니다. 빠른 조건 첫 번째

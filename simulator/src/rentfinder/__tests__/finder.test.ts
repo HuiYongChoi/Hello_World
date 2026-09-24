@@ -8,6 +8,7 @@ import {
   toPyeong,
   toSupplyPyeong,
   findRentals,
+  jeonseSplit,
   monthlyCost,
   sortCandidates,
   summarize,
@@ -429,5 +430,26 @@ describe('후보별 전세대출', () => {
     const fit = jeonseLoanFit(borrower, 250000000, 59);
     expect(fit.eligible.some((r) => r.product.id === 'jungsocheong')).toBe(false);
     expect(fit.rejected).toBeGreaterThan(0);
+  });
+});
+
+describe('갈린 전세 — 두 건의 평균이 시세 행세를 하지 않게', () => {
+  it('창원메트로시티석전 52㎡ 는 전세가율을 내지 않습니다 (2.50억·0.34억)', () => {
+    const c = COMPLEXES.find((x) => x.name === '창원메트로시티석전' && x.sizes.some((s) => s.area === 52));
+    if (!c) return;
+    const size = c.sizes.find((s) => s.area === 52)!;
+    expect(jeonseSplit(size)).not.toBeNull();
+    const hit = find({ modes: ['jeonse'], minArea: 50, maxArea: 53, regionCodes: [c.regionCode], maxDeposit: 5e8, maxMonthly: 5e6, minBuildYear: 0 })
+      .find((x) => x.complex.id === c.id && x.size.area === 52);
+    if (hit) {
+      expect(hit.safety?.ratio).toBeNull();
+      expect(hit.safety?.grade).toBe('unknown');
+    }
+  });
+
+  it('거래가 많은 평형은 갈림 판정을 하지 않습니다', () => {
+    for (const c of COMPLEXES) for (const s of c.sizes) {
+      if (s.jeonse && s.jeonse.n > 3) expect(jeonseSplit(s)).toBeNull();
+    }
   });
 });
