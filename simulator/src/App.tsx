@@ -8,6 +8,7 @@ import { ReportPage } from './pages/ReportPage';
 import { ScenarioPage } from './pages/ScenarioPage';
 import { SubscriptionPage } from './pages/SubscriptionPage';
 import { RentFinderApp } from './rentfinder/RentFinderApp';
+import { BoardFrame } from './rentfinder/BoardFrame';
 import { MarketPage } from './pages/MarketPage';
 import { HandbookDrawer } from './pages/HandbookDrawer';
 import { TenurePage } from './pages/TenurePage';
@@ -24,7 +25,7 @@ type InputStep = 'profile' | 'scenarios' | 'properties';
  * 청약과 전월세는 둘 다 **선택**이고 둘 다 "집을 사기 전/대신" 의 이야기라
  * 한 탭 안에 둡니다. 탭을 하나 더 늘리는 대신 입력 탭과 같은 패턴을 씁니다.
  */
-type OptionalStep = 'subscription' | 'rent';
+type OptionalStep = 'subscription' | 'rent' | 'board';
 
 /**
  * 탭 8개를 6개로 줄이고 3층으로 묶습니다.
@@ -65,6 +66,7 @@ const INPUT_STEPS: { id: InputStep; label: string }[] = [
 const OPTIONAL_STEPS: { id: OptionalStep; label: string }[] = [
   { id: 'subscription', label: '청약 공고 · 안전마진' },
   { id: 'rent', label: '전월세 찾기 · 보증금 대출' },
+  { id: 'board', label: '전·월세 후보판 — 소거 · 메모 · 지도' },
 ];
 
 export function App() {
@@ -198,6 +200,7 @@ export function App() {
             </div>
             {optionalStep === 'subscription' && <SubscriptionPage />}
             {optionalStep === 'rent' && <RentFinderApp />}
+            {optionalStep === 'board' && <BoardFrame />}
           </div>
         )}
         {tab === 'compare' && <ComparePage />}

@@ -1,0 +1,1333 @@
+<title>마산 전세 후보판</title>
+<!--FONTS-->
+<style>
+:root {
+  --ground: #f2f5f4;
+  --surface: #ffffff;
+  --sunken: #e9eeec;
+  --ink: #17201d;
+  --muted: #5d6b66;
+  --faint: #8a9692;
+  --line: #d6dedb;
+  --accent: #0e5e57;
+  --accent-soft: #dcece9;
+  --ok: #2c7a4c;
+  --caution: #a8650f;
+  --risk: #b3392f;
+  --hold: #7a8580;
+  --ok-soft: #e1f0e6;
+  --caution-soft: #f6ebd8;
+  --risk-soft: #f6e0dd;
+  --hold-soft: #e8ecea;
+  --struck: #a3aeaa;
+  --display: 'Hahmlet', 'Nanum Myeongjo', 'AppleMyungjo', serif;
+  --body: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #0f1413; --surface: #161d1b; --sunken: #1c2523; --ink: #e3eae7; --muted: #9aa8a3; --faint: #6f7c78;
+    --line: #2a3431; --accent: #5cc2b6; --accent-soft: #173330;
+    --ok: #6bc48c; --caution: #e0a24a; --risk: #ee7b72; --hold: #8e9a96;
+    --ok-soft: #173024; --caution-soft: #33260f; --risk-soft: #3a1d1a; --hold-soft: #222a28; --struck: #58645f;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #0f1413; --surface: #161d1b; --sunken: #1c2523; --ink: #e3eae7; --muted: #9aa8a3; --faint: #6f7c78;
+  --line: #2a3431; --accent: #5cc2b6; --accent-soft: #173330;
+  --ok: #6bc48c; --caution: #e0a24a; --risk: #ee7b72; --hold: #8e9a96;
+  --ok-soft: #173024; --caution-soft: #33260f; --risk-soft: #3a1d1a; --hold-soft: #222a28; --struck: #58645f;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--ground); color: var(--ink); font-family: var(--body); font-size: 14px; line-height: 1.55; margin: 0; }
+.shell { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 100vh; }
+.side { position: sticky; top: env(safe-area-inset-top, 0px); align-self: start; height: calc(100vh - env(safe-area-inset-top, 0px)); overflow-y: auto;
+  border-right: 1px solid var(--line); background: var(--surface); padding: 22px 16px; display: grid; align-content: start; gap: 22px; }
+.brand { display: grid; gap: 2px; } .brand b { font-family: var(--display); font-size: 18px; } .brand span { font-size: 11.5px; color: var(--muted); }
+.modes { display: grid; gap: 4px; }
+.modes button { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--muted); }
+.modes button:hover { background: var(--sunken); color: var(--ink); }
+.modes button[aria-current="page"] { background: var(--accent); color: var(--surface); }
+.modes button[aria-current="page"] .cnt { color: var(--surface); opacity: .85; }
+.modes button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.modes .cnt { font-size: 12px; color: var(--faint); }
+.views { display: grid; gap: 8px; }
+.views h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.views .hint { margin: 0; font-size: 11.5px; color: var(--faint); line-height: 1.5; }
+.vlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.vlist li { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; display: grid; gap: 4px; font-size: 12.5px; }
+.vlist .vn { font-weight: 600; word-break: break-all; }
+.vlist .vd { font-size: 11px; color: var(--faint); }
+.vlist .va { display: flex; gap: 8px; }
+.vlist .va button { font: inherit; font-size: 12px; background: none; border: 0; padding: 0; cursor: pointer; color: var(--accent); }
+.vlist .va button.del { color: var(--muted); } .vlist .va button.del.sure { color: var(--risk); font-weight: 600; }
+.vlist li.cur { border-color: var(--accent); background: var(--accent-soft); }
+.vlist .empty { border-style: dashed; color: var(--faint); font-size: 12px; }
+.vform { display: grid; gap: 6px; }
+.vform input { font: inherit; font-size: 13px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--ground); color: var(--ink); min-width: 0; }
+.vform button { font: inherit; font-size: 13px; font-weight: 600; padding: 7px 10px; border-radius: 7px; border: 0; background: var(--ink); color: var(--ground); cursor: pointer; }
+.vform button:hover { background: var(--accent); }
+.vfile { font-size: 13px; font-weight: 600; padding: 7px 10px; border-radius: 7px; border: 1px solid var(--line); text-align: center; cursor: pointer; color: var(--ink); }
+.vfile:hover { border-color: var(--accent); color: var(--accent); }
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 14px 16px; gap: 12px; }
+  .modes { grid-template-columns: 1fr 1fr; }
+}
+.wrap { max-width: 1320px; width: 100%; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: grid; gap: 22px; min-width: 0; }
+h1, h2 { font-family: var(--display); font-weight: 700; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: 30px; line-height: 1.2; }
+h2 { font-size: 20px; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: 11.5px; letter-spacing: 0.08em; color: var(--accent); font-weight: 600; }
+header.top { display: grid; gap: 10px; }
+.lede { color: var(--muted); max-width: 72ch; margin: 0; }
+.lede b { color: var(--ink); font-weight: 600; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 12.5px; color: var(--muted); }
+.facts span b { color: var(--ink); font-weight: 600; }
+.sync { display: inline-flex; align-items: center; gap: 6px; }
+.sync i { width: 7px; height: 7px; border-radius: 50%; background: var(--hold); display: inline-block; }
+.sync[data-mode="db"] i { background: var(--ok); }
+.sync[data-mode="error"] i { background: var(--risk); }
+
+.rule { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 8px; font-size: 13px; color: var(--muted); }
+.rule strong { color: var(--ink); font-weight: 600; }
+.rule dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
+.rule dt { color: var(--ink); font-weight: 500; white-space: nowrap; }
+.rule dd { margin: 0; }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 12.5px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.chip:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visible, th button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type="search"] { font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); min-width: 0; width: 200px; max-width: 100%; }
+label.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.count { margin-left: auto; font-size: 12.5px; color: var(--muted); }
+
+/* 가로 스크롤 상자 안에서는 sticky 가 페이지 기준으로 안 붙습니다 — 상자 자체가 세로로도 스크롤하게 해서 머리줄을 붙잡습니다 */
+.tablebox { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: auto; max-height: calc(100vh - 40px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overscroll-behavior: contain; }
+table { border-collapse: collapse; width: 100%; min-width: 1720px; font-size: 13px; }
+td.r, td.loan { white-space: nowrap; }
+td.cn { min-width: 176px; max-width: 220px; }
+thead th { position: sticky; top: 0; background: var(--sunken); box-shadow: inset 0 -1px 0 var(--line); text-align: left; font-weight: 500; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); padding: 0; white-space: nowrap; z-index: 1; }
+thead th button { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 4px; width: 100%; padding: 9px 10px; cursor: pointer; }
+thead th button:hover { color: var(--ink); }
+thead th.r button { justify-content: flex-end; }
+thead th[aria-sort="ascending"] button, thead th[aria-sort="descending"] button { color: var(--accent); font-weight: 600; }
+.arrow { font-size: 10px; opacity: .55; }
+thead th[aria-sort] .arrow { opacity: 1; }
+thead th.plain { padding: 9px 10px; }
+tbody td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+td.r { text-align: right; }
+.sub { display: block; font-size: 11.5px; color: var(--faint); font-family: var(--body); }
+.cname { font-weight: 600; color: var(--ink); text-decoration: none; }
+.cname:hover { text-decoration: underline; text-decoration-color: var(--accent); }
+.pill { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; font-weight: 500; white-space: nowrap; }
+.t-A { color: var(--ok); background: var(--ok-soft); }
+.t-B { color: var(--accent); background: var(--accent-soft); }
+.t-C { color: var(--risk); background: var(--risk-soft); }
+.t-D { color: var(--hold); background: var(--hold-soft); }
+.gauge { display: grid; gap: 3px; min-width: 96px; }
+.gauge .bar { position: relative; height: 6px; border-radius: 3px; background: var(--sunken); overflow: hidden; }
+.gauge .bar span { position: absolute; inset: 0 auto 0 0; border-radius: 3px; }
+.gauge .tick { position: absolute; top: -1px; bottom: -1px; width: 1px; background: var(--faint); }
+.pos { color: var(--ok); } .neg { color: var(--risk); }
+.loan b { font-weight: 600; }
+button.strike { font: inherit; font-size: 12px; border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 6px; padding: 3px 9px; cursor: pointer; white-space: nowrap; }
+button.strike:hover { border-color: var(--risk); color: var(--risk); }
+tr.out td { color: var(--struck); background: var(--ground); }
+tr.out td .cname, tr.out td .sub, tr.out td .num, tr.out td span { color: var(--struck); }
+tr.out td:not(.x) { text-decoration: line-through; text-decoration-color: var(--struck); }
+tr.out .pill { background: transparent; }
+tr.out .gauge span { background: var(--struck) !important; }
+tr.out button.strike { color: var(--accent); border-color: var(--accent); text-decoration: none; }
+tr.divider td { background: var(--sunken); color: var(--muted); font-size: 12px; font-weight: 500; padding: 6px 10px; text-decoration: none; }
+
+.weights { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; display: grid; gap: 10px; }
+.wt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.wgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 8px 22px; }
+.wrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { font: inherit; font-family: var(--mono); font-size: 12px; min-width: 26px; padding: 3px 6px; border: 0; border-left: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
+.seg button:first-child { border-left: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.seg button.auto { box-shadow: inset 0 -2px 0 var(--accent); }
+.sc { font-family: var(--mono); font-variant-numeric: tabular-nums; display: inline-grid; place-items: center; min-width: 24px; height: 22px; border-radius: 5px; font-size: 12px; }
+.s1 { background: var(--risk-soft); color: var(--risk); } .s2 { background: var(--caution-soft); color: var(--caution); }
+.s3 { background: var(--hold-soft); color: var(--muted); } .s4 { background: var(--accent-soft); color: var(--accent); } .s5 { background: var(--ok-soft); color: var(--ok); }
+.s0 { color: var(--faint); }
+.sc.mine { outline: 1.5px solid var(--ink); outline-offset: -1.5px; }
+button.cell { all: unset; cursor: pointer; }
+button.cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 5px; }
+select.tiersel { font: inherit; font-size: 11.5px; font-weight: 500; border: 0; border-radius: 999px; padding: 2px 22px 2px 9px; cursor: pointer; appearance: none; -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 11px) 55%, calc(100% - 7px) 55%; background-size: 4px 4px; background-repeat: no-repeat; }
+select.tiersel.t-A { background-color: var(--ok-soft); } select.tiersel.t-B { background-color: var(--accent-soft); }
+select.tiersel.t-C { background-color: var(--risk-soft); } select.tiersel.t-D { background-color: var(--hold-soft); }
+.mine-tag { display: block; font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+.ied { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; align-items: center; font-size: 12px; }
+.ied .basis { display: block; font-size: 11px; color: var(--faint); }
+.ied .reset { font: inherit; font-size: 11px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0 0 0 6px; }
+td.x, th.x { position: sticky; left: 0; width: 84px; min-width: 84px; z-index: 2; }
+td.stick2, th.stick2 { position: sticky; left: 84px; z-index: 2; box-shadow: 1px 0 0 var(--line); }
+tbody td.x, tbody td.stick2 { background: var(--surface); }
+thead th.x, thead th.stick2 { z-index: 3; }
+tr.out td.x, tr.out td.stick2 { background: var(--ground); }
+tr.out td.x { text-decoration: none; }
+tr.flash td { background: var(--accent-soft) !important; }
+@media (prefers-reduced-motion: no-preference) { tbody td { transition: background-color .4s; } }
+.pop { position: fixed; z-index: 20; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; width: max-content; max-width: min(320px, calc(100vw - 16px));
+  box-shadow: 0 8px 24px rgba(0,0,0,.16); font-size: 12.5px; }
+.pop .pt { font-weight: 600; }
+.pop .pbasis { font-size: 11.5px; color: var(--faint); }
+.pop .prow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pop .seg button { min-width: 32px; padding: 5px 8px; font-size: 13px; }
+.pop .reset { font: inherit; font-size: 12px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; }
+.pop .pauto { font-size: 11.5px; color: var(--faint); }
+button.cell .sc { transition: transform .12s; }
+button.cell:hover .sc { transform: scale(1.08); box-shadow: 0 0 0 1.5px var(--accent); }
+.dongs { flex-basis: 100%; order: -1; }
+#tierChips::before { content: '판정'; font-size: 12px; color: var(--muted); font-weight: 500; align-self: center; margin-right: 4px; }
+.fpanel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; }
+.fpanel summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-weight: 600; font-size: 13px; }
+.fpanel summary .fnote { font-weight: 400; font-size: 11.5px; color: var(--faint); }
+.fpanel[open] summary { margin-bottom: 10px; }
+.fgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px 16px; }
+.fitem { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.fitem b { color: var(--accent); font-weight: 600; }
+.fin { display: inline-flex; align-items: center; gap: 4px; }
+.fin input { width: 72px; font: inherit; font-family: var(--mono); font-size: 12.5px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--ground); color: var(--ink); text-align: right; }
+.fin i { font-style: normal; font-size: 11.5px; color: var(--faint); width: 22px; }
+.frow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 10px; }
+.flabel { font-size: 12.5px; color: var(--muted); }
+.srows { display: grid; gap: 6px; }
+.srow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12.5px; }
+.srow .sn { font-weight: 600; color: var(--accent); width: 42px; }
+.srow select { font: inherit; font-size: 12.5px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--ground); color: var(--ink); }
+.sbtn { font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+.smv { display: inline-flex; } .smv .mv[disabled] { opacity: .3; cursor: default; }
+.sdel { font: inherit; font-size: 12px; background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.sbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 10px; }
+.sdiv { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
+.chip.strong { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+thead th sup { font-size: 9px; margin-right: 1px; }
+.active { display: flex; flex-wrap: wrap; gap: 6px; }
+.active:empty { display: none; }
+.achip { font: inherit; font-size: 12px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 3px 10px; cursor: pointer; }
+.achip span { margin-left: 3px; font-weight: 600; }
+.aclear { font: inherit; font-size: 12px; background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.dongs::before { content: '동'; font-size: 12px; color: var(--muted); font-weight: 500; align-self: center; margin-right: 4px; }
+.cn-n { font-family: var(--mono); font-size: 11px; opacity: .6; margin-left: 2px; }
+.rmsel { font: inherit; font-size: 11.5px; border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; background: var(--ground); color: var(--ink); cursor: pointer; }
+.rmsel.rm-yes { border-color: var(--ok); color: var(--ok); background: var(--ok-soft); font-weight: 600; }
+.rmsel.rm-no { border-color: var(--risk); color: var(--risk); background: var(--risk-soft); }
+.rmline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rk { display: inline-flex; align-items: center; gap: 2px; }
+.rankin { width: 40px; font-size: 13px; text-align: center; padding: 3px 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--ground); color: var(--ink); -moz-appearance: textfield; }
+.rankin::-webkit-inner-spin-button, .rankin::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.mv { all: unset; cursor: pointer; font-size: 9px; color: var(--faint); width: 16px; height: 22px; display: inline-grid; place-items: center; border-radius: 4px; }
+.mv:hover { color: var(--accent); background: var(--accent-soft); }
+.mv:focus-visible { outline: 2px solid var(--accent); }
+tr.out .rankin { color: var(--struck); }
+.nm { display: inline; }
+.nm .mapbtn { margin-left: 3px; vertical-align: -5px; }
+.mapbtn { all: unset; cursor: pointer; color: var(--faint); display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; flex: none; vertical-align: middle; }
+.mapbtn:hover, .mapbtn:focus-visible { color: var(--accent); background: var(--accent-soft); }
+.mapbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mappop { position: fixed; z-index: 30; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 7px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.2); width: max-content; max-width: calc(100vw - 16px); }
+.mappop .mt { display: grid; gap: 1px; font-size: 12.5px; } .mappop .mt span { color: var(--muted); font-size: 11.5px; }
+.mappop .lm { position: relative; overflow: hidden; border-radius: 8px; max-width: 100%; background: #e8e4dc; }
+.mappop .lm > img { position: absolute; width: 256px; height: 256px; max-width: none; }
+.mappop .me { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: #c2410c; border: 2.5px solid #fff; box-shadow: 0 0 0 5px rgba(194,65,12,.25); }
+.mappop .odot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: #475569; border: 1.5px solid #fff; opacity: .85; }
+.mappop .ov { position: absolute; right: 6px; bottom: 6px; overflow: hidden; border-radius: 6px; border: 1.5px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.25); }
+.mappop .ov img { position: absolute; max-width: none; }
+.mappop .ov-me, .mappop .ov-dest { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; border: 1.5px solid #fff; }
+.mappop .ov-me { background: #c2410c; } .mappop .ov-dest { background: #1e3a8a; border-radius: 2px; }
+.mappop .ov-lab { position: absolute; margin: -16px 0 0 6px; font-size: 9.5px; font-weight: 700; color: #1e3a8a; text-shadow: 0 0 2px #fff, 0 0 2px #fff; }
+.mappop .mf { display: flex; justify-content: space-between; gap: 10px; font-size: 10.5px; color: var(--faint); }
+.totop { position: fixed; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 10; width: 46px; height: 46px; display: grid; place-items: center;
+  background: var(--ink); color: var(--ground); border: 0; border-radius: 50%; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.22); }
+.totop:hover { background: var(--accent); }
+.totop:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.memos { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.memo { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 8px; align-content: start; scroll-margin-top: 16px; }
+.memo.flash { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.memo header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.memo h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.memo .meta { font-size: 12px; color: var(--muted); }
+.hist { display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; font-size: 11.5px; }
+.hist dt { color: var(--faint); }
+.hist dd { margin: 0; display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.hist dd span small { color: var(--faint); margin-left: 2px; }
+.memo ul { margin: 0; padding-left: 16px; font-size: 12px; color: var(--muted); }
+.memo textarea { font: inherit; font-size: 13px; width: 100%; min-height: 76px; resize: vertical; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--ground); color: var(--ink); }
+.memo .foot { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: var(--faint); }
+.memo.out { opacity: .62; }
+.memo.out h3 { text-decoration: line-through; color: var(--struck); }
+.checklist { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; }
+.checklist ol { margin: 0; padding-left: 20px; display: grid; gap: 5px; font-size: 13px; color: var(--muted); }
+.checklist ol b { color: var(--ink); font-weight: 600; }
+.small { font-size: 12px; color: var(--faint); max-width: 90ch; }
+@media (max-width: 640px) {
+  h1 { font-size: 24px; }
+  .memos { grid-template-columns: 1fr; }
+  .count { margin-left: 0; }
+  .rule dl { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: no-preference) { .memo { transition: border-color .3s, box-shadow .3s; } }
+</style>
+
+<div class="shell">
+<aside class="side" aria-label="후보판과 저장한 보기">
+  <div class="brand"><b>마산 집 찾기</b><span>함안의령지사 출퇴근 · 방 2개 이상</span></div>
+  <nav class="modes" aria-label="후보판">
+    <button type="button" data-mode="jeonse"><span>전세 후보판</span><span class="cnt num" id="cnt-jeonse"></span></button>
+    <button type="button" data-mode="wolse"><span>월세 후보판</span><span class="cnt num" id="cnt-wolse"></span></button>
+  </nav>
+  <section class="views" aria-labelledby="viewsTitle">
+    <h3 id="viewsTitle">저장한 보기 · <span id="viewsMode">전세</span></h3>
+    <p class="hint">필터 · 정렬 우선순위 · 동 · 인프라 가중치 · 내 순위를 이름 붙여 저장하고 다시 불러옵니다.</p>
+    <ul class="vlist" id="viewList"></ul>
+    <form class="vform" id="viewForm">
+      <input type="text" id="viewName" maxlength="40" placeholder="예: 교방동 안전 우선" aria-label="저장할 보기 이름">
+      <button type="submit">지금 보기 저장</button>
+    </form>
+    <p class="hint" id="viewMsg" aria-live="polite"></p>
+  </section>
+  <section class="views" id="moveBox" aria-labelledby="moveTitle">
+    <h3 id="moveTitle">설정 옮기기</h3>
+    <p class="hint">이 브라우저에만 저장됩니다. 다른 기기·브라우저로 옮기려면 파일로 내보내서 거기서 가져오세요 — 소거·메모·판정·리모델링·순위·점수·보기가 모두 들어갑니다.</p>
+    <div class="vform"><button type="button" id="exportBtn">파일로 내보내기</button>
+      <label class="vfile" for="importFile">파일에서 가져오기</label><input type="file" id="importFile" accept="application/json,.json" hidden></div>
+    <p class="hint" id="moveMsg" aria-live="polite"></p>
+  </section>
+</aside>
+<div class="wrap">
+  <header class="top">
+    <span class="eyebrow" id="eyebrow"></span>
+    <h1 id="title"></h1>
+    <p class="lede" id="lede"></p>
+    <div class="facts">
+      <span>작성 <b class="num">2026-09-24</b></span>
+      <span>국토부 매매·전월세 실거래 <b>2024.10~2026.09</b></span>
+      <span>거리 기준 <b>함안의령지사</b> (함안군 가야읍)</span>
+      <span class="sync" id="sync" data-mode="local"><i></i><span id="syncText">이 브라우저에 저장</span></span>
+    </div>
+  </header>
+
+
+  <section class="rule" aria-label="읽는 법">
+    <strong>읽는 법 — 점수를 합치지 않았습니다</strong>
+    <dl id="ruleList"></dl>
+  </section>
+
+  <section class="weights" aria-labelledby="wTitle">
+    <div class="wt"><strong id="wTitle">인프라 가중치</strong><span class="small">무엇이 더 중요한지 0~3으로 정하면 인프라 평균이 다시 계산됩니다. 0이면 평균에서 뺍니다.</span></div>
+    <div class="wgrid" id="weights"></div>
+  </section>
+
+  <section aria-label="후보 표" id="tableTop" style="display:grid; gap:10px; scroll-margin-top: 12px">
+    <div class="controls">
+      <div class="chips" role="group" aria-label="판정으로 거르기 (여러 개 선택)" id="tierChips"></div>
+      <div class="chips dongs" role="group" aria-label="동으로 거르기 (여러 개 선택)" id="dongChips"></div>
+      <input type="search" id="q" placeholder="단지·동 이름으로 찾기" aria-label="단지·동 이름으로 찾기">
+      <label class="toggle" for="hideOut"><input type="checkbox" id="hideOut"> 소거한 후보 숨기기</label>
+      <button type="button" class="chip" id="resetOrder" hidden>순위 자동으로 되돌리기</button>
+      <span class="count" id="count"></span>
+    </div>
+    <details class="fpanel" id="fpanel">
+      <summary><span>조건 필터</span><span class="fnote">여러 조건을 함께 걸면 모두 만족하는 후보만 남습니다. 빈칸은 조건 없음 · 값이 없는 후보는 그 조건에서 빠집니다</span></summary>
+      <div class="fgrid" id="fgrid"></div>
+      <div class="frow"><label class="toggle" for="fRemodel"><input type="checkbox" id="fRemodel"> <b>구축은 리모델링 된 것만</b></label>
+        <label class="fitem" for="fOld" style="gap:6px"><span>구축 기준 · 준공</span><span class="fin"><input type="number" id="fOld" step="1" min="1980" max="2026"><i>년 이전</i></span></label>
+        <span class="small">리모델링 여부는 공개 자료에 없어 표의 "리모델링" 칸에 직접 표시합니다 — 확인 전인 구축도 걸러집니다</span></div>
+      <div class="frow"><span class="flabel" id="loanLabel">되는 전세대출</span><div class="chips" role="group" aria-label="전세대출 상품으로 거르기 (여러 개 선택)" id="loanChips"></div></div>
+    </details>
+    <details class="fpanel" id="spanel" open>
+      <summary><span>정렬 우선순위</span><span class="fnote">1순위가 같으면 2순위로, 그것도 같으면 3순위로 가립니다. 열 제목을 누르면 그 열이 1순위가 되고, Shift+클릭하면 다음 순위로 더해집니다</span></summary>
+      <div class="srows" id="sortList"></div>
+      <div class="sbar">
+        <button type="button" class="chip" id="sAdd">+ 기준 추가</button>
+        <span class="sdiv"></span>
+        <span class="flabel">빠른 설정</span><div class="chips" id="sortPresets"></div>
+        <span class="sdiv"></span>
+        <button type="button" class="chip strong" id="sSave">이 순서를 내 순위로 저장</button>
+        <button type="button" class="aclear" id="sReset">기본(순위순)으로</button>
+        <span class="small" id="sSaved" aria-live="polite"></span>
+      </div>
+    </details>
+    <div class="active" id="active" aria-live="polite"></div>
+    <div class="tablebox">
+      <table>
+        <thead><tr id="head"></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section style="display:grid; gap:12px" aria-labelledby="memoTitle">
+    <div style="display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px">
+      <h2 id="memoTitle">매물별 메모</h2>
+      <span class="small">표와 같은 순서입니다. 집을 보러 가서 확인한 것 — 반려견 허용, 층·향, 채권최고액, 관리비 — 을 적어 두세요. 적는 대로 저장됩니다.</span>
+    </div>
+    <div class="memos" id="memos"></div>
+  </section>
+
+  <section class="checklist" aria-labelledby="ckTitle">
+    <h2 id="ckTitle">계약 전에 서류로 볼 것</h2>
+    <ol>
+      <li><b>소유자</b> — 등기부등본 갑구. 계약하는 사람이 소유자 본인인지, 신탁·가압류·경매개시결정이 없는지.</li>
+      <li><b>근저당(융자)</b> — 등기부등본 을구의 채권최고액 합계를 이 표의 근저당 허용선과 견줍니다. 채권최고액 ÷ 1.2가 대략의 실제 대출입니다.</li>
+      <li><b>임대인 세금 체납</b> — 국세·지방세 완납증명. 체납 세금은 보증금보다 먼저 가져가고 등기부에 안 나옵니다.</li>
+      <li><b>보증보험</b> — HUG 안심전세 앱·은행 창구에서 가입 가능 여부. 실제 심사는 공시가격 기준이라 표의 시세 기준보다 빡빡합니다.</li>
+      <li><b>잔금일 재확인</b> — 잔금 직전 등기부를 다시 떼고, 특약에 "잔금일까지 권리변동 없음"을 넣습니다.</li>
+    </ol>
+    <p class="small" id="ckNote">매물이 아니라 체결된 계약입니다 — 지금 빈 집은 중개사무소에서 확인하세요. 대출 요건·금리는 2026-09 기준 추정이며, 낙찰가율 80%는 가정입니다. 갭투자 흔적도 재 봤지만 동·호수가 없어 우연과 구분되지 않아(2년 4,502건 대 우연 기대 4,257건) 넣지 않았습니다.</p>
+  </section>
+</div>
+</div>
+
+<div id="pop" class="pop" role="dialog" aria-label="인프라 점수 고치기" hidden></div>
+<div id="mapPop" class="mappop" role="dialog" aria-label="위치 지도" hidden></div>
+<button type="button" id="toTop" class="totop" hidden aria-label="맨 위로" title="맨 위로"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+<script>
+const DATA_J = __DATA_J__;
+const DATA_W = __DATA_W__;
+const AXES = __AXES__;
+const MAP = __MAP__;
+/* 처음 여는 브라우저의 출발점 — 후보판에서 해 두었던 소거·순위·가중치·보기 */
+const SEED = __SEED__;
+const PIN = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 2.5c-3.9 0-7 3-7 6.9 0 5.2 7 12.1 7 12.1s7-6.9 7-12.1c0-3.9-3.1-6.9-7-6.9z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="9.5" r="2.4" fill="currentColor"/></svg>';
+const TIER = { A: '위험 낮음', B: '등기부 확인 후 가능', C: '주의 · 위험', D: '판단 보류' };
+const TIER_ORDER = { A: 0, B: 1, C: 2, D: 3 };
+
+const eok = (v) => v == null ? '—' : Math.abs(v) >= 1e8 ? (v / 1e8).toFixed(2) + '억' : Math.round(v / 1e4).toLocaleString('ko-KR') + '만';
+const man = (v) => Math.round(v / 1e4).toLocaleString('ko-KR') + '만';
+const pct = (v, d = 0) => v == null ? '—' : (v * 100).toFixed(d) + '%';
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const mapBtn = (d) => MAP.pts[d.name] ? `<button type="button" class="mapbtn" data-map="${d.id}" aria-label="${esc(d.name)} 위치 지도" aria-haspopup="dialog">${PIN}</button>` : '';
+const DEFAULT_W = Object.fromEntries(AXES.map((a) => [a.key, a.w]));
+
+/* ================= 판마다 다른 것 ================= */
+const MODES = {
+  jeonse: {
+    label: '전세', data: DATA_J, ls: 'masan-jeonse-board-v2', db: '',
+    eyebrow: '마산 · 함안의령지사 출퇴근 · 방 2개 이상 · 전세',
+    title: '마산 전세 후보판',
+    lede: '돌려받을 여유가 큰 전세부터 줄 세웠습니다. <b>지금 시세로 전세가율 70% 아래인 곳은 없고</b>, 가장 여유 있는 곳은 교방동 푸르지오더플래티넘 1·3단지 84㎡입니다. 열 제목을 누르면 그 기준으로 정렬되고, <b>소거</b>한 후보는 맨 아래로 내려가 줄이 그어집니다.',
+    rules: [
+      ['유형', '지금 후보는 전부 <b>아파트</b>(국토부 아파트 실거래)입니다. 오피스텔은 별도 자료라 아직 없습니다.'],
+      ['리모델링', '공개 자료에 없어 직접 표시합니다. 준공이 기준 연도(기본 2011년) 이하인 구축만 "확인 전 / 리모델링 됨 / 안 됨"을 고를 수 있고, 조건 필터의 "구축은 리모델링 된 것만"을 켜면 됨으로 표시한 구축만 남습니다.'],
+      ['정렬 우선순위', '1순위가 같은 후보끼리는 2순위, 3순위로 가립니다. 원하는 순서가 나오면 "이 순서를 내 순위로 저장"으로 순위 열에 굳힐 수 있습니다.'],
+      ['기본 순위', '소거한 후보는 순위에서 빠지고 남은 후보끼리 1위부터 다시 셉니다. 순위 칸을 고치거나 ▲▼로 옮기면 내 순위가 됩니다. 자동 순위는 ① 표본이 충분한가(최근 전세 3건↑·같은 평형 매매 5건↑, 아니면 판단 보류) → ② 전세가율 낮은 순.'],
+      ['최근 전세', '2026년 거래 3건↑이면 그 중위, 모자라면 최근 4→6분기→2년으로 넓힘. 같은 평형 중위의 70%에 못 미치는 거래는 특수 계약으로 보고 제외.'],
+      ['전세가율', '최근 전세 ÷ 같은 단지·평형 최근 1년 매매 중위. 막대의 눈금은 70%·80%.'],
+      ['근저당 허용선', '매매 중위 × 80%(경매 낙찰가율 가정) − 보증금. 등기부 을구 <b>채권최고액 합계</b>가 이보다 크면 경매 때 보증금이 모자랄 수 있습니다. 융자 여부 자체는 공개 자료에 없습니다.'],
+      ['거리 · 시간', '핀 아이콘에 마우스를 올리면 대략 위치 지도가 뜹니다. 단지 앞 도로에서 지사까지 OpenStreetMap 자동차 경로 — 신호·정체를 뺀 최소 시간입니다.'],
+      ['판정', '자동 판정이 기본이고, 표의 판정 칸에서 직접 바꿀 수 있습니다.'],
+      ['인프라', '점수 칸을 누르면 그 자리에서 1~5로 고칩니다(테두리 = 직접, 밑줄 = 자동). OSM 시설 수를 전세 후보 단지끼리 5분위로 나눈 상대 점수이고, 안전·대출과 합치지 않습니다. 같은 단지는 월세판과 점수를 같이 씁니다.'],
+      ['전세대출', '만 32세·본인 소득 4천만·순자산 8천만·혼인신고 전·중소기업 재직 아님 기준 가장 싼 상품. 중소기업 재직이면 보증금 2억 이하에서 중기청(연 1.5%)이 열립니다.'],
+    ],
+    loanLabel: '되는 전세대출',
+    ckNote: '매물이 아니라 체결된 계약입니다 — 지금 빈 집은 중개사무소에서 확인하세요. 대출 요건·금리는 2026-09 기준 추정이며, 낙찰가율 80%는 가정입니다. 갭투자 흔적도 재 봤지만 동·호수가 없어 우연과 구분되지 않아(2년 4,502건 대 우연 기대 4,257건) 넣지 않았습니다.',
+    placeholder: '반려견 허용? 층·향? 채권최고액? 관리비? 중개사 연락처?',
+  },
+  wolse: {
+    label: '월세', data: DATA_W, ls: 'masan-wolse-board-v1', db: 'w_',
+    eyebrow: '마산 · 함안의령지사 출퇴근 · 방 2개 이상 · 월세',
+    title: '마산 월세 후보판',
+    lede: '월세는 매달 나가는 돈이 핵심이라 <b>월 환산 주거비(월세 + 보증금 × 4.2% ÷ 12)가 낮은 순</b>으로 세웠습니다. 보증금이 작아 떼일 위험은 전세보다 작지만, 근저당 허용선과 소액임차인 최우선변제 대상인지를 같이 봅니다. 2005년 이후 준공이 기본이고, 전세판에서 보셨던 단지도 넣었습니다.',
+    rules: [
+      ['유형', '지금 후보는 전부 <b>아파트</b>(국토부 아파트 실거래)입니다. 오피스텔은 별도 자료라 아직 없습니다.'],
+      ['리모델링', '공개 자료에 없어 직접 표시합니다. 준공이 기준 연도(기본 2011년) 이하인 구축만 고를 수 있고, 조건 필터의 "구축은 리모델링 된 것만"을 켜면 됨으로 표시한 구축만 남습니다.'],
+      ['정렬 우선순위', '1순위가 같은 후보끼리는 2순위, 3순위로 가립니다. "이 순서를 내 순위로 저장"으로 순위 열에 굳힐 수 있습니다.'],
+      ['기본 순위', '판정(위험 낮음·등기부 확인 후 가능 → 주의 → 판단 보류) 다음 월 환산 주거비 낮은 순. 소거하면 순위에서 빠지고 남은 후보끼리 다시 셉니다.'],
+      ['보증금 · 월세', '같은 평형의 최근 2년 월세 거래 중위입니다. 반전세(보증금 큰 월세)가 섞여 있어 실제 매물은 보증금↔월세 조합이 다를 수 있습니다.'],
+      ['월 환산', '월세 + 보증금 × 4.2% ÷ 12. 보증금이 묶여서 생기는 비용까지 더해 전세·월세를 같은 자로 봅니다.'],
+      ['근저당 허용선', '매매 중위 × 80% − 보증금. 월세는 보증금이 작아 대부분 여유가 크지만, 등기부 을구 채권최고액은 그래도 확인합니다.'],
+      ['최우선변제', '보증금 7,500만 이하면 경매 때 2,500만까지 다른 채권보다 먼저 돌려받습니다(주택임대차보호법 시행령 2023.2 · 창원은 "그 밖의 지역" 기준으로 적용 — 계약 전 확인). 전입신고·확정일자가 필요합니다.'],
+      ['임대 전용 단지', '매매가 없고 월세만 수십~수백 건인 단지(현동휴튼 등)는 공공·민간임대로 보입니다. 임대인·보증 조건이 달라 판정은 보류로 둡니다.'],
+      ['거리 · 인프라', '전세판과 같은 방식입니다. 인프라 자동 점수는 월세 후보 단지끼리 상대 점수이고, 직접 고친 점수는 같은 단지면 전세판과 같이 씁니다.'],
+      ['대출', '같은 기본 조건으로 보증금에 쓸 수 있는 가장 싼 상품. 청년 보증부 월세대출은 보증금 6,500만·월세 70만 이하(만 34세 이하)에서 보증금 대출과 월세 지원(월 60만까지)이 같이 나옵니다.'],
+    ],
+    loanLabel: '되는 대출',
+    ckNote: '매물이 아니라 체결된 계약입니다 — 지금 빈 집은 중개사무소에서 확인하세요. 최우선변제 금액·대출 요건은 2026-09 기준 추정이라 계약 전에 확인하세요.',
+    placeholder: '반려견 허용? 관리비 포함 항목? 보증금↔월세 조정 가능? 층·향? 중개사 연락처?',
+  },
+};
+
+/* ================= 판별 상태 — 이 브라우저 + 공유 DB ================= */
+const INFRA = { ...(SEED.infra || {}) };            // 단지별 직접 고친 인프라 점수 — 두 판이 같이 씀
+function loadState(m) {
+  const k = MODES[m].ls, get = (x) => { try { return JSON.parse(localStorage.getItem(x) || 'null'); } catch (e) { return null; } };
+  const s = get(k) || SEED[m] || {};
+  Object.assign(INFRA, s.infra || {});
+  const f = get(k + '-filters') || {};
+  const so = get(k + '-sorts');
+  const dg = get(k + '-dong');
+  return {
+    store: { excluded: s.excluded || {}, memo: s.memo || {}, tier: s.tier || {}, remodel: s.remodel || {}, infra: INFRA, weights: { ...DEFAULT_W, ...(s.weights || {}) }, order: Array.isArray(s.order) ? s.order : null },
+    view: { sorts: Array.isArray(so) && so.length ? so : [{ key: 'rank', dir: 1 }], filt: { tiers: f.tiers || [], loans: f.loans || [], num: f.num || {}, remodelOnly: !!f.remodelOnly, oldBefore: f.oldBefore || 2011 }, dongs: Array.isArray(dg) ? dg : [] },
+  };
+}
+const STATE = { jeonse: loadState('jeonse'), wolse: loadState('wolse') };
+let MODE = 'jeonse';
+try { const m = localStorage.getItem('masan-board-mode'); if (MODES[m]) MODE = m; } catch (e) {}
+let CFG, DATA, store, sorts, filt, dongSel, COLS, NUMF, LOANS, DONGS, SORT_PRESETS, LS_KEY;
+
+const saveLocalFor = (m) => { try { localStorage.setItem(MODES[m].ls, JSON.stringify(STATE[m].store)); } catch (e) {} };
+const saveLocal = () => saveLocalFor(MODE);
+const saveSorts = () => { try { localStorage.setItem(LS_KEY + '-sorts', JSON.stringify(sorts)); } catch (e) {} };
+const saveFilt = () => { try { localStorage.setItem(LS_KEY + '-filters', JSON.stringify(filt)); localStorage.setItem(LS_KEY + '-dong', JSON.stringify([...dongSel])); } catch (e) {} };
+
+const effTier = (d) => store.tier[d.id] || d.tier;
+/* 구축 — 준공이 기준 연도 이하면 리모델링 여부를 직접 확인해 적습니다 (공개 자료에 없음) */
+const OLD_DEFAULT = 2011;
+const isOld = (d) => d.built && d.built <= (filt.oldBefore || OLD_DEFAULT);
+const REMODEL = { '': '확인 전', yes: '리모델링 됨', no: '안 됨' };
+function remodelCell(d) {
+  if (!isOld(d)) return `<span class="sub">신축 · ${2026 - d.built}년차</span>`;
+  const v = store.remodel[d.id] || '';
+  return `<select class="rmsel rm-${v || 'none'}" id="rm-${d.id}" data-remodel-for="${d.id}" aria-label="${esc(d.name)} 리모델링 여부">${Object.entries(REMODEL).map(([k, t]) => `<option value="${k}"${k === v ? ' selected' : ''}>${t}</option>`).join('')}</select><span class="sub">구축 · ${2026 - d.built}년차</span>`;
+}
+const score = (d, k) => { const m = INFRA[d.cx]; return m && m[k] != null ? m[k] : d.auto[k]; };
+const mine = (d, k) => { const m = INFRA[d.cx]; return !!(m && m[k] != null); };
+function infraAvg(d) {
+  let sw = 0, s = 0;
+  for (const a of AXES) { const w = store.weights[a.key] || 0; const v = score(d, a.key); if (w && v != null) { sw += w; s += w * v; } }
+  return sw ? s / sw : null;
+}
+
+/* 내 순위 — 소거한 후보는 빠지고 남은 후보끼리 1위부터 */
+let rankMap = new Map(), autoMap = new Map();
+const autoIds = () => [...DATA].sort((a, b) => a.rank - b.rank).map((d) => d.id);
+function fullOrder() {
+  const auto = autoIds(), known = new Set(auto);
+  const ids = store.order ? store.order.filter((id) => known.has(id)) : [];
+  for (const id of auto) if (!ids.includes(id)) ids.push(id);
+  return ids;
+}
+function buildRanks() {
+  const live = (id) => !store.excluded[id];
+  rankMap = new Map(fullOrder().filter(live).map((id, i) => [id, i + 1]));
+  autoMap = new Map(autoIds().filter(live).map((id, i) => [id, i + 1]));
+}
+const effRank = (d) => rankMap.get(d.id) ?? null;
+const autoRank = (d) => autoMap.get(d.id) ?? null;
+function moveTo(id, pos) {
+  const all = fullOrder();
+  const live = all.filter((x) => !store.excluded[x] && x !== id);
+  const out = all.filter((x) => store.excluded[x] && x !== id);
+  live.splice(Math.min(Math.max(pos - 1, 0), live.length), 0, id);
+  const autoLive = autoIds().filter((x) => !store.excluded[x]);
+  store.order = live.join() === autoLive.join() ? null : [...live, ...out];
+  renderRows(); saveOrder();
+}
+
+/* ================= 열 정의 ================= */
+const L0 = (d) => d.loans[0];
+const commonHead = [
+  { key: 'rank', label: '순위', r: true, val: (d) => effRank(d) },
+  { key: 'name', label: '단지', val: (d) => d.name },
+  { key: 'area', label: '평형', r: true, val: (d) => d.area },
+  { key: 'km', label: '거리', r: true, val: (d) => d.km },
+  { key: 'min', label: '시간', r: true, val: (d) => d.min },
+  { key: 'built', label: '준공', r: true, val: (d) => d.built, desc: true },
+  { key: 'remodel', label: '리모델링', val: (d) => !isOld(d) ? -1 : ({ yes: 0, '': 1, no: 2 })[store.remodel[d.id] || ''] },
+];
+const commonTail = () => [
+  { key: 'infra', label: '인프라', r: true, val: (d) => infraAvg(d), desc: true },
+  ...AXES.map((a) => ({ key: 'ax_' + a.key, label: a.short, val: (d) => score(d, a.key), desc: true, title: a.label })),
+  { key: 'tier', label: '판정', val: (d) => TIER_ORDER[effTier(d)] },
+];
+function colsFor(m) {
+  if (m === 'jeonse') return [...commonHead,
+    { key: 'est', label: '최근 전세', r: true, val: (d) => d.est },
+    { key: 'sale', label: '매매 중위', r: true, val: (d) => d.sale },
+    { key: 'ratio', label: '전세가율', val: (d) => d.ratio },
+    { key: 'room', label: '근저당 허용선', r: true, val: (d) => d.room, desc: true },
+    { key: 'trend', label: '매매 1년', r: true, val: (d) => d.trend, desc: true },
+    { key: 'interest', label: '전세대출 · 월 이자', val: (d) => L0(d) ? L0(d).i0 : null },
+    { key: 'own', label: '자기 돈', r: true, val: (d) => L0(d) ? L0(d).own : d.est },
+    ...commonTail()];
+  return [...commonHead,
+    { key: 'dep', label: '보증금', r: true, val: (d) => d.dep },
+    { key: 'rent', label: '월세', r: true, val: (d) => d.rent },
+    { key: 'monthly', label: '월 환산', r: true, val: (d) => d.monthly },
+    { key: 'sale', label: '매매 중위', r: true, val: (d) => d.sale },
+    { key: 'room', label: '근저당 허용선', r: true, val: (d) => d.room, desc: true },
+    { key: 'priority', label: '최우선변제', val: (d) => d.priority ? 0 : 1 },
+    { key: 'interest', label: '대출 · 월 이자', val: (d) => L0(d) ? L0(d).i0 : null },
+    { key: 'own', label: '자기 돈', r: true, val: (d) => L0(d) ? L0(d).own : d.dep },
+    ...commonTail()];
+}
+const axisNumf = () => [
+  { key: 'infraMin', label: '인프라 평균', op: '≥', unit: '점', step: 0.5, scale: 1, get: (d) => infraAvg(d) },
+  ...AXES.map((a) => ({ key: 'ax_' + a.key, label: a.short + ' 점수', op: '≥', unit: '점', step: 1, scale: 1, get: (d) => score(d, a.key) })),
+];
+const baseNumf = [
+  { key: 'kmMax', label: '지사 거리', op: '≤', unit: 'km', step: 1, scale: 1, get: (d) => d.km },
+  { key: 'minMax', label: '지사 시간', op: '≤', unit: '분', step: 1, scale: 1, get: (d) => d.min },
+  { key: 'builtMin', label: '준공', op: '≥', unit: '년', step: 1, scale: 1, get: (d) => d.built },
+  { key: 'areaMin', label: '전용면적', op: '≥', unit: '㎡', step: 1, scale: 1, get: (d) => d.area },
+  { key: 'roomMin', label: '근저당 허용선', op: '≥', unit: '만', step: 500, scale: 1e4, get: (d) => d.room },
+];
+function numfFor(m) {
+  if (m === 'jeonse') return [
+    { key: 'estMax', label: '최근 전세', op: '≤', unit: '억', step: 0.1, scale: 1e8, get: (d) => d.est },
+    { key: 'ratioMax', label: '전세가율', op: '≤', unit: '%', step: 1, scale: 0.01, get: (d) => d.ratio },
+    ...baseNumf,
+    { key: 'ownMax', label: '자기 돈', op: '≤', unit: '억', step: 0.1, scale: 1e8, get: (d) => L0(d) ? L0(d).own : d.est },
+    { key: 'intMax', label: '월 이자(최저)', op: '≤', unit: '만', step: 5, scale: 1e4, get: (d) => L0(d) ? L0(d).i0 : null },
+    { key: 'trendMin', label: '매매 1년', op: '≥', unit: '%', step: 1, scale: 0.01, get: (d) => d.trend },
+    ...axisNumf()];
+  return [
+    { key: 'depMax', label: '보증금', op: '≤', unit: '만', step: 500, scale: 1e4, get: (d) => d.dep },
+    { key: 'rentMax', label: '월세', op: '≤', unit: '만', step: 5, scale: 1e4, get: (d) => d.rent },
+    { key: 'monthlyMax', label: '월 환산', op: '≤', unit: '만', step: 5, scale: 1e4, get: (d) => d.monthly },
+    ...baseNumf,
+    { key: 'ownMax', label: '자기 돈', op: '≤', unit: '만', step: 500, scale: 1e4, get: (d) => L0(d) ? L0(d).own : d.dep },
+    ...axisNumf()];
+}
+const PRESETS = {
+  jeonse: [
+    { label: '안전 우선', s: [['ratio', 1], ['room', -1], ['min', 1]] },
+    { label: '출퇴근 우선', s: [['min', 1], ['ratio', 1], ['infra', -1]] },
+    { label: '돈 부담 우선', s: [['own', 1], ['interest', 1], ['ratio', 1]] },
+    { label: '인프라 우선', s: [['infra', -1], ['ax_walk', -1], ['ratio', 1]] },
+    { label: '신축 우선', s: [['built', -1], ['ratio', 1], ['min', 1]] },
+  ],
+  wolse: [
+    { label: '싼 순', s: [['monthly', 1], ['rent', 1], ['min', 1]] },
+    { label: '출퇴근 우선', s: [['min', 1], ['monthly', 1], ['infra', -1]] },
+    { label: '보증금 적게', s: [['dep', 1], ['monthly', 1], ['min', 1]] },
+    { label: '인프라 우선', s: [['infra', -1], ['ax_walk', -1], ['monthly', 1]] },
+    { label: '신축 우선', s: [['built', -1], ['monthly', 1], ['min', 1]] },
+  ],
+};
+
+/* ================= 정렬 ================= */
+const dirText = (key, dir) => key === 'name' ? (dir > 0 ? '가나다순' : '역순') : (dir > 0 ? '낮은 값 먼저' : '높은 값 먼저');
+function makeCmp(list) {
+  const cols = list.map((s) => ({ col: COLS.find((c) => c.key === s.key), dir: s.dir })).filter((x) => x.col);
+  return (a, b) => {
+    for (const { col, dir } of cols) {
+      const va = col.val(a), vb = col.val(b);
+      if (va == null && vb == null) continue;
+      if (va == null) return 1;           // 값이 없는 행은 방향과 무관하게 뒤로
+      if (vb == null) return -1;
+      const r = typeof va === 'string' ? va.localeCompare(vb, 'ko') : va - vb;
+      if (r) return r * dir;
+    }
+    return (effRank(a) ?? 999) - (effRank(b) ?? 999) || a.rank - b.rank;
+  };
+}
+function renderSorts() {
+  const opts = (sel) => COLS.map((c) => `<option value="${c.key}"${c.key === sel ? ' selected' : ''}>${c.title || c.label}</option>`).join('');
+  document.getElementById('sortList').innerHTML = sorts.map((s, i) => `<div class="srow">
+    <span class="sn">${i + 1}순위</span>
+    <select id="skey-${i}" data-skey="${i}" aria-label="${i + 1}순위 기준">${opts(s.key)}</select>
+    <button type="button" class="sbtn" data-sdir="${i}">${dirText(s.key, s.dir)} ${s.dir > 0 ? '▲' : '▼'}</button>
+    <span class="smv"><button type="button" class="mv" data-sup="${i}" aria-label="${i + 1}순위 올리기"${i === 0 ? ' disabled' : ''}>▲</button><button type="button" class="mv" data-sdown="${i}" aria-label="${i + 1}순위 내리기"${i === sorts.length - 1 ? ' disabled' : ''}>▼</button></span>
+    ${sorts.length > 1 ? `<button type="button" class="sdel" data-sdel="${i}" aria-label="${i + 1}순위 빼기">빼기</button>` : ''}
+  </div>`).join('');
+  document.getElementById('sortPresets').innerHTML = SORT_PRESETS.map((p, i) => `<button type="button" class="chip" data-spre="${i}">${p.label}</button>`).join('');
+}
+function applySorts() { STATE[MODE].view.sorts = sorts; saveSorts(); renderSorts(); renderHead(); renderRows(); }
+
+/* ================= 필터 ================= */
+function passNum(d) {
+  for (const f of NUMF) {
+    const v = filt.num[f.key];
+    if (v === undefined || v === null || v === '') continue;
+    const x = f.get(d);
+    if (x == null) return false;
+    const lim = Number(v) * f.scale;
+    if (f.op === '≤' ? x > lim + 1e-9 : x < lim - 1e-9) return false;
+  }
+  return true;
+}
+const dongOf = (d) => d.umd.split(' ')[0];
+const passAll = (d) =>
+  (!filt.remodelOnly || !isOld(d) || store.remodel[d.id] === 'yes') &&
+  (!filt.tiers.length || filt.tiers.includes(effTier(d))) &&
+  (!dongSel.size || dongSel.has(dongOf(d))) &&
+  (!filt.loans.length || d.loans.some((l) => filt.loans.includes(l.n))) &&
+  passNum(d);
+function renderTiers() {
+  document.getElementById('tierChips').innerHTML = `<button class="chip" type="button" data-tier="" aria-pressed="${!filt.tiers.length}">모든 판정</button>` +
+    Object.entries(TIER).map(([k, v]) => `<button class="chip" type="button" data-tier="${k}" aria-pressed="${filt.tiers.includes(k)}">${v}</button>`).join('');
+}
+function renderLoanChips() {
+  document.getElementById('loanChips').innerHTML = `<button class="chip" type="button" data-loan="" aria-pressed="${!filt.loans.length}">상관없음</button>` +
+    LOANS.map((n) => `<button class="chip" type="button" data-loan="${esc(n)}" aria-pressed="${filt.loans.includes(n)}">${esc(n)}</button>`).join('');
+}
+function renderFgrid() {
+  document.getElementById('fgrid').innerHTML = NUMF.map((f) => `<label class="fitem" for="f-${f.key}"><span>${f.label} <b>${f.op}</b></span>
+    <span class="fin"><input type="number" id="f-${f.key}" data-f="${f.key}" step="${f.step}" value="${filt.num[f.key] ?? ''}" placeholder="—"><i>${f.unit}</i></span></label>`).join('');
+}
+function renderActive() {
+  const chips = [];
+  filt.tiers.forEach((k) => chips.push([`판정 ${TIER[k]}`, `tier|${k}`]));
+  [...dongSel].forEach((k) => chips.push([k, `dong|${k}`]));
+  filt.loans.forEach((k) => chips.push([`${k} 가능`, `loan|${k}`]));
+  NUMF.forEach((f) => { const v = filt.num[f.key]; if (v !== undefined && v !== null && v !== '') chips.push([`${f.label} ${f.op} ${v}${f.unit}`, `num|${f.key}`]); });
+  if (filt.remodelOnly) chips.push([`구축(${filt.oldBefore || OLD_DEFAULT}년 이전)은 리모델링 된 것만`, 'remodel|']);
+  const n = NUMF.filter((f) => filt.num[f.key] !== undefined && filt.num[f.key] !== '').length + filt.loans.length + (filt.remodelOnly ? 1 : 0);
+  document.getElementById('fRemodel').checked = !!filt.remodelOnly;
+  document.getElementById('fOld').value = filt.oldBefore || OLD_DEFAULT;
+  document.querySelector('#fpanel summary span').textContent = n ? `조건 필터 · ${n}개 걸림` : '조건 필터';
+  document.getElementById('active').innerHTML = chips.length
+    ? chips.map(([t, k]) => `<button type="button" class="achip" data-unf="${esc(k)}" aria-label="${esc(t)} 조건 빼기">${esc(t)} <span aria-hidden="true">×</span></button>`).join('') +
+      `<button type="button" class="aclear" data-unf="*">필터 모두 지우기</button>`
+    : '';
+}
+function renderDongs() {
+  const all = `<button class="chip" type="button" data-dong="" aria-pressed="${dongSel.size === 0}">모든 동</button>`;
+  document.getElementById('dongChips').innerHTML = all + DONGS.map((g) =>
+    `<button class="chip" type="button" data-dong="${esc(g.name)}" aria-pressed="${dongSel.has(g.name)}" title="${esc(g.region)}">${esc(g.name)} <span class="cn-n">${g.n}</span></button>`).join('');
+}
+function renderFilters() { renderTiers(); renderDongs(); renderLoanChips(); renderActive(); }
+function filtersChanged() { STATE[MODE].view.filt = filt; STATE[MODE].view.dongs = [...dongSel]; saveFilt(); renderFilters(); renderRows(); }
+
+/* ================= 표 ================= */
+function renderHead() {
+  document.getElementById('head').innerHTML = '<th class="plain x">후보</th>' + COLS.map((c) => {
+    const i = sorts.findIndex((s) => s.key === c.key), on = i >= 0;
+    const aria = on ? ` aria-sort="${sorts[i].dir > 0 ? 'ascending' : 'descending'}"` : '';
+    const arrow = on ? (sorts.length > 1 ? `<sup>${i + 1}</sup>` : '') + (sorts[i].dir > 0 ? '▲' : '▼') : '↕';
+    return `<th class="${c.r ? 'r' : ''}${c.key === 'name' ? ' stick2' : ''}"${aria}${c.title ? ` title="${esc(c.title)}"` : ''}><button type="button" data-key="${c.key}">${c.label}<span class="arrow" aria-hidden="true">${arrow}</span></button></th>`;
+  }).join('');
+}
+function sorted() {
+  const cmp = makeCmp(sorts);
+  const q = document.getElementById('q').value.trim();
+  const hide = document.getElementById('hideOut').checked;
+  let list = DATA.filter((d) => passAll(d) && (!q || (d.name + d.umd).includes(q)));
+  if (hide) list = list.filter((d) => !store.excluded[d.id]);
+  return { inList: list.filter((d) => !store.excluded[d.id]).sort(cmp), outList: list.filter((d) => store.excluded[d.id]).sort(cmp) };
+}
+function gauge(d) {
+  if (d.ratio == null) return '<span class="sub">잴 수 없음</span>';
+  const color = d.ratio < 0.7 ? 'var(--ok)' : d.ratio < 0.8 ? 'var(--accent)' : 'var(--risk)';
+  return `<div class="gauge"><span class="num" style="color:${color};font-weight:500">${pct(d.ratio)}</span>
+    <div class="bar"><span style="width:${Math.min(100, d.ratio * 100)}%;background:${color}"></span><i class="tick" style="left:70%"></i><i class="tick" style="left:80%"></i></div></div>`;
+}
+const chip = (v, isMine) => v == null ? '<span class="sc s0">—</span>' : `<span class="sc s${Math.round(v)}${isMine ? ' mine' : ''}">${Number.isInteger(v) ? v : v.toFixed(1)}</span>`;
+function tierSelect(d) {
+  const t = effTier(d);
+  const opts = Object.entries(TIER).map(([k, v]) => `<option value="${k}"${k === t ? ' selected' : ''}>${v}${k === d.tier ? ' (자동)' : ''}</option>`).join('');
+  return `<select class="tiersel t-${t}" id="tier-${d.id}" data-tier-for="${d.id}" aria-label="${esc(d.name)} 판정">${opts}</select>${store.tier[d.id] ? `<span class="mine-tag">직접 · 자동은 ${TIER[d.tier]}</span>` : ''}`;
+}
+const roomCell = (d) => d.room == null ? '—' : d.room > 0 ? `<span class="pos">${eok(d.room)}</span><span class="sub">채권최고액 이하</span>` : `<span class="neg">−${eok(-d.room)}</span><span class="sub">융자 없어도 부족</span>`;
+const loanCell = (L, extra = '') => L ? `<b>${esc(L.n)}</b> <span class="num">${eok(L.lim)}</span><span class="sub num">월 ${man(L.i0)}~${man(L.i1)} · 연 ${pct(L.r0, 1)}${L.r1 > L.r0 ? '~' + pct(L.r1, 1) : ''}${extra}</span>` : '—';
+function row(d) {
+  const out = !!store.excluded[d.id], L = L0(d), avg = infraAvg(d);
+  const mid = MODE === 'jeonse' ? `
+    <td class="r"><span class="num">${d.est ? eok(d.est) : '—'}</span><span class="sub">${d.est ? d.estBasis + ' · ' + d.estN + '건' : '시세 불명'}</span></td>
+    <td class="r"><span class="num">${eok(d.sale)}</span><span class="sub">${d.sale ? d.saleN + '건' : '매매 없음'}</span></td>
+    <td>${gauge(d)}</td>
+    <td class="r num">${roomCell(d)}</td>
+    <td class="r num">${d.trend == null ? '—' : `<span class="${d.trend < 0 ? 'neg' : ''}">${d.trend >= 0 ? '+' : ''}${pct(d.trend, 1)}</span>`}</td>
+    <td class="loan">${loanCell(L)}</td>
+    <td class="r num">${L ? eok(L.own) : '—'}</td>` : `
+    <td class="r"><span class="num">${eok(d.dep)}</span><span class="sub">${d.wn}건 · 2년 중위</span></td>
+    <td class="r num">${man(d.rent)}</td>
+    <td class="r"><span class="num" style="font-weight:600">${man(d.monthly)}</span><span class="sub">보증금 비용 포함</span></td>
+    <td class="r"><span class="num">${eok(d.sale)}</span><span class="sub">${d.sale ? d.saleN + '건 · 보증금 ' + pct(d.ratio) : d.rental ? '임대 전용 단지' : '매매 없음'}</span></td>
+    <td class="r num">${roomCell(d)}</td>
+    <td>${d.priority ? '<span class="pill t-A">대상</span>' : '<span class="sub">7,500만 초과</span>'}</td>
+    <td class="loan">${loanCell(L, L && L.wolse && L.mcap ? ` · 월세 지원 월 ${man(L.mcap)}까지` : '')}</td>
+    <td class="r num">${L ? eok(L.own) : eok(d.dep)}</td>`;
+  return `<tr class="${out ? 'out' : ''}" id="row-${d.id}">
+    <td class="x"><button type="button" class="strike" data-toggle="${d.id}" aria-pressed="${out}">${out ? '되살리기' : '소거'}</button></td>
+    <td class="r">${out ? '<span class="sub">순위 제외</span>' : `<span class="rk"><button type="button" class="mv" data-mv="${d.id}|-1" aria-label="${esc(d.name)} 한 칸 위로">▲</button><input type="number" class="rankin num" id="rank-${d.id}" data-rank-for="${d.id}" min="1" max="${rankMap.size}" value="${effRank(d)}" aria-label="${esc(d.name)} 순위"><button type="button" class="mv" data-mv="${d.id}|1" aria-label="${esc(d.name)} 한 칸 아래로">▼</button></span>${effRank(d) !== autoRank(d) ? `<span class="sub">자동 ${autoRank(d)}위</span>` : ''}`}</td>
+    <td class="cn stick2"><span class="nm"><a class="cname" href="#memo-${d.id}" data-jump="${d.id}">${esc(d.name)}</a>${mapBtn(d)}</span><span class="sub">아파트 · ${esc(d.umd)} · ${esc(d.region)}</span></td>
+    <td class="r"><span class="num">${d.area}㎡</span><span class="sub">공급 약 ${d.supply}평</span></td>
+    <td class="r num">${d.km == null ? '—' : d.km.toFixed(1) + 'km'}</td>
+    <td class="r num">${d.min == null ? '—' : Math.round(d.min) + '분'}</td>
+    <td class="r num">${d.built}</td>
+    <td>${remodelCell(d)}</td>${mid}
+    <td class="r"><button type="button" class="cell" data-jump="${d.id}" title="메모 칸에서 인프라 점수 보기">${avg == null ? '<span class="sc s0">—</span>' : `<span class="sc s${Math.round(avg)}" style="min-width:34px">${avg.toFixed(1)}</span>`}</button></td>
+    ${AXES.map((a) => `<td><button type="button" class="cell" data-edit="${d.cx}|${a.key}" aria-haspopup="dialog" title="${esc(a.label)} — 눌러서 바로 고치기">${chip(score(d, a.key), mine(d, a.key))}</button></td>`).join('')}
+    <td>${tierSelect(d)}</td>
+  </tr>`;
+}
+function renderCounts() {
+  for (const m of Object.keys(MODES)) {
+    const st = STATE[m].store, data = MODES[m].data;
+    const left = data.filter((d) => !st.excluded[d.id]).length;
+    document.getElementById('cnt-' + m).textContent = `${left}/${data.length}`;
+  }
+}
+function renderRows() {
+  buildRanks();
+  const { inList, outList } = sorted();
+  const n = COLS.length + 1;
+  const html = inList.map(row).join('') +
+    (outList.length ? `<tr class="divider"><td colspan="${n}">소거한 후보 ${outList.length}개</td></tr>` + outList.map(row).join('') : '');
+  document.getElementById('rows').innerHTML = html || `<tr><td colspan="${n}" class="sub" style="padding:18px">조건에 맞는 후보가 없습니다. 검색어나 필터를 바꿔 보세요.</td></tr>`;
+  const outN = DATA.filter((d) => store.excluded[d.id]).length;
+  document.getElementById('count').textContent = `남은 후보 ${DATA.length - outN}개 · 소거 ${outN}개`;
+  document.getElementById('resetOrder').hidden = !store.order;
+  orderMemos(inList, outList);
+  renderCounts();
+}
+function renderWeights() {
+  document.getElementById('weights').innerHTML = AXES.map((a) => `<div class="wrow"><span title="${esc(a.basis)}">${a.label}</span>
+    <span class="seg" role="group" aria-label="${esc(a.label)} 가중치">${[0, 1, 2, 3].map((v) => `<button type="button" data-w="${a.key}|${v}" aria-pressed="${(store.weights[a.key] ?? 0) === v}">${v}</button>`).join('')}</span></div>`).join('');
+}
+
+/* ================= 메모 카드 ================= */
+const hist = (h) => h && h.length ? h.map(([q, n, v]) => `<span class="num">${q.slice(2)} ${eok(v)}<small>${n}</small></span>`).join('') : '<span>없음</span>';
+function basisText(d, a) {
+  const c = d.counts ? d.counts[a.key] : undefined;
+  return c == null ? '측정 안 됨 — 직접 매겨 주세요' : `반경 ${a.r}m ${a.unit} ${c}곳${d.auto[a.key] == null ? ' — OSM에 빠졌을 수 있어 비워 둠' : ''}`;
+}
+function infraEditor(d) {
+  return `<div class="ied" data-ied="${d.cx}">${AXES.map((a) => `<span>${a.label}<span class="basis">${basisText(d, a)}</span></span>
+      <span><span class="seg" role="group" aria-label="${esc(a.label)} 점수">${[1, 2, 3, 4, 5].map((v) => `<button type="button" data-infra="${d.cx}|${a.key}|${v}">${v}</button>`).join('')}</span><button type="button" class="reset" data-infra-reset="${d.cx}|${a.key}">자동</button></span>`).join('')}</div>`;
+}
+function syncEditors() {
+  document.querySelectorAll('[data-ied]').forEach((box) => {
+    const d = DATA.find((x) => x.cx === box.dataset.ied);
+    box.querySelectorAll('button[data-infra]').forEach((b) => {
+      const [, k, v] = b.dataset.infra.split('|');
+      b.setAttribute('aria-pressed', String(score(d, k) === +v));
+      b.classList.toggle('auto', d.auto[k] === +v);
+    });
+    box.querySelectorAll('button[data-infra-reset]').forEach((b) => { b.hidden = !mine(d, b.dataset.infraReset.split('|')[1]); });
+  });
+}
+function memoFacts(d) {
+  const L = L0(d);
+  if (MODE === 'jeonse') return `<div class="meta">최근 전세 <b class="num">${d.est ? eok(d.est) : '—'}</b> · 매매 <b class="num">${eok(d.sale)}</b> · 전세가율 <b class="num">${pct(d.ratio)}</b> · 허용선 <b class="num">${d.room == null ? '—' : d.room > 0 ? eok(d.room) : '부족'}</b>${L ? ` · ${esc(L.n)} 자기 돈 <b class="num">${eok(L.own)}</b>` : ''}</div>
+      <dl class="hist"><dt>전세 분기</dt><dd>${hist(d.jh)}</dd><dt>매매 분기</dt><dd>${hist(d.sh)}</dd>
+        <dt>월세</dt><dd><span>${d.wolse ? `보증금 ${eok(d.wolse.deposit)} · 월 ${man(d.wolse.rent)} (${d.wolse.n}건)` : '거래 없음'}</span><span>마지막 거래 ${d.last.slice(0, 4)}.${d.last.slice(4)} · 갱신 ${pct(d.renew)}</span></dd></dl>`;
+  return `<div class="meta">보증금 <b class="num">${eok(d.dep)}</b> · 월세 <b class="num">${man(d.rent)}</b> · 월 환산 <b class="num">${man(d.monthly)}</b> · 매매 <b class="num">${eok(d.sale)}</b> · 허용선 <b class="num">${d.room == null ? '—' : d.room > 0 ? eok(d.room) : '부족'}</b>${L ? ` · ${esc(L.n)} 자기 돈 <b class="num">${eok(L.own)}</b>` : ''}</div>
+      <dl class="hist"><dt>매매 분기</dt><dd>${hist(d.sh)}</dd><dt>전세 분기</dt><dd>${hist(d.jh)}</dd>
+        <dt>거래</dt><dd><span>월세 ${d.wn}건 · 전체 ${d.deals}건${d.j ? ` · 전세 중위 ${eok(d.j.deposit)} (${d.j.n}건)` : ''}</span><span>마지막 거래 ${d.last.slice(0, 4)}.${d.last.slice(4)} · 갱신 ${pct(d.renew)}</span></dd></dl>`;
+}
+function buildMemos() {
+  document.getElementById('memos').innerHTML = DATA.map((d) => `<article class="memo" id="memo-${d.id}" data-id="${d.id}">
+      <header><h3>${esc(d.name)} <span class="num" style="font-weight:400;color:var(--muted)">${d.area}㎡</span> ${mapBtn(d)}</h3><span class="pill" id="pill-${d.id}"></span></header>
+      <div class="meta">아파트 · ${esc(d.umd)} ${esc(d.road || '')} · 준공 ${d.built} · 지사까지 ${d.km == null ? '—' : d.km.toFixed(1) + 'km · 약 ' + Math.round(d.min) + '분'}</div>
+      ${memoFacts(d)}
+      <div class="meta rmline" id="rml-${d.id}"></div>
+      ${d.notes && d.notes.length ? `<ul>${d.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+      <details><summary class="meta" style="cursor:pointer">인프라 점수 — 같은 단지면 전세·월세판 모두에 적용됩니다</summary>${infraEditor(d)}</details>
+      <textarea id="memo-text-${d.id}" data-memo="${d.id}" placeholder="${esc(CFG.placeholder)}"></textarea>
+      <div class="foot"><span id="memo-state-${d.id}"></span><span style="display:flex;gap:6px"><button type="button" class="strike" data-back="${d.id}">↑ 표에서 보기</button><button type="button" class="strike" data-toggle="${d.id}"></button></span></div>
+    </article>`).join('');
+  DATA.forEach((d) => { document.getElementById('memo-text-' + d.id).value = store.memo[d.id] || ''; });
+}
+function orderMemos(inList, outList) {
+  const pos = new Map();
+  inList.forEach((d, i) => pos.set(d.id, i));
+  outList.forEach((d, i) => pos.set(d.id, 1000 + i));
+  DATA.forEach((d) => {
+    const el = document.getElementById('memo-' + d.id);
+    if (!el) return;
+    const out = !!store.excluded[d.id];
+    el.hidden = !pos.has(d.id);
+    el.style.order = pos.get(d.id) ?? 9999;
+    el.classList.toggle('out', out);
+    const t = effTier(d), p = document.getElementById('pill-' + d.id);
+    p.className = 'pill t-' + t; p.textContent = TIER[t] + (store.tier[d.id] ? ' · 직접' : '');
+    const rl = document.getElementById('rml-' + d.id);
+    if (rl && document.activeElement?.id !== 'mrm-' + d.id) rl.innerHTML = isOld(d)
+      ? `리모델링 <select class="rmsel rm-${store.remodel[d.id] || 'none'}" id="mrm-${d.id}" data-remodel-for="${d.id}" aria-label="${esc(d.name)} 리모델링 여부">${Object.entries(REMODEL).map(([k, t]) => `<option value="${k}"${k === (store.remodel[d.id] || '') ? ' selected' : ''}>${t}</option>`).join('')}</select> <span>구축 · ${2026 - d.built}년차 — 집을 보고 표시하세요</span>`
+      : `신축 · ${2026 - d.built}년차 — 리모델링 확인 대상 아님`;
+    const b = el.querySelector('.foot button[data-toggle]');
+    b.textContent = out ? '되살리기' : '후보에서 소거';
+    b.setAttribute('aria-pressed', String(out));
+  });
+  syncEditors();
+}
+
+/* ================= 판 바꾸기 ================= */
+function switchMode(m, first) {
+  MODE = m; CFG = MODES[m]; DATA = CFG.data; LS_KEY = CFG.ls;
+  store = STATE[m].store;
+  sorts = STATE[m].view.sorts; filt = STATE[m].view.filt;
+  COLS = colsFor(m); NUMF = numfFor(m); SORT_PRESETS = PRESETS[m];
+  LOANS = [...new Set(DATA.flatMap((d) => d.loans.map((l) => l.n)))];
+  const dm = new Map();
+  for (const d of DATA) { const k = dongOf(d); const g = dm.get(k) || { name: k, region: d.region, n: 0 }; g.n++; dm.set(k, g); }
+  DONGS = [...dm.values()].sort((a, b) => a.region.localeCompare(b.region, 'ko') || b.n - a.n || a.name.localeCompare(b.name, 'ko'));
+  dongSel = new Set(STATE[m].view.dongs.filter((x) => dm.has(x)));
+  sorts = sorts.filter((s) => COLS.some((c) => c.key === s.key)); if (!sorts.length) sorts = [{ key: 'rank', dir: 1 }];
+  STATE[m].view.sorts = sorts;
+  try { localStorage.setItem('masan-board-mode', m); } catch (e) {}
+  document.getElementById('eyebrow').textContent = CFG.eyebrow;
+  document.getElementById('title').textContent = CFG.title;
+  document.getElementById('lede').innerHTML = CFG.lede;
+  document.getElementById('ruleList').innerHTML = CFG.rules.map(([t, dd]) => `<dt>${t}</dt><dd>${dd}</dd>`).join('');
+  document.getElementById('loanLabel').textContent = CFG.loanLabel;
+  document.getElementById('ckNote').textContent = CFG.ckNote;
+  document.getElementById('viewsMode').textContent = CFG.label;
+  document.querySelectorAll('.modes button').forEach((b) => b.toggleAttribute('aria-current', false) || (b.dataset.mode === m && b.setAttribute('aria-current', 'page')));
+  document.getElementById('q').value = '';
+  closePop(false); hideMap(true);
+  renderSorts(); renderHead(); renderFgrid();
+  document.getElementById('fpanel').open = !!(Object.keys(filt.num).length || filt.loans.length);
+  renderFilters(); renderWeights(); buildMemos(); renderRows(); renderViews();
+  if (!first) { tbox.scrollTop = 0; window.scrollTo({ top: 0 }); }
+}
+
+/* ================= 저장한 보기 ================= */
+let VIEWS = [];                     // {id, mode, name, sorts, filt, dongs, weights, order, createdAt}
+const VIEWS_LS = 'masan-board-views';
+try { const v = JSON.parse(localStorage.getItem(VIEWS_LS) || 'null'); VIEWS = Array.isArray(v) ? v : (SEED.views || []); } catch (e) { VIEWS = SEED.views || []; }
+let lastApplied = {};
+let delArmed = null;
+function renderViews() {
+  const list = VIEWS.filter((v) => v.mode === MODE).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  document.getElementById('viewList').innerHTML = list.length ? list.map((v) => `<li class="${lastApplied[MODE] === v.id ? 'cur' : ''}">
+      <span class="vn">${esc(v.name)}</span><span class="vd">${(v.createdAt || '').slice(0, 16).replace('T', ' ')} · 필터 ${Object.keys(v.filt?.num || {}).length + (v.filt?.tiers?.length || 0) + (v.filt?.loans?.length || 0) + (v.dongs?.length || 0)}개 · 정렬 ${v.sorts?.length || 1}단</span>
+      <span class="va"><button type="button" data-vload="${v.id}">불러오기</button><button type="button" data-vover="${v.id}">지금으로 덮어쓰기</button><button type="button" class="del${delArmed === v.id ? ' sure' : ''}" data-vdel="${v.id}">${delArmed === v.id ? '정말 지우기' : '지우기'}</button></span>
+    </li>`).join('') : '<li class="empty">아직 저장한 보기가 없습니다.</li>';
+}
+const snapshotView = () => ({ sorts: JSON.parse(JSON.stringify(sorts)), filt: JSON.parse(JSON.stringify(filt)), dongs: [...dongSel], weights: { ...store.weights }, order: store.order ? [...store.order] : null });
+function saveViewsLocal() { try { localStorage.setItem(VIEWS_LS, JSON.stringify(VIEWS)); } catch (e) {} }
+function putView(v) {
+  const i = VIEWS.findIndex((x) => x.id === v.id);
+  if (i >= 0) VIEWS[i] = v; else VIEWS.push(v);
+  saveViewsLocal(); renderViews();
+  if (db) db.doc('views/' + v.id).set(v).catch(() => setSync('error', '공유 저장 실패 — 이 브라우저에는 남아 있습니다'));
+}
+function applyView(v) {
+  sorts = (v.sorts || [{ key: 'rank', dir: 1 }]).filter((s) => COLS.some((c) => c.key === s.key));
+  if (!sorts.length) sorts = [{ key: 'rank', dir: 1 }];
+  filt = { tiers: v.filt?.tiers || [], loans: v.filt?.loans || [], num: v.filt?.num || {}, remodelOnly: !!v.filt?.remodelOnly, oldBefore: v.filt?.oldBefore || OLD_DEFAULT };
+  dongSel = new Set((v.dongs || []).filter((x) => DONGS.some((g) => g.name === x)));
+  STATE[MODE].view = { sorts, filt, dongs: [...dongSel] };
+  saveSorts(); saveFilt();
+  if (v.weights) { store.weights = { ...DEFAULT_W, ...v.weights }; saveWeights(); }
+  if (v.order !== undefined) { store.order = v.order; saveOrder(); }
+  lastApplied[MODE] = v.id;
+  renderSorts(); renderHead(); renderFgrid();
+  document.getElementById('fpanel').open = !!(Object.keys(filt.num).length || filt.loans.length);
+  renderFilters(); renderWeights(); renderRows(); renderViews();
+  document.getElementById('viewMsg').textContent = `"${v.name}" 을 불러왔습니다.`;
+}
+
+/* ================= 작은 창 · 지도 ================= */
+const pop = document.getElementById('pop');
+let popFrom = null;
+function openPop(btn) {
+  const [cx, k] = btn.dataset.edit.split('|');
+  const d = DATA.find((x) => x.cx === cx), a = AXES.find((x) => x.key === k);
+  const cur = score(d, k), au = d.auto[k];
+  pop.innerHTML = `<div class="pt">${esc(d.name)} · ${esc(a.label)}</div><div class="pbasis">${esc(basisText(d, a))}</div>
+    <div class="prow"><span class="seg" role="group" aria-label="${esc(a.label)} 점수">${[1, 2, 3, 4, 5].map((v) =>
+      `<button type="button" data-infra="${cx}|${k}|${v}" aria-pressed="${cur === v}" class="${au === v ? 'auto' : ''}">${v}</button>`).join('')}</span>
+    ${mine(d, k) ? `<button type="button" class="reset" data-infra-reset="${cx}|${k}">자동으로 (${au ?? '없음'})</button>` : `<span class="pauto">자동 ${au ?? '없음'}</span>`}</div>`;
+  pop.hidden = false;
+  const r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.top = (r.bottom + 6 + h < window.innerHeight ? r.bottom + 6 : Math.max(8, r.top - h - 6)) + 'px';
+  pop.style.left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8) + 'px';
+  popFrom = btn.dataset.edit;
+  const first = pop.querySelector('button[aria-pressed="true"]') || pop.querySelector('button');
+  first && first.focus({ preventScroll: true });
+}
+function closePop(refocus) {
+  if (pop.hidden) return;
+  pop.hidden = true;
+  if (refocus && popFrom) { const b = document.querySelector(`button[data-edit="${popFrom}"]`); b && b.focus({ preventScroll: true }); }
+  popFrom = null;
+}
+const mapPop = document.getElementById('mapPop');
+let mapFor = null, mapHideT = null;
+function mapHtml(d) {
+  const p = MAP.pts[d.name], W = MAP.W, H = MAP.H;
+  const x0 = p.lx - W / 2, y0 = p.ly - H / 2;
+  let tiles = '';
+  for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + W) / 256); tx++)
+    for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + H) / 256); ty++) {
+      const src = MAP.tiles[`${MAP.ZL}/${tx}/${ty}`];
+      if (src) tiles += `<img alt="" src="${src}" style="left:${Math.round(tx * 256 - x0)}px;top:${Math.round(ty * 256 - y0)}px">`;
+    }
+  const seen = new Set([d.name]);
+  let others = '';
+  for (const o of DATA) {
+    if (seen.has(o.name)) continue; seen.add(o.name);
+    const q = MAP.pts[o.name]; if (!q) continue;
+    const x = q.lx - x0, y = q.ly - y0;
+    if (x > 6 && x < W - 6 && y > 6 && y < H - 6 && (Math.abs(x - W / 2) > 4 || Math.abs(y - H / 2) > 4))
+      others += `<i class="odot" style="left:${x}px;top:${y}px" title="${esc(o.name)}"></i>`;
+  }
+  const ob = MAP.ob, S = 128 / (256 * (ob.x1 - ob.x0 + 1));
+  let ov = '';
+  for (let tx = ob.x0; tx <= ob.x1; tx++) for (let ty = ob.y0; ty <= ob.y1; ty++)
+    ov += `<img alt="" src="${MAP.tiles[`${MAP.ZO}/${tx}/${ty}`]}" style="left:${(tx - ob.x0) * 256 * S}px;top:${(ty - ob.y0) * 256 * S}px;width:${256 * S}px;height:${256 * S}px">`;
+  const oxy = (x, y) => `left:${(x - ob.x0 * 256) * S}px;top:${(y - ob.y0 * 256) * S}px`;
+  return `<div class="mt"><b>${esc(d.name)}</b><span>${esc(d.umd)} · 지사까지 ${d.km == null ? '—' : d.km.toFixed(1) + 'km · 약 ' + Math.round(d.min) + '분'}${d.approx ? ' · 동 중심 기준' : ''}</span></div>
+    <div class="lm" style="width:${W}px;height:${H}px">${tiles}${others}<i class="me"></i>
+      <div class="ov" style="width:128px;height:${128 * (ob.y1 - ob.y0 + 1) / (ob.x1 - ob.x0 + 1)}px">${ov}<i class="ov-me" style="${oxy(p.ox, p.oy)}"></i><i class="ov-dest" style="${oxy(MAP.dest.ox, MAP.dest.oy)}"></i><span class="ov-lab" style="${oxy(MAP.dest.ox, MAP.dest.oy)}">지사</span></div>
+    </div>
+    <div class="mf"><span>대략 위치 · 회색 점은 같은 판의 다른 후보</span><span>© OpenStreetMap</span></div>`;
+}
+function showMap(btn) {
+  clearTimeout(mapHideT);
+  const id = btn.dataset.map;
+  if (mapFor !== id) { mapPop.innerHTML = mapHtml(DATA.find((x) => x.id === id)); mapFor = id; }
+  mapPop.hidden = false;
+  const r = btn.getBoundingClientRect(), w = mapPop.offsetWidth, h = mapPop.offsetHeight;
+  let left = r.right + 10 + w < window.innerWidth ? r.right + 10 : r.left - w - 10;
+  if (left < 8) left = Math.min(Math.max(8, r.left - w / 2), window.innerWidth - w - 8);
+  mapPop.style.left = left + 'px';
+  mapPop.style.top = Math.min(Math.max(8, r.top + r.height / 2 - h / 2), window.innerHeight - h - 8) + 'px';
+}
+function hideMap(now) {
+  clearTimeout(mapHideT);
+  const go = () => { mapPop.hidden = true; mapFor = null; };
+  if (now) go(); else mapHideT = setTimeout(go, 160);
+}
+
+/* ================= 공유 저장 ================= */
+let db = null;
+const queue = new Map();
+function write(path, body, onOk) {
+  saveLocal();
+  if (!db) return;
+  const q = queue.get(path) || { busy: false, next: null };
+  queue.set(path, q);
+  q.next = { ...body, updatedAt: new Date().toISOString() };
+  if (q.busy) return;
+  (async () => {
+    q.busy = true;
+    while (q.next) {
+      const b = q.next; q.next = null;
+      try { await db.doc(path).set(b); onOk && onOk(); }
+      catch (e) { setSync('error', '공유 저장 실패 — 이 브라우저에는 남아 있습니다'); }
+    }
+    q.busy = false;
+  })();
+}
+const P = () => CFG.db;
+const savePick = (id) => write(P() + 'picks/' + id, { excluded: !!store.excluded[id], memo: store.memo[id] || '', tier: store.tier[id] || null, remodel: store.remodel[id] || null }, () => setMemoState(id, '저장됨'));
+const saveInfra = (cx) => write('infra/' + cx, { scores: INFRA[cx] || {} });
+const saveWeights = () => write(P() + 'settings/weights', { w: store.weights });
+const saveOrder = () => write(P() + 'settings/order', { ids: store.order || [] });
+function setMemoState(id, t) { const el = document.getElementById('memo-state-' + id); if (el) el.textContent = t; }
+function setSync(mode, text) { const s = document.getElementById('sync'); s.dataset.mode = mode; document.getElementById('syncText').textContent = text; }
+
+/* ================= 입력 ================= */
+function smooth() { return matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'; }
+const tbox = document.querySelector('.tablebox');
+document.addEventListener('click', (e) => {
+  const mb = e.target.closest('.mapbtn');
+  if (mb) { if (!mapPop.hidden && mapFor === mb.dataset.map) hideMap(true); else showMap(mb); return; }
+  if (!mapPop.hidden && !e.target.closest('#mapPop')) hideMap(true);
+  const ed = e.target.closest('button[data-edit]');
+  if (ed) { if (popFrom === ed.dataset.edit) closePop(false); else openPop(ed); return; }
+  if (!pop.hidden && !e.target.closest('#pop')) closePop(false);
+  const mo = e.target.closest('.modes button[data-mode]');
+  if (mo) { if (mo.dataset.mode !== MODE) switchMode(mo.dataset.mode); return; }
+  const vb = e.target.closest('[data-vload],[data-vover],[data-vdel]');
+  if (vb) {
+    const ds = vb.dataset;
+    if (ds.vload) { const v = VIEWS.find((x) => x.id === ds.vload); if (v) applyView(v); delArmed = null; }
+    else if (ds.vover) { const v = VIEWS.find((x) => x.id === ds.vover); if (v) { putView({ ...v, ...snapshotView(), createdAt: new Date().toISOString() }); lastApplied[MODE] = v.id; document.getElementById('viewMsg').textContent = `"${v.name}" 을 지금 보기로 덮어썼습니다.`; } delArmed = null; }
+    else if (ds.vdel) {
+      if (delArmed !== ds.vdel) { delArmed = ds.vdel; renderViews(); return; }
+      const v = VIEWS.find((x) => x.id === ds.vdel);
+      VIEWS = VIEWS.filter((x) => x.id !== ds.vdel); saveViewsLocal(); delArmed = null;
+      if (db) db.doc('views/' + ds.vdel).delete().catch(() => {});
+      document.getElementById('viewMsg').textContent = v ? `"${v.name}" 을 지웠습니다.` : '';
+    }
+    renderViews(); return;
+  }
+  if (delArmed) { delArmed = null; renderViews(); }
+  const h = e.target.closest('th button[data-key]');
+  if (h) {
+    const col = COLS.find((c) => c.key === h.dataset.key);
+    const i = sorts.findIndex((s) => s.key === col.key);
+    if (e.shiftKey) { if (i >= 0) sorts[i].dir = -sorts[i].dir; else sorts.push({ key: col.key, dir: col.desc ? -1 : 1 }); }
+    else if (i === 0) sorts[0].dir = -sorts[0].dir;
+    else sorts = [{ key: col.key, dir: col.desc ? -1 : 1 }, ...sorts.filter((s) => s.key !== col.key)].slice(0, 3);
+    applySorts(); return;
+  }
+  const sb = e.target.closest('[data-sdir],[data-sup],[data-sdown],[data-sdel],[data-spre],#sAdd,#sReset,#sSave');
+  if (sb) {
+    const ds = sb.dataset;
+    if (ds.sdir !== undefined) sorts[+ds.sdir].dir *= -1;
+    else if (ds.sup !== undefined) { const i = +ds.sup; if (i > 0) [sorts[i - 1], sorts[i]] = [sorts[i], sorts[i - 1]]; }
+    else if (ds.sdown !== undefined) { const i = +ds.sdown; if (i < sorts.length - 1) [sorts[i + 1], sorts[i]] = [sorts[i], sorts[i + 1]]; }
+    else if (ds.sdel !== undefined) sorts.splice(+ds.sdel, 1);
+    else if (ds.spre !== undefined) sorts = SORT_PRESETS[+ds.spre].s.map(([key, dir]) => ({ key, dir }));
+    else if (sb.id === 'sAdd') { const free = COLS.find((c) => !sorts.some((s) => s.key === c.key) && c.key !== 'rank'); if (free) sorts.push({ key: free.key, dir: free.desc ? -1 : 1 }); }
+    else if (sb.id === 'sReset') sorts = [{ key: 'rank', dir: 1 }];
+    else if (sb.id === 'sSave') {
+      const live = DATA.filter((d) => !store.excluded[d.id]).sort(makeCmp(sorts)).map((d) => d.id);
+      store.order = [...live, ...fullOrder().filter((id) => store.excluded[id])];
+      saveOrder();
+      sorts = [{ key: 'rank', dir: 1 }];
+      document.getElementById('sSaved').textContent = '저장했습니다 — 순위 열이 이 순서로 바뀌었습니다';
+      setTimeout(() => { document.getElementById('sSaved').textContent = ''; }, 3500);
+    }
+    applySorts(); return;
+  }
+  const t = e.target.closest('button[data-toggle]');
+  if (t) { const id = t.dataset.toggle; if (store.excluded[id]) delete store.excluded[id]; else store.excluded[id] = true; renderRows(); savePick(id); return; }
+  const mv = e.target.closest('button[data-mv]');
+  if (mv) {
+    const [id, dir] = mv.dataset.mv.split('|');
+    const d = DATA.find((x) => x.id === id);
+    if (effRank(d) == null) return;
+    moveTo(id, effRank(d) + Number(dir));
+    const again = document.querySelector(`button[data-mv="${mv.dataset.mv}"]`); again && again.focus({ preventScroll: true });
+    return;
+  }
+  if (e.target.closest('#resetOrder')) { store.order = null; renderRows(); saveOrder(); return; }
+  const back = e.target.closest('button[data-back]');
+  if (back) {
+    const tr = document.getElementById('row-' + back.dataset.back);
+    (tr || document.getElementById('tableTop')).scrollIntoView({ behavior: smooth(), block: 'center' });
+    if (tr) { tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1600); }
+    return;
+  }
+  if (e.target.closest('#toTop')) { tbox.scrollTo({ top: 0, behavior: smooth() }); window.scrollTo({ top: 0, behavior: smooth() }); return; }
+  const w = e.target.closest('button[data-w]');
+  if (w) { const [k, v] = w.dataset.w.split('|'); store.weights[k] = +v; renderWeights(); renderRows(); saveWeights(); return; }
+  const ib = e.target.closest('button[data-infra]');
+  if (ib) {
+    const [cx, k, v] = ib.dataset.infra.split('|');
+    INFRA[cx] = { ...(INFRA[cx] || {}), [k]: +v };
+    const fromPop = !!ib.closest('#pop');
+    renderRows(); saveInfra(cx); saveLocalFor('jeonse'); saveLocalFor('wolse');
+    if (fromPop) { closePop(false); const b = document.querySelector(`button[data-edit="${cx}|${k}"]`); b && b.focus({ preventScroll: true }); }
+    return;
+  }
+  const ir = e.target.closest('button[data-infra-reset]');
+  if (ir) {
+    const [cx, k] = ir.dataset.infraReset.split('|');
+    const m = { ...(INFRA[cx] || {}) }; delete m[k]; INFRA[cx] = m;
+    const fromPop = !!ir.closest('#pop');
+    renderRows(); saveInfra(cx); saveLocalFor('jeonse'); saveLocalFor('wolse');
+    if (fromPop) closePop(false);
+    return;
+  }
+  const j = e.target.closest('[data-jump]');
+  if (j) {
+    e.preventDefault();
+    const el = document.getElementById('memo-' + j.dataset.jump);
+    el.hidden = false;
+    if (j.classList.contains('cell')) el.querySelector('details').open = true;
+    el.scrollIntoView({ behavior: smooth(), block: 'start' });
+    el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+    if (!j.classList.contains('cell')) document.getElementById('memo-text-' + j.dataset.jump).focus({ preventScroll: true });
+    return;
+  }
+  const dg = e.target.closest('.chip[data-dong]');
+  if (dg) { const k = dg.dataset.dong; if (!k) dongSel.clear(); else if (dongSel.has(k)) dongSel.delete(k); else dongSel.add(k); filtersChanged(); return; }
+  const tc = e.target.closest('.chip[data-tier]');
+  if (tc) { const k = tc.dataset.tier; filt.tiers = !k ? [] : filt.tiers.includes(k) ? filt.tiers.filter((x) => x !== k) : [...filt.tiers, k]; filtersChanged(); return; }
+  const lc = e.target.closest('.chip[data-loan]');
+  if (lc) { const k = lc.dataset.loan; filt.loans = !k ? [] : filt.loans.includes(k) ? filt.loans.filter((x) => x !== k) : [...filt.loans, k]; filtersChanged(); return; }
+  const un = e.target.closest('[data-unf]');
+  if (un) {
+    const [kind, k] = un.dataset.unf.split('|');
+    if (kind === '*') { filt = { tiers: [], loans: [], num: {}, remodelOnly: false, oldBefore: filt.oldBefore || OLD_DEFAULT }; dongSel.clear(); renderFgrid(); }
+    else if (kind === 'tier') filt.tiers = filt.tiers.filter((x) => x !== k);
+    else if (kind === 'dong') dongSel.delete(k);
+    else if (kind === 'loan') filt.loans = filt.loans.filter((x) => x !== k);
+    else if (kind === 'num') { delete filt.num[k]; const el = document.getElementById('f-' + k); if (el) el.value = ''; }
+    else if (kind === 'remodel') filt.remodelOnly = false;
+    filtersChanged(); return;
+  }
+});
+document.getElementById('viewForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const inp = document.getElementById('viewName');
+  const name = inp.value.trim() || `${CFG.label} 보기 ${VIEWS.filter((v) => v.mode === MODE).length + 1}`;
+  const v = { id: 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), mode: MODE, name, ...snapshotView(), createdAt: new Date().toISOString() };
+  putView(v); lastApplied[MODE] = v.id; renderViews();
+  inp.value = '';
+  document.getElementById('viewMsg').textContent = `"${name}" 으로 저장했습니다.`;
+});
+document.addEventListener('change', (e) => {
+  const sk = e.target.dataset && e.target.dataset.skey;
+  if (sk !== undefined) {
+    const i = +sk, key = e.target.value, col = COLS.find((c) => c.key === key);
+    const dup = sorts.findIndex((s, j) => j !== i && s.key === key);
+    if (dup >= 0) sorts.splice(dup, 1);
+    sorts[Math.min(i, sorts.length - 1)] = { key, dir: col.desc ? -1 : 1 };
+    applySorts(); return;
+  }
+  const rid = e.target.dataset && e.target.dataset.rankFor;
+  if (rid) {
+    const v = parseInt(e.target.value, 10);
+    if (Number.isFinite(v)) moveTo(rid, v); else renderRows();
+    const again = document.getElementById('rank-' + rid); again && again.focus({ preventScroll: true });
+    return;
+  }
+  const rmId = e.target.dataset && e.target.dataset.remodelFor;
+  if (rmId) {
+    if (e.target.value) store.remodel[rmId] = e.target.value; else delete store.remodel[rmId];
+    renderRows(); savePick(rmId);
+    const again = document.getElementById((e.target.id.startsWith('mrm-') ? 'mrm-' : 'rm-') + rmId); again && again.focus({ preventScroll: true });
+    return;
+  }
+  const id = e.target.dataset && e.target.dataset.tierFor;
+  if (!id) return;
+  const d = DATA.find((x) => x.id === id);
+  if (e.target.value === d.tier) delete store.tier[id]; else store.tier[id] = e.target.value;
+  renderRows(); savePick(id);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closePop(true); hideMap(true); }
+  if (e.key === 'Enter' && e.target.dataset && e.target.dataset.rankFor) e.target.blur();
+});
+document.getElementById('q').addEventListener('input', renderRows);
+document.getElementById('fgrid').addEventListener('input', (e) => {
+  const k = e.target.dataset.f; if (!k) return;
+  const v = e.target.value.trim();
+  if (v === '' || !Number.isFinite(Number(v))) delete filt.num[k]; else filt.num[k] = Number(v);
+  STATE[MODE].view.filt = filt; saveFilt(); renderActive(); renderRows();
+});
+document.getElementById('hideOut').addEventListener('change', renderRows);
+document.getElementById('fRemodel').addEventListener('change', (e) => { filt.remodelOnly = e.target.checked; filtersChanged(); });
+document.getElementById('fOld').addEventListener('change', (e) => {
+  const v = parseInt(e.target.value, 10);
+  filt.oldBefore = Number.isFinite(v) ? Math.min(2026, Math.max(1980, v)) : OLD_DEFAULT;
+  filtersChanged();
+});
+const timers = {};
+document.addEventListener('input', (e) => {
+  const id = e.target.dataset && e.target.dataset.memo;
+  if (!id) return;
+  store.memo[id] = e.target.value;
+  setMemoState(id, '적는 중…');
+  clearTimeout(timers[id]);
+  timers[id] = setTimeout(() => { timers[id] = null; savePick(id); if (!db) setMemoState(id, '이 브라우저에 저장됨'); }, 800);
+});
+document.addEventListener('mouseover', (e) => { const b = e.target.closest('.mapbtn'); if (b) showMap(b); });
+document.addEventListener('mouseout', (e) => {
+  const b = e.target.closest('.mapbtn');
+  if (b && !(e.relatedTarget && (b.contains(e.relatedTarget) || mapPop.contains(e.relatedTarget)))) hideMap(false);
+});
+mapPop.addEventListener('mouseenter', () => clearTimeout(mapHideT));
+mapPop.addEventListener('mouseleave', () => hideMap(false));
+document.addEventListener('focusin', (e) => { const b = e.target.closest && e.target.closest('.mapbtn'); if (b) showMap(b); });
+document.addEventListener('focusout', (e) => { if (e.target.closest && e.target.closest('.mapbtn')) hideMap(false); });
+const toTop = document.getElementById('toTop');
+const onScroll = () => { toTop.hidden = window.scrollY < 300 && tbox.scrollTop < 300; closePop(false); hideMap(true); };
+window.addEventListener('scroll', onScroll, { passive: true });
+tbox.addEventListener('scroll', onScroll, { passive: true });
+window.addEventListener('resize', () => { closePop(false); hideMap(true); });
+
+/* ---- 설정 파일 — 공유 저장이 없는 곳(사이트)에서 기기를 옮길 때 ---- */
+function exportAll() {
+  const payload = { kind: 'masan-board-settings', version: 1, exportedAt: new Date().toISOString(),
+    jeonse: STATE.jeonse, wolse: STATE.wolse, infra: INFRA, views: VIEWS };
+  const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `마산후보판-설정-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  document.getElementById('moveMsg').textContent = '내보냈습니다 — 다운로드 폴더를 확인하세요.';
+}
+async function importAll(file) {
+  const msg = document.getElementById('moveMsg');
+  try {
+    const p = JSON.parse(await file.text());
+    if (p.kind !== 'masan-board-settings') throw new Error('후보판 설정 파일이 아닙니다');
+    for (const m of Object.keys(MODES)) {
+      const st = p[m]; if (!st) continue;
+      const k = MODES[m].ls;
+      localStorage.setItem(k, JSON.stringify({ ...st.store, infra: p.infra || {} }));
+      if (st.view) {
+        localStorage.setItem(k + '-sorts', JSON.stringify(st.view.sorts || []));
+        localStorage.setItem(k + '-filters', JSON.stringify(st.view.filt || {}));
+        localStorage.setItem(k + '-dong', JSON.stringify(st.view.dongs || []));
+      }
+    }
+    localStorage.setItem(VIEWS_LS, JSON.stringify(p.views || []));
+    msg.textContent = '가져왔습니다 — 다시 불러옵니다…';
+    setTimeout(() => location.reload(), 400);
+  } catch (e) {
+    msg.textContent = `가져오지 못했습니다: ${e.message || e}. 후보판에서 내보낸 .json 파일인지 확인하세요.`;
+  }
+}
+document.getElementById('exportBtn').addEventListener('click', exportAll);
+document.getElementById('importFile').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) importAll(f); e.target.value = ''; });
+
+switchMode(MODE, true);
+onScroll();
+
+/* ================= 공유 DB 연결 ================= */
+(async () => {
+  if (!window.claude || !window.claude.use) return;
+  try { db = await window.claude.use('db'); } catch (e) { db = null; }
+  if (!db) return;
+  setSync('db', '공유 저장 — 이 페이지를 여는 사람과 함께 봅니다');
+  document.getElementById('moveBox').hidden = true;
+  const fail = () => setSync('error', '공유 저장에 연결하지 못했습니다 — 이 브라우저에 저장합니다');
+  for (const m of Object.keys(MODES)) {
+    const pre = MODES[m].db, st = STATE[m].store;
+    let firstPicks = true, firstOrder = true, firstW = true;
+    db.collection(pre + 'picks').onSnapshot((snap) => {
+      const seen = new Set();
+      snap.docs.forEach((doc) => {
+        const b = doc.data() || {};
+        seen.add(doc.id);
+        if (b.excluded) st.excluded[doc.id] = true; else delete st.excluded[doc.id];
+        if (b.tier) st.tier[doc.id] = b.tier; else delete st.tier[doc.id];
+        if (b.remodel) st.remodel[doc.id] = b.remodel; else delete st.remodel[doc.id];
+        const ta = MODE === m ? document.getElementById('memo-text-' + doc.id) : null;
+        if (MODE !== m || (ta && document.activeElement !== ta && !timers[doc.id])) { st.memo[doc.id] = b.memo || ''; if (ta) ta.value = b.memo || ''; }
+      });
+      if (firstPicks) {   // 이 브라우저에만 있던 것은 처음 한 번 올립니다
+        firstPicks = false;
+        MODES[m].data.forEach((d) => { if (!seen.has(d.id) && (st.excluded[d.id] || st.memo[d.id] || st.tier[d.id] || st.remodel[d.id])) db.doc(pre + 'picks/' + d.id).set({ excluded: !!st.excluded[d.id], memo: st.memo[d.id] || '', tier: st.tier[d.id] || null, remodel: st.remodel[d.id] || null, updatedAt: new Date().toISOString() }).catch(() => {}); });
+      }
+      saveLocalFor(m); if (MODE === m) renderRows(); else renderCounts();
+    }, fail);
+    db.doc(pre + 'settings/order').onSnapshot((doc) => {
+      if (doc.exists) { const ids = (doc.data() || {}).ids; st.order = Array.isArray(ids) && ids.length ? ids : null; }
+      else if (firstOrder && st.order) db.doc(pre + 'settings/order').set({ ids: st.order, updatedAt: new Date().toISOString() }).catch(() => {});
+      firstOrder = false;
+      saveLocalFor(m); if (MODE === m) renderRows();
+    }, fail);
+    db.doc(pre + 'settings/weights').onSnapshot((doc) => {
+      if (doc.exists) st.weights = { ...DEFAULT_W, ...((doc.data() || {}).w || {}) };
+      else if (firstW && JSON.stringify(st.weights) !== JSON.stringify(DEFAULT_W)) db.doc(pre + 'settings/weights').set({ w: st.weights, updatedAt: new Date().toISOString() }).catch(() => {});
+      firstW = false;
+      saveLocalFor(m); if (MODE === m) { renderWeights(); renderRows(); }
+    }, fail);
+  }
+  let firstInfra = true;
+  db.collection('infra').onSnapshot((snap) => {
+    const seen = new Set();
+    snap.docs.forEach((doc) => { seen.add(doc.id); INFRA[doc.id] = (doc.data() || {}).scores || {}; });
+    if (firstInfra) { firstInfra = false; Object.keys(INFRA).forEach((cx) => { if (!seen.has(cx) && Object.keys(INFRA[cx]).length) saveInfra(cx); }); }
+    saveLocalFor('jeonse'); saveLocalFor('wolse'); renderRows();
+  }, fail);
+  let firstViews = true;
+  db.collection('views').onSnapshot((snap) => {
+    const remote = snap.docs.map((d) => ({ ...(d.data() || {}), id: d.id }));
+    if (firstViews) {
+      firstViews = false;
+      // 이 브라우저에만 있던 보기는 올리고, 전세판의 지금 설정은 한 번 "기존 설정" 으로 남깁니다
+      const ids = new Set(remote.map((v) => v.id));
+      VIEWS.filter((v) => !ids.has(v.id)).forEach((v) => { db.doc('views/' + v.id).set(v).catch(() => {}); remote.push(v); });
+      if (!remote.some((v) => v.mode === 'jeonse')) {
+        const j = STATE.jeonse;
+        const v = { id: 'v-jeonse-base', mode: 'jeonse', name: '기존 전세 설정 (9월 24일)', sorts: j.view.sorts, filt: j.view.filt, dongs: j.view.dongs, weights: { ...j.store.weights }, order: j.store.order ? [...j.store.order] : null, createdAt: new Date().toISOString() };
+        db.doc('views/' + v.id).set(v).catch(() => {}); remote.push(v);
+      }
+    }
+    VIEWS = remote; saveViewsLocal(); renderViews();
+  }, fail);
+})();
+</script>

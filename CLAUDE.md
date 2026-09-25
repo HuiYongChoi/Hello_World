@@ -36,6 +36,7 @@ src/data/rent-YYYY-MM.json   ← 전월세에서 잰 전세가율·전환율
 src/data/presale-YYYY-MM.json ← 분양권전매 실거래 스냅샷
 src/data/applyhome-YYYY-MM.json ← 청약홈 공고·주택형·1순위 경쟁률 (엔진 import 파일명 고정)
 src/data/masan-rent-YYYY-MM.json ← 마산 생활권 아파트 전월세 실거래 (두 번째 사이트)
+src/data/board-YYYY-MM.json ← 전·월세 후보판 스냅샷 (행·도로거리·시설 수·지도 조각·첫 설정) — scripts/board/
 src/data/index-*.json · rates-*.json ← KRX·FRED·ECOS 지수와 금리
 src/engine/              ← 순수 TS. UI import 금지. 단위테스트 대상.
   rules.ts       룰셋 로더, 지역·규제지역 판정
@@ -72,6 +73,9 @@ src/rentfinder/          전월세 찾기 — `＋ 청약 · 전월세` 탭 안�
   loans.ts       전세대출 자격·한도 비교 + 다음 행동 조언 + 후보별 되는 상품(jeonseLoanFit)
   safety.ts      전세가율 · 근저당 허용선 · 매매가 추세 · 등기부 확인 목록
   RentFinderApp.tsx  화면 — 매수 쪽 스토어를 공유하지 않습니다
+  board/template.html 전·월세 후보판 원본 (아티팩트와 같은 파일) → template.ts 는 자동 생성
+  board/boardDoc.ts   스냅샷을 채워 문서 한 장으로 조립 (React 모름)
+  BoardFrame.tsx      후보판을 iframe srcdoc 으로 싣는 자리
 src/state/store.tsx      React 상태 + localStorage
 src/pages/               화면
 ```
@@ -227,7 +231,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 505건)
+npm test                 # 엔진 단위 테스트 (현재 514건)
 npm run scorecard        # 채점표 — 구조·연결·검증·산출물 100점 만점
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
@@ -742,6 +746,33 @@ CAGR 만 내면 진입시점이 감춰지므로 같은 보유기간의 분포를
 상품 제외), "전세대출 되는 집만" 토글로 거를 수 있습니다. 빠른 조건 첫 번째
 `안전한 전세 · 신축 · 방2↑` 가 전세만 · 전용 45㎡↑ · 2005년 이후 · 대출 되는 집만 ·
 전세가율 낮은 순을 한 번에 겁니다.
+
+### 전·월세 후보판 — `＋ 청약 · 전월세 → 전·월세 후보판`
+
+좁힌 후보를 놓고 **소거 · 순위 고치기 · 판정 고치기 · 리모델링 표시 · 인프라 점수 · 메모 ·
+위치 지도 · 다중 필터 · 정렬 우선순위 · 저장한 보기**를 하는 판입니다. 전세(34)와 월세(91)를
+후보판 안의 왼쪽 사이드바로 오갑니다.
+
+**React 로 다시 짜지 않고 원본 HTML 하나를 iframe srcdoc 으로 싣습니다.** 같은 원본을
+claude.ai 아티팩트로도 쓰기 때문입니다(아티팩트는 공유 DB, 사이트는 이 브라우저 저장).
+원본은 `board/template.html` 이고, 고친 뒤 `node scripts/board/sync-template.mjs` 로
+`template.ts` 를 다시 만듭니다 — 어긋나면 테스트가 잡습니다. 두 번째 엔트리를 만들지
+않는 것이 이 방식의 이유입니다 (위 "엔트리는 하나" 참고).
+
+- **외부 요청 0건을 지킵니다.** 아티팩트판의 구글 글꼴은 사이트판에서 빼고, 지도는 OSM
+  타일을 data URI 로 담았습니다(동네 z15 · 전체 z11, 약 1.4MB). 그래서 단일 HTML 이
+  4.2MB → 5.8MB 로 커졌습니다.
+- **사이트는 공유 저장이 없습니다.** 소거·메모는 그 브라우저에만 남고, 기기를 옮길 때는
+  사이드바 "설정 옮기기" 로 JSON 파일을 내보내고 가져옵니다. 처음 여는 브라우저는
+  스냅샷의 `seed`(아티팩트에서 해 둔 소거 17개·순위·가중치·보기)로 시작합니다.
+- **거리·시간은 신호·정체를 뺀 최소치**(FOSSGIS OSRM)이고, 기준점은 함안의령지사
+  (함안군 가야읍)입니다. 좌표는 도로 단위라 수백 m 어긋납니다.
+- **인프라 자동 점수는 후보끼리의 상대 점수**(OSM 시설 수 5분위)입니다. 한국 OSM 은
+  의원이 많이 빠져, 0곳이 40% 넘는 축은 0을 점수로 만들지 않고 비워 둡니다.
+- **리모델링 여부는 공개 자료에 없습니다.** 구축(기본 2011년 이전)만 사람이 표시하고,
+  "구축은 리모델링 된 것만" 필터가 확인 전인 구축도 거릅니다.
+- **오피스텔은 아직 없습니다.** 국토부 오피스텔 전월세·매매 API 는 이 키로 활용신청이
+  안 돼 있습니다(`SERVICE_KEY_IS_NOT_REGISTERED` — 같은 키로 아파트는 됨을 대조함).
 
 ### 함안·의령에는 살 집이 거의 없습니다
 
