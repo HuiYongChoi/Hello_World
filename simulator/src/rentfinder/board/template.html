@@ -108,8 +108,15 @@ input[type="search"] { font: inherit; font-size: 13px; padding: 6px 10px; border
 label.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
 .count { margin-left: auto; font-size: 12.5px; color: var(--muted); }
 
-/* 가로 스크롤 상자 안에서는 sticky 가 페이지 기준으로 안 붙습니다 — 상자 자체가 세로로도 스크롤하게 해서 머리줄을 붙잡습니다 */
-.tablebox { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: auto; max-height: calc(100vh - 40px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overscroll-behavior: contain; }
+/* 세로 스크롤은 페이지 하나로만 합니다 — 표 상자가 따로 세로 스크롤하면 끝에서 막히거나(위로 안 올라감)
+   머리줄이 상자와 함께 화면 밖으로 밀려납니다. 머리줄은 화면 맨 위에 복제해 띄우고(#floatHead),
+   가로 스크롤은 화면 아래에 붙는 막대(#hbar)로 대신합니다. */
+.tablebox { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; overflow-y: hidden; }
+.floathead { position: fixed; top: env(safe-area-inset-top, 0px); z-index: 15; overflow: hidden; background: var(--sunken); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 8px 8px; box-shadow: 0 6px 14px rgba(0,0,0,.22); }
+.floathead table { table-layout: fixed; min-width: 0; }
+.floathead th.x, .floathead th.stick2 { position: relative; left: auto; z-index: 2; background: var(--sunken); }
+.hbar { position: fixed; bottom: env(safe-area-inset-bottom, 0px); z-index: 9; overflow-x: auto; overflow-y: hidden; height: 17px; background: var(--surface); border: 1px solid var(--line); border-bottom: 0; border-radius: 8px 8px 0 0; }
+.hbar > div { height: 1px; }
 table { border-collapse: collapse; width: 100%; min-width: 1720px; font-size: 13px; }
 td.r, td.loan { white-space: nowrap; }
 td.cn { min-width: 176px; max-width: 220px; }
@@ -396,6 +403,8 @@ tr.out .rankin { color: var(--struck); }
 
 <div id="pop" class="pop" role="dialog" aria-label="인프라 점수 고치기" hidden></div>
 <div id="mapPop" class="mappop" role="dialog" aria-label="위치 지도" hidden></div>
+<div id="floatHead" class="floathead" hidden aria-hidden="true"></div>
+<div id="hbar" class="hbar" hidden aria-hidden="true"><div id="hbarIn"></div></div>
 <button type="button" id="toTop" class="totop" hidden aria-label="맨 위로" title="맨 위로"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <script>
 const DATA_J = __DATA_J__;
@@ -779,6 +788,8 @@ function renderRows() {
   document.getElementById('resetOrder').hidden = !store.order;
   orderMemos(inList, outList);
   renderCounts();
+  headDirty = true;
+  if (typeof syncFloat === 'function') requestAnimationFrame(syncFloat);
 }
 function renderWeights() {
   document.getElementById('weights').innerHTML = AXES.map((a) => `<div class="wrow"><span title="${esc(a.basis)}">${a.label}</span>
@@ -1095,7 +1106,7 @@ document.addEventListener('click', (e) => {
     if (tr) { tr.classList.add('flash'); setTimeout(() => tr.classList.remove('flash'), 1600); }
     return;
   }
-  if (e.target.closest('#toTop')) { tbox.scrollTo({ top: 0, behavior: smooth() }); window.scrollTo({ top: 0, behavior: smooth() }); return; }
+  if (e.target.closest('#toTop')) { window.scrollTo({ top: 0, behavior: smooth() }); return; }
   const w = e.target.closest('button[data-w]');
   if (w) { const [k, v] = w.dataset.w.split('|'); store.weights[k] = +v; renderWeights(); renderRows(); saveWeights(); return; }
   const ib = e.target.closest('button[data-infra]');
@@ -1220,10 +1231,58 @@ mapPop.addEventListener('mouseleave', () => hideMap(false));
 document.addEventListener('focusin', (e) => { const b = e.target.closest && e.target.closest('.mapbtn'); if (b) showMap(b); });
 document.addEventListener('focusout', (e) => { if (e.target.closest && e.target.closest('.mapbtn')) hideMap(false); });
 const toTop = document.getElementById('toTop');
-const onScroll = () => { toTop.hidden = window.scrollY < 300 && tbox.scrollTop < 300; closePop(false); hideMap(true); };
+/* ---- 떠 있는 머리줄 · 아래 가로 막대 ---- */
+const floatHead = document.getElementById('floatHead');
+const hbar = document.getElementById('hbar'), hbarIn = document.getElementById('hbarIn');
+let headDirty = true, hSyncing = false;
+function syncFloat() {
+  const table = tbox.querySelector('table'), thead = table && table.tHead;
+  if (!thead) return;
+  const tb = tbox.getBoundingClientRect(), th = thead.getBoundingClientRect();
+  const show = th.top < 0 && tb.bottom > th.height + 40;
+  floatHead.hidden = !show;
+  if (show) {
+    if (headDirty || floatHead.dataset.w !== String(table.offsetWidth)) {
+      floatHead.innerHTML = `<table><thead>${thead.innerHTML}</thead></table>`;
+      const real = thead.rows[0].cells, copy = floatHead.querySelector('tr').cells;
+      for (let i = 0; i < real.length && i < copy.length; i++) {
+        const w = real[i].getBoundingClientRect().width + 'px';
+        copy[i].style.width = copy[i].style.minWidth = copy[i].style.maxWidth = w;
+        copy[i].removeAttribute('id');
+      }
+      floatHead.dataset.w = String(table.offsetWidth);
+      headDirty = false;
+    }
+    floatHead.style.left = tb.left + 'px';
+    floatHead.style.width = tbox.clientWidth + 2 + 'px';
+    const inner = floatHead.firstElementChild, x = tbox.scrollLeft;
+    inner.style.width = table.offsetWidth + 'px';
+    inner.style.transform = `translateX(${-x}px)`;
+    // 왼쪽에 붙는 두 칸(소거 · 단지)은 실제 표의 sticky 와 같은 자리에 둡니다:
+    // 제자리보다 왼쪽으로 밀려나는 만큼만 되돌립니다 (sticky left 값까지)
+    const real = thead.rows[0].cells, copy = floatHead.querySelector('tr').cells;
+    for (let i = 0; i < copy.length; i++) {
+      const el = copy[i];
+      if (!el.classList.contains('x') && !el.classList.contains('stick2')) continue;
+      const stickLeft = parseFloat(getComputedStyle(real[i]).left) || 0;
+      el.style.transform = `translateX(${Math.max(0, x - (el.offsetLeft - stickLeft))}px)`;
+    }
+  }
+  const wide = table.offsetWidth > tbox.clientWidth + 1;
+  const hshow = wide && tb.top < window.innerHeight - 60 && tb.bottom > window.innerHeight;
+  hbar.hidden = !hshow;
+  if (hshow) {
+    hbar.style.left = tb.left + 'px';
+    hbar.style.width = tbox.clientWidth + 2 + 'px';
+    hbarIn.style.width = table.offsetWidth + 'px';
+    if (!hSyncing) hbar.scrollLeft = tbox.scrollLeft;
+  }
+}
+hbar.addEventListener('scroll', () => { hSyncing = true; tbox.scrollLeft = hbar.scrollLeft; hSyncing = false; }, { passive: true });
+const onScroll = () => { toTop.hidden = window.scrollY < 300; closePop(false); hideMap(true); syncFloat(); };
 window.addEventListener('scroll', onScroll, { passive: true });
-tbox.addEventListener('scroll', onScroll, { passive: true });
-window.addEventListener('resize', () => { closePop(false); hideMap(true); });
+tbox.addEventListener('scroll', () => { closePop(false); hideMap(true); syncFloat(); }, { passive: true });
+window.addEventListener('resize', () => { closePop(false); hideMap(true); headDirty = true; syncFloat(); });
 
 /* ---- 설정 파일 — 공유 저장이 없는 곳(사이트)에서 기기를 옮길 때 ---- */
 function exportAll() {
