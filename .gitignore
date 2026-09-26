@@ -16,3 +16,9 @@ node_modules/
 Thumbs.db
 .gemini/
 scripts/board/work/
+scripts/watch/watchlist.json
+scripts/watch/state.json
+scripts/watch/signals.json
+scripts/watch/cache/
+scripts/watch/.env
+scripts/watch/signals.tmp.json

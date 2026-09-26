@@ -28,7 +28,7 @@ import { BOARD_TEMPLATE } from './template';
 
 export const BOARD_SNAPSHOT = board;
 
-const PLACEHOLDERS = ['__DATA_J__', '__DATA_W__', '__AXES__', '__MAP__', '__SEED__', '__PROFILE__'] as const;
+const PLACEHOLDERS = ['__DATA_J__', '__DATA_W__', '__AXES__', '__MAP__', '__SEED__', '__PROFILE__', '__SIGNALS__'] as const;
 
 const safe = (v: unknown) => JSON.stringify(v).replace(/<\//g, '<\\/');
 
@@ -49,6 +49,24 @@ export interface BoardDocOptions {
   borrower?: Borrower;
   /** 전월세 찾기에서 담은 집 — `단지id_면적` */
   added?: { jeonse: string[]; wolse: string[] };
+  /**
+   * 전세 신호 — 서버가 매일 쓰는 signals.json (scripts/watch/jeonse_watch.py).
+   * 매일 바뀌는 값이라 단일 HTML 에 굽지 않고 같은 서버에서 읽어 넣습니다.
+   */
+  signals?: BoardSignals | null;
+}
+
+export interface BoardSignals {
+  kind: 'masan-jeonse-signals';
+  asOf: string;
+  windowMonths: number;
+  rows: Record<string, { upcoming: { end: string; gap: number; floor: string; dep: number; type: string; locked: boolean }[]; recent: { date: string; floor: string; dep: number; rent: number; type: string; term: string }[] }>;
+}
+
+/** 서버 신호 파일이 모양을 지키는지 — 깨진 파일로 후보판이 멈추면 안 됩니다 */
+export function isBoardSignals(v: unknown): v is BoardSignals {
+  const o = v as BoardSignals | null;
+  return !!o && o.kind === 'masan-jeonse-signals' && typeof o.asOf === 'string' && typeof o.windowMonths === 'number' && !!o.rows && typeof o.rows === 'object';
 }
 
 const won = (v: number) => (v >= 1e8 ? `${(v / 1e8).toFixed(2)}억` : `${Math.round(v / 1e4).toLocaleString('ko-KR')}만`);
@@ -119,7 +137,8 @@ export function buildBoardDoc(opts: BoardDocOptions = {}): string {
     .replace('__AXES__', () => safe(board.axes))
     .replace('__MAP__', () => safe(board.map))
     .replace('__SEED__', () => safe(board.seed))
-    .replace('__PROFILE__', () => safe(profile));
+    .replace('__PROFILE__', () => safe(profile))
+    .replace('__SIGNALS__', () => safe(isBoardSignals(opts.signals) ? opts.signals : null));
   return [
     '<!doctype html>',
     `<html lang="ko"${opts.theme ? ` data-theme="${opts.theme}"` : ''}>`,

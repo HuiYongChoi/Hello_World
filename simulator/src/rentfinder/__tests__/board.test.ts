@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import templateHtml from '../board/template.html?raw';
-import { BOARD_SNAPSHOT, buildBoardDoc, missingPlaceholders } from '../board/boardDoc';
+import { BOARD_SNAPSHOT, buildBoardDoc, isBoardSignals, missingPlaceholders } from '../board/boardDoc';
 import { BOARD_TEMPLATE } from '../board/template';
 
 describe('전·월세 후보판', () => {
@@ -59,5 +59,26 @@ describe('전·월세 후보판', () => {
         if (v !== null) expect(v >= 1 && v <= 5).toBe(true);
       }
     }
+  });
+});
+
+describe('전세 신호 — 서버의 signals.json 을 후보판에', () => {
+  const sig = {
+    kind: 'masan-jeonse-signals' as const,
+    asOf: '2026-09-27',
+    windowMonths: 3,
+    rows: { [BOARD_SNAPSHOT.jeonse[0].id]: { upcoming: [{ end: '2026-11', gap: 2, floor: '8', dep: 3e8, type: '갱신', locked: true }], recent: [] } },
+  };
+
+  it('모양이 맞는 신호만 받아들입니다 — 깨진 파일로 후보판이 멈추지 않게', () => {
+    expect(isBoardSignals(sig)).toBe(true);
+    expect(isBoardSignals({ kind: 'x' })).toBe(false);
+    expect(isBoardSignals(null)).toBe(false);
+  });
+
+  it('신호가 있으면 문서에 들어가고, 깨졌으면 null 로 들어갑니다', () => {
+    expect(buildBoardDoc({ signals: sig })).toContain('"asOf":"2026-09-27"');
+    expect(buildBoardDoc({ signals: { kind: 'bad' } as never })).toContain('const SIG = null;');
+    expect(buildBoardDoc()).toContain('const SIG = null;');
   });
 });

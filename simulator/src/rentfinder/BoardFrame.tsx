@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { buildBoardDoc } from './board/boardDoc';
+import { buildBoardDoc, isBoardSignals, type BoardSignals } from './board/boardDoc';
 import { hasProfile, loadAdded, loadProfile } from './RentFinderApp';
 
 /**
@@ -18,14 +18,38 @@ export function BoardFrame() {
    * 전월세 찾기의 "내 조건" 과 담은 집을 여기서 읽어 후보판을 다시 조립합니다.
    * 탭을 열 때마다 새로 조립하므로, 찾기 화면에서 바꾼 것이 바로 반영됩니다.
    */
+  /*
+   * 전세 신호는 서버가 매일 이 사이트 옆에 써 두는 signals.json 입니다(같은 출처).
+   * 없는 곳(GitHub Pages·파일 직접 열기)에서는 조용히 빠지고 후보판은 그대로 뜹니다.
+   * 신호를 기다리느라 후보판이 늦게 뜨지 않게 1.5초까지만 기다립니다.
+   */
+  const [signals, setSignals] = useState<BoardSignals | null | undefined>(undefined);
+  useEffect(() => {
+    let done = false;
+    const finish = (v: BoardSignals | null) => {
+      if (!done) {
+        done = true;
+        setSignals(v);
+      }
+    };
+    const t = setTimeout(() => finish(null), 1500);
+    fetch(`signals.json?t=${Date.now()}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => finish(isBoardSignals(j) ? j : null))
+      .catch(() => finish(null));
+    return () => clearTimeout(t);
+  }, []);
   const doc = useMemo(
     () =>
-      buildBoardDoc({
-        theme: 'dark',
-        borrower: hasProfile() ? loadProfile().borrower : undefined,
-        added: loadAdded(),
-      }),
-    []
+      signals === undefined
+        ? null
+        : buildBoardDoc({
+            theme: 'dark',
+            borrower: hasProfile() ? loadProfile().borrower : undefined,
+            added: loadAdded(),
+            signals,
+          }),
+    [signals]
   );
   const ref = useRef<HTMLIFrameElement>(null);
   const [top, setTop] = useState(0);
@@ -49,7 +73,7 @@ export function BoardFrame() {
       <iframe
         ref={ref}
         title="전·월세 후보판"
-        srcDoc={doc}
+        srcDoc={doc ?? '<body style="background:#0f1413;color:#9aa8a3;font:14px sans-serif;padding:24px">후보판을 여는 중…</body>'}
         className="block w-full rounded-xl border border-slate-800"
         style={{ height: `calc(100vh - ${Math.round(top) + 16}px)`, minHeight: 520, scrollMarginTop: Math.round(top) + 8 }}
       />

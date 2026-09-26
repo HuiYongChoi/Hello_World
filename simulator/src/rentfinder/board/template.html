@@ -234,6 +234,10 @@ thead th sup { font-size: 9px; margin-right: 1px; }
 .rmsel.rm-yes { border-color: var(--ok); color: var(--ok); background: var(--ok-soft); font-weight: 600; }
 .rmsel.rm-no { border-color: var(--risk); color: var(--risk); background: var(--risk-soft); }
 .added { color: var(--accent); font-weight: 600; }
+.sig { display: grid; gap: 1px; font-size: 11.5px; white-space: nowrap; }
+.sig .hot { color: var(--caution); font-weight: 600; }
+.sig .lock { color: var(--risk); font-weight: 600; }
+.sigline { color: var(--caution); }
 .rmline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .rk { display: inline-flex; align-items: center; gap: 2px; }
 .rankin { width: 40px; font-size: 13px; text-align: center; padding: 3px 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--ground); color: var(--ink); -moz-appearance: textfield; }
@@ -311,7 +315,7 @@ tr.out .rankin { color: var(--struck); }
   </section>
   <section class="views" id="moveBox" aria-labelledby="moveTitle">
     <h3 id="moveTitle">설정 옮기기</h3>
-    <p class="hint">이 브라우저에만 저장됩니다. 다른 기기·브라우저로 옮기려면 파일로 내보내서 거기서 가져오세요 — 소거·메모·판정·리모델링·순위·점수·보기가 모두 들어갑니다.</p>
+    <p class="hint">이 브라우저에만 저장됩니다. 다른 기기·브라우저로 옮기려면 파일로 내보내서 거기서 가져오세요 — 소거·메모·판정·리모델링·순위·점수·보기와 전월세 찾기의 내 조건·담은 집이 모두 들어갑니다. 메일 알림 대상을 바꿀 때도 이 파일을 씁니다.</p>
     <div class="vform"><button type="button" id="exportBtn">파일로 내보내기</button>
       <label class="vfile" for="importFile">파일에서 가져오기</label><input type="file" id="importFile" accept="application/json,.json" hidden></div>
     <p class="hint" id="moveMsg" aria-live="polite"></p>
@@ -327,6 +331,7 @@ tr.out .rankin { color: var(--struck); }
       <span>국토부 매매·전월세 실거래 <b>2024.10~2026.09</b></span>
       <span>거리 기준 <b>함안의령지사</b> (함안군 가야읍)</span>
       <span class="sync" id="sync" data-mode="local"><i></i><span id="syncText">이 브라우저에 저장</span></span>
+      <span id="sigFact"></span>
     </div>
   </header>
 
@@ -416,6 +421,27 @@ const MAP = __MAP__;
 const SEED = __SEED__;
 /* 대출 칸을 잰 조건 — 사이트에서는 전월세 찾기의 "내 조건", 아티팩트에서는 기본값 */
 const PROFILE = __PROFILE__;
+/* 전세 신호 — 서버가 매일 쓰는 signals.json. 없으면(오프라인·GitHub Pages·아티팩트) null */
+const SIG = __SIGNALS__;
+const sigOf = (d) => (SIG && SIG.rows && SIG.rows[d.id]) || null;
+const sigSoon = (d) => { const s = sigOf(d); return s ? s.upcoming.filter((u) => u.gap <= SIG.windowMonths) : []; };
+function sigScore(d) {
+  if (!SIG) return null;
+  const soon = sigSoon(d);
+  return soon.length * 10 + soon.filter((u) => u.locked).length * 5 + ((sigOf(d)?.upcoming.length || 0) - soon.length);
+}
+const ym2 = (s) => s.slice(2).replace('-', '.');
+function signalCell(d) {
+  if (!SIG) return '<span class="sub">서버판에서만</span>';
+  const s = sigOf(d);
+  if (!s) return '<span class="sub">6개월 안 없음</span>';
+  const soon = sigSoon(d), later = s.upcoming.length - soon.length;
+  const lines = soon.slice(0, 2).map((u) => `<span class="${u.locked ? 'lock' : 'hot'}">${ym2(u.end)} 만기 · ${esc(u.floor)}층${u.locked ? ' · 갱신 끝남' : ''}</span>`);
+  if (soon.length > 2) lines.push(`<span class="hot">외 ${soon.length - 2}건</span>`);
+  if (later > 0) lines.push(`<span class="sub">4~6개월 뒤 ${later}건</span>`);
+  if (s.recent.length) { const r = s.recent[0]; lines.push(`<span class="sub">새 계약 ${r.date.slice(5).replace('-', '.')} · ${r.rent ? '월세' : '전세 ' + eok(r.dep)}</span>`); }
+  return `<div class="sig">${lines.join('')}</div>`;
+}
 const PIN = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 2.5c-3.9 0-7 3-7 6.9 0 5.2 7 12.1 7 12.1s7-6.9 7-12.1c0-3.9-3.1-6.9-7-6.9z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="9.5" r="2.4" fill="currentColor"/></svg>';
 const TIER = { A: '위험 낮음', B: '등기부 확인 후 가능', C: '주의 · 위험', D: '판단 보류' };
 const TIER_ORDER = { A: 0, B: 1, C: 2, D: 3 };
@@ -435,6 +461,7 @@ const MODES = {
     title: '마산 전세 후보판',
     lede: '돌려받을 여유가 큰 전세부터 줄 세웠습니다. <b>지금 시세로 전세가율 70% 아래인 곳은 없고</b>, 가장 여유 있는 곳은 교방동 푸르지오더플래티넘 1·3단지 84㎡입니다. 열 제목을 누르면 그 기준으로 정렬되고, <b>소거</b>한 후보는 맨 아래로 내려가 줄이 그어집니다.',
     rules: [
+      ['전세 신호', '국토부 전월세 실거래의 <b>계약기간</b>으로 만기가 3개월 안으로 들어온 전세를 표시합니다 — 보통 만기 2~3개월 전에 매물로 나옵니다. <b>갱신 끝남</b>은 이미 한 번 갱신해 또 갱신할 권리가 없는 계약이라 나올 가능성이 높습니다. 서버가 매일 아침 갱신하고 같은 내용을 메일로 보냅니다. 매물이 아니라 계약이고 동·호수 없이 층까지만 압니다.'],
       ['유형', '지금 후보는 전부 <b>아파트</b>(국토부 아파트 실거래)입니다. 오피스텔은 별도 자료라 아직 없습니다.'],
       ['리모델링', '공개 자료에 없어 직접 표시합니다. 준공이 기준 연도(기본 2011년) 이하인 구축만 "확인 전 / 리모델링 됨 / 안 됨"을 고를 수 있고, 조건 필터의 "구축은 리모델링 된 것만"을 켜면 됨으로 표시한 구축만 남습니다.'],
       ['정렬 우선순위', '1순위가 같은 후보끼리는 2순위, 3순위로 가립니다. 원하는 순서가 나오면 "이 순서를 내 순위로 저장"으로 순위 열에 굳힐 수 있습니다.'],
@@ -561,6 +588,7 @@ const commonTail = () => [
 ];
 function colsFor(m) {
   if (m === 'jeonse') return [...commonHead,
+    { key: 'signal', label: '전세 신호', val: (d) => sigScore(d), desc: true, title: '만기가 3개월 안으로 들어온 전세 계약 — 보통 2~3개월 전에 매물로 나옵니다' },
     { key: 'est', label: '최근 전세', r: true, val: (d) => d.est },
     { key: 'sale', label: '매매 중위', r: true, val: (d) => d.sale },
     { key: 'ratio', label: '전세가율', val: (d) => d.ratio },
@@ -599,6 +627,7 @@ function numfFor(m) {
     { key: 'ownMax', label: '자기 돈', op: '≤', unit: '억', step: 0.1, scale: 1e8, get: (d) => L0(d) ? L0(d).own : d.est },
     { key: 'intMax', label: '월 이자(최저)', op: '≤', unit: '만', step: 5, scale: 1e4, get: (d) => L0(d) ? L0(d).i0 : null },
     { key: 'trendMin', label: '매매 1년', op: '≥', unit: '%', step: 1, scale: 0.01, get: (d) => d.trend },
+    { key: 'sigMin', label: '3개월 안 만기', op: '≥', unit: '건', step: 1, scale: 1, get: (d) => (SIG ? sigSoon(d).length : null) },
     ...axisNumf()];
   return [
     { key: 'depMax', label: '보증금', op: '≤', unit: '만', step: 500, scale: 1e4, get: (d) => d.dep },
@@ -610,6 +639,7 @@ function numfFor(m) {
 }
 const PRESETS = {
   jeonse: [
+    { label: '곧 나올 집 우선', s: [['signal', -1], ['ratio', 1], ['min', 1]] },
     { label: '안전 우선', s: [['ratio', 1], ['room', -1], ['min', 1]] },
     { label: '출퇴근 우선', s: [['min', 1], ['ratio', 1], ['infra', -1]] },
     { label: '돈 부담 우선', s: [['own', 1], ['interest', 1], ['ratio', 1]] },
@@ -743,6 +773,7 @@ const loanCell = (L, extra = '') => L ? `<b>${esc(L.n)}</b> <span class="num">${
 function row(d) {
   const out = !!store.excluded[d.id], L = L0(d), avg = infraAvg(d);
   const mid = MODE === 'jeonse' ? `
+    <td>${signalCell(d)}</td>
     <td class="r"><span class="num">${d.est ? eok(d.est) : '—'}</span><span class="sub">${d.est ? d.estBasis + ' · ' + d.estN + '건' : '시세 불명'}</span></td>
     <td class="r"><span class="num">${eok(d.sale)}</span><span class="sub">${d.sale ? d.saleN + '건' : '매매 없음'}</span></td>
     <td>${gauge(d)}</td>
@@ -822,7 +853,7 @@ function syncEditors() {
 }
 function memoFacts(d) {
   const L = L0(d);
-  if (MODE === 'jeonse') return `<div class="meta">최근 전세 <b class="num">${d.est ? eok(d.est) : '—'}</b> · 매매 <b class="num">${eok(d.sale)}</b> · 전세가율 <b class="num">${pct(d.ratio)}</b> · 허용선 <b class="num">${d.room == null ? '—' : d.room > 0 ? eok(d.room) : '부족'}</b>${L ? ` · ${esc(L.n)} 자기 돈 <b class="num">${eok(L.own)}</b>` : ''}</div>
+  if (MODE === 'jeonse') return `${SIG && sigOf(d) ? `<div class="meta sigline">전세 신호 · ${sigOf(d).upcoming.map((u) => `${ym2(u.end)} ${esc(u.floor)}층${u.locked ? '(갱신 끝남)' : ''}`).join(' · ') || '6개월 안 만기 없음'}${sigOf(d).recent.length ? ` · 최근 새 계약 ${sigOf(d).recent.map((r) => `${r.date.slice(5).replace('-', '.')} ${esc(r.floor)}층 ${r.rent ? '월세 ' + eok(r.dep) + '/' + man(r.rent) : '전세 ' + eok(r.dep)}`).join(', ')}` : ''}</div>` : ''}<div class="meta">최근 전세 <b class="num">${d.est ? eok(d.est) : '—'}</b> · 매매 <b class="num">${eok(d.sale)}</b> · 전세가율 <b class="num">${pct(d.ratio)}</b> · 허용선 <b class="num">${d.room == null ? '—' : d.room > 0 ? eok(d.room) : '부족'}</b>${L ? ` · ${esc(L.n)} 자기 돈 <b class="num">${eok(L.own)}</b>` : ''}</div>
       <dl class="hist"><dt>전세 분기</dt><dd>${hist(d.jh)}</dd><dt>매매 분기</dt><dd>${hist(d.sh)}</dd>
         <dt>월세</dt><dd><span>${d.wolse ? `보증금 ${eok(d.wolse.deposit)} · 월 ${man(d.wolse.rent)} (${d.wolse.n}건)` : '거래 없음'}</span><span>마지막 거래 ${d.last.slice(0, 4)}.${d.last.slice(4)} · 갱신 ${pct(d.renew)}</span></dd></dl>`;
   return `<div class="meta">보증금 <b class="num">${eok(d.dep)}</b> · 월세 <b class="num">${man(d.rent)}</b> · 월 환산 <b class="num">${man(d.monthly)}</b> · 매매 <b class="num">${eok(d.sale)}</b> · 허용선 <b class="num">${d.room == null ? '—' : d.room > 0 ? eok(d.room) : '부족'}</b>${L ? ` · ${esc(L.n)} 자기 돈 <b class="num">${eok(L.own)}</b>` : ''}</div>
@@ -886,6 +917,15 @@ function switchMode(m, first) {
   document.getElementById('ruleList').innerHTML = CFG.rules.map(([t, dd]) => `<dt>${t}</dt><dd>${dd}</dd>`).join('');
   document.getElementById('loanLabel').textContent = CFG.loanLabel;
   document.getElementById('ckNote').textContent = CFG.ckNote;
+  const sf = document.getElementById('sigFact');
+  if (m !== 'jeonse') sf.innerHTML = '';
+  else if (!SIG) sf.innerHTML = '전세 신호 <b>서버판(hyfin)에서 매일 갱신</b>';
+  else {
+    const soon = DATA.reduce((a, d) => a + sigSoon(d).length, 0);
+    const locked = DATA.reduce((a, d) => a + sigSoon(d).filter((u) => u.locked).length, 0);
+    const fresh = DATA.reduce((a, d) => a + (sigOf(d)?.recent.length || 0), 0);
+    sf.innerHTML = `전세 신호 <b>${SIG.asOf.slice(5).replace('-', '/')}</b> 기준 · 3개월 안 만기 <b>${soon}건</b>(갱신 끝남 ${locked}) · 최근 45일 새 계약 <b>${fresh}건</b>`;
+  }
   document.getElementById('viewsMode').textContent = CFG.label;
   document.querySelectorAll('.modes button').forEach((b) => b.toggleAttribute('aria-current', false) || (b.dataset.mode === m && b.setAttribute('aria-current', 'page')));
   document.getElementById('q').value = '';
@@ -1289,8 +1329,11 @@ window.addEventListener('resize', () => { closePop(false); hideMap(true); headDi
 
 /* ---- 설정 파일 — 공유 저장이 없는 곳(사이트)에서 기기를 옮길 때 ---- */
 function exportAll() {
-  const payload = { kind: 'masan-board-settings', version: 1, exportedAt: new Date().toISOString(),
-    jeonse: STATE.jeonse, wolse: STATE.wolse, infra: INFRA, views: VIEWS };
+  const lsj = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+  const payload = { kind: 'masan-board-settings', version: 2, exportedAt: new Date().toISOString(),
+    jeonse: STATE.jeonse, wolse: STATE.wolse, infra: INFRA, views: VIEWS,
+    // 사이트의 전월세 찾기에서 넣은 내 조건과 담은 집 — 같은 브라우저 저장소에 있습니다
+    added: lsj('masan-board-added'), finder: lsj('masan-rent-finder-v1') };
   const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -1315,6 +1358,8 @@ async function importAll(file) {
       }
     }
     localStorage.setItem(VIEWS_LS, JSON.stringify(p.views || []));
+    if (p.added) localStorage.setItem('masan-board-added', JSON.stringify(p.added));
+    if (p.finder) localStorage.setItem('masan-rent-finder-v1', JSON.stringify(p.finder));
     msg.textContent = '가져왔습니다 — 다시 불러옵니다…';
     setTimeout(() => location.reload(), 400);
   } catch (e) {

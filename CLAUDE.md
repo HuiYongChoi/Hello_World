@@ -232,7 +232,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 528건)
+npm test                 # 엔진 단위 테스트 (현재 530건)
 npm run scorecard        # 채점표 — 구조·연결·검증·산출물 100점 만점
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
@@ -247,6 +247,7 @@ npm run fetch:population # 행안부 통계연보 지역별 인구 → src/data/
 npm run fetch:repair     # K-apt 장기수선충당금 → src/data/repair.json
 npm run fetch:applyhome  # 청약홈 분양정보·경쟁률 → src/data/applyhome-*.json
 node ../scripts/fetch-masan-rent.mjs   # 마산 생활권 전월세 → src/data/masan-rent-*.json
+../scripts/watch/install.sh           # 전세 신호 감시 설치·갱신 (서버 · 매일 08:00 메일 + signals.json)
 node ../scripts/fetch-masan-landlord.mjs  # 갭투자 흔적 재현용 (결과는 잡음 — 앱에 안 씀)
 node ../scripts/calc-newbuild-floor.mjs --write   # 신축 하한 재계산 → 룰셋
 ```
@@ -792,6 +793,35 @@ claude.ai 아티팩트로도 쓰기 때문입니다(아티팩트는 공유 DB, �
   "구축은 리모델링 된 것만" 필터가 확인 전인 구축도 거릅니다.
 - **오피스텔은 아직 없습니다.** 국토부 오피스텔 전월세·매매 API 는 이 키로 활용신청이
   안 돼 있습니다(`SERVICE_KEY_IS_NOT_REGISTERED` — 같은 키로 아파트는 됨을 대조함).
+
+### 전세 신호 — 곧 나올 법한 전세를 메일과 후보판에
+
+매물 사이트는 공식 API 가 없고 크롤링이 금지라 **지금 올라온 매물은 못 잡습니다.**
+대신 국토부 전월세 실거래에 적힌 **계약기간(98.5% 기재) · 신규/갱신 · 갱신요구권 사용**
+으로 언제 세입자가 나갈 가능성이 큰지를 미리 잡습니다.
+
+```
+① 만기 도래      계약 끝나는 달이 3개월 안 — 보통 만기 2~3개월 전에 매물로 나옴
+② 갱신 끝난 계약  이미 한 번 갱신 → 또 갱신할 권리 없음 → 만기에 나올 가능성 높음
+③ 새 계약        후보 단지에 새로 신고된 계약 — 방금 한 채가 나갔고 그 가격
+```
+
+- **서버(AWS)에서 매일 08:00 KST** systemd 타이머가 `scripts/watch/jeonse_watch.py`
+  (파이썬 표준 라이브러리만)를 돌립니다. 메일을 보내고, 같은 계산을 웹 폴더의
+  `signals.json` 으로 씁니다. 설치·갱신은 `./scripts/watch/install.sh`.
+- **후보판은 같은 출처의 `signals.json` 을 읽어** "전세 신호" 열·상단 요약·"3개월 안
+  만기" 필터·"곧 나올 집 우선" 정렬을 채웁니다. 매일 바뀌는 값이라 단일 HTML 에 굽지
+  않습니다 — 외부 호스트 요청이 아니고, 없으면(GitHub Pages·파일 직접 열기) 조용히
+  빠집니다. 깨진 파일은 `isBoardSignals` 가 걸러 후보판을 멈추지 않게 합니다.
+- **메일은 소거하지 않은 후보만**, 사이트는 판의 모든 줄에 표시합니다. 감시 목록은
+  `make-watchlist.mjs` 가 만들고, 후보판 "파일로 내보내기" 파일을 넣으면 그 소거·
+  담은 집이 반영됩니다. 첫 실행은 6개월 만기 요약 한 통, 이후엔 새 신호가 있을
+  때만, 매달 1일에 요약을 다시 보냅니다. 메일 설정이 없으면 알린 것으로 치지 않아
+  설정하는 날 한 번에 갑니다.
+- 메일 비밀번호(Gmail 앱 비밀번호)는 로컬 `.env.watch` → 서버 `~/jeonse-watch/.env`
+  (600) 에만 있습니다. 저장소에는 `.env.watch.example` 뿐입니다.
+- 동·호수가 없어 층까지만 압니다. 같은 층·같은 만기가 두 줄이면 두 세대인지 중복
+  신고인지 가릴 수 없고, 메일·화면에 그렇게 적습니다.
 
 ### 함안·의령에는 살 집이 거의 없습니다
 
