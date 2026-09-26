@@ -65,7 +65,7 @@ const INPUT_STEPS: { id: InputStep; label: string }[] = [
 
 const OPTIONAL_STEPS: { id: OptionalStep; label: string }[] = [
   { id: 'subscription', label: '청약 공고 · 안전마진' },
-  { id: 'rent', label: '전월세 찾기 · 보증금 대출' },
+  { id: 'rent', label: '전월세 찾기 · 내 조건' },
   { id: 'board', label: '전·월세 후보판 — 소거 · 메모 · 지도' },
 ];
 
@@ -199,7 +199,7 @@ export function App() {
               ))}
             </div>
             {optionalStep === 'subscription' && <SubscriptionPage />}
-            {optionalStep === 'rent' && <RentFinderApp />}
+            {optionalStep === 'rent' && <RentFinderApp onOpenBoard={() => setOptionalStep('board')} />}
             {optionalStep === 'board' && <BoardFrame />}
           </div>
         )}

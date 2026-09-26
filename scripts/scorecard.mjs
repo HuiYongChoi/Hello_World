@@ -109,7 +109,7 @@ check('구조', 7, '아무도 부르지 않는 화면 파일이 없음', () => {
 
 check('구조', 7, '계산이 UI 를 모름', () => {
   // 두 사이트 모두 같은 규율입니다 — 계산은 화면 없이 테스트할 수 있어야 합니다.
-  const pure = ['src/engine/', 'src/rentfinder/data.ts', 'src/rentfinder/finder.ts'];
+  const pure = ['src/engine/', 'src/rentfinder/data.ts', 'src/rentfinder/finder.ts', 'src/rentfinder/boardRow.ts', 'src/rentfinder/board/boardDoc.ts'];
   const bad = [...text].filter(
     ([path, body]) =>
       pure.some((p) => path.startsWith(p)) && /from 'react|\.tsx'/.test(body)

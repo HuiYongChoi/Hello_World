@@ -14,11 +14,21 @@
  * 거기서 끊기기 때문입니다.
  */
 import board from '../../data/board-2026-09.json';
+import {
+  boardRowById,
+  jeonseBoardLoans,
+  rankBoardRows,
+  wolseBoardLoans,
+  type BoardMode,
+  type JeonseBoardRow,
+  type WolseBoardRow,
+} from '../boardRow';
+import type { Borrower } from '../loans';
 import { BOARD_TEMPLATE } from './template';
 
 export const BOARD_SNAPSHOT = board;
 
-const PLACEHOLDERS = ['__DATA_J__', '__DATA_W__', '__AXES__', '__MAP__', '__SEED__'] as const;
+const PLACEHOLDERS = ['__DATA_J__', '__DATA_W__', '__AXES__', '__MAP__', '__SEED__', '__PROFILE__'] as const;
 
 const safe = (v: unknown) => JSON.stringify(v).replace(/<\//g, '<\\/');
 
@@ -32,16 +42,84 @@ export interface BoardDocOptions {
   fonts?: string;
   /** 사이트는 늘 어두운 화면이라 후보판도 어둡게 엽니다 */
   theme?: 'dark' | 'light';
+  /**
+   * 대출 칸을 잴 내 조건. 없으면 스냅샷을 만들 때의 기본 가정 그대로입니다.
+   * 있으면 모든 줄의 "되는 대출 · 자기 돈 · 월 이자" 를 이 조건으로 다시 잽니다.
+   */
+  borrower?: Borrower;
+  /** 전월세 찾기에서 담은 집 — `단지id_면적` */
+  added?: { jeonse: string[]; wolse: string[] };
 }
 
+const won = (v: number) => (v >= 1e8 ? `${(v / 1e8).toFixed(2)}억` : `${Math.round(v / 1e4).toLocaleString('ko-KR')}만`);
+
+/** 후보판 설명 칸에 적을 조건 한 줄 */
+export function profileLabel(b: Borrower): string {
+  return [
+    `만 ${b.age}세`,
+    `본인 소득 ${won(b.income)}`,
+    b.married ? `부부합산 ${won(b.income + b.spouseIncome)}` : '혼인신고 전',
+    `순자산 ${won(b.netWorth)}`,
+    b.smeEmployed ? '중소기업 재직' : '중소기업 재직 아님',
+  ].join(' · ');
+}
+
+type Rows<T> = T[];
+
+/** 스냅샷 줄 + 담은 줄을 내 조건으로 다시 잽니다 */
+export function personalizeRows(opts: BoardDocOptions): { jeonse: Rows<JeonseBoardRow>; wolse: Rows<WolseBoardRow> } {
+  let jeonse = board.jeonse as unknown as JeonseBoardRow[];
+  let wolse = board.wolse as unknown as WolseBoardRow[];
+  const b = opts.borrower;
+  if (b) {
+    jeonse = jeonse.map((r) => ({ ...r, loans: r.est ? jeonseBoardLoans(b, r.est, r.area) : [] }));
+    wolse = wolse.map((r) => ({ ...r, loans: wolseBoardLoans(b, r.dep, r.rent, r.area) }));
+  }
+  const add = (mode: BoardMode, rows: (JeonseBoardRow | WolseBoardRow)[], ids: string[] = []) => {
+    const have = new Set(rows.map((r) => r.id));
+    const extra = ids
+      .filter((id) => !have.has(id))
+      .map((id) => boardRowById(mode, id, b ?? DEFAULT_PROFILE))
+      .filter((r): r is JeonseBoardRow | WolseBoardRow => !!r)
+      .map((r) => ({ ...r, added: true, rank: rows.length + 1000 }));
+    return extra.length ? rankBoardRows([...rows, ...extra], mode) : rows;
+  };
+  jeonse = add('jeonse', jeonse, opts.added?.jeonse) as JeonseBoardRow[];
+  wolse = add('wolse', wolse, opts.added?.wolse) as WolseBoardRow[];
+  return { jeonse, wolse };
+}
+
+/** 스냅샷을 만들 때 쓴 기본 가정 — 조건을 안 넣은 사람도 같은 숫자를 봅니다 */
+export const DEFAULT_PROFILE: Borrower = {
+  age: 32,
+  militaryServed: true,
+  married: false,
+  marriedYears: 0,
+  newbornWithin2y: false,
+  smeEmployed: false,
+  income: 40000000,
+  spouseIncome: 35000000,
+  netWorth: 80000000,
+  householder: true,
+  noHouse: true,
+};
+
 export function buildBoardDoc(opts: BoardDocOptions = {}): string {
+  const rows = personalizeRows(opts);
+  const profile = {
+    label: profileLabel(opts.borrower ?? DEFAULT_PROFILE),
+    hint: opts.borrower
+      ? '전월세 찾기의 "내 조건" 을 바꾸면 이 칸이 다시 계산됩니다.'
+      : '기본 가정입니다 — 전월세 찾기에서 내 조건을 넣으면 그 조건으로 다시 잽니다.',
+  };
   const body = BOARD_TEMPLATE
     .replace('<!--FONTS-->', opts.fonts ?? '')
-    .replace('__DATA_J__', () => safe(board.jeonse))
-    .replace('__DATA_W__', () => safe(board.wolse))
+    .replace('__DATA_J__', () => safe(rows.jeonse))
+    .replace('__DATA_W__', () => safe(rows.wolse))
     .replace('__AXES__', () => safe(board.axes))
     .replace('__MAP__', () => safe(board.map))
-    .replace('__SEED__', () => safe(board.seed));
+    .replace('__SEED__', () => safe(board.seed))
+    .replace('__PROFILE__', () => safe(profile));
   return [
     '<!doctype html>',
     `<html lang="ko"${opts.theme ? ` data-theme="${opts.theme}"` : ''}>`,

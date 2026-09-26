@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { buildBoardDoc } from './board/boardDoc';
+import { hasProfile, loadAdded, loadProfile } from './RentFinderApp';
 
 /**
  * 전·월세 후보판 — 사이트 안에 싣는 자리.
@@ -13,7 +14,19 @@ import { buildBoardDoc } from './board/boardDoc';
  * 후보판 윗부분이 그 밑에 깔립니다.
  */
 export function BoardFrame() {
-  const doc = useMemo(() => buildBoardDoc({ theme: 'dark' }), []);
+  /*
+   * 전월세 찾기의 "내 조건" 과 담은 집을 여기서 읽어 후보판을 다시 조립합니다.
+   * 탭을 열 때마다 새로 조립하므로, 찾기 화면에서 바꾼 것이 바로 반영됩니다.
+   */
+  const doc = useMemo(
+    () =>
+      buildBoardDoc({
+        theme: 'dark',
+        borrower: hasProfile() ? loadProfile().borrower : undefined,
+        added: loadAdded(),
+      }),
+    []
+  );
   const ref = useRef<HTMLIFrameElement>(null);
   const [top, setTop] = useState(0);
 

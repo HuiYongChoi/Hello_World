@@ -10,7 +10,11 @@
   ],
   "note": "지역 구분은 수도권/비수도권입니다. 마산·창원·함안·의령은 전부 비수도권이라 이 도구는 비수도권 값을 씁니다.",
   "jeonseSafety": {
-    "ratioCuts": { "low": 0.6, "mid": 0.7, "high": 0.8 },
+    "ratioCuts": {
+      "low": 0.6,
+      "mid": 0.7,
+      "high": 0.8
+    },
     "auctionRatio": 0.8,
     "guaranteeRatio": 0.9,
     "bondToLoan": 1.2,
@@ -18,8 +22,15 @@
       "ratioCuts": "실무에서 전세가율 80% 를 넘으면 깡통 경고를 답니다. 그 아래는 여유의 문제라 60·70 에서 끊습니다.",
       "auctionRatio": "경매로 넘어갔을 때 시세의 몇 %에 팔리나 — 경남 아파트 낙찰가율 80% 안팎을 가정합니다. 가정값입니다.",
       "guaranteeRatio": "전세보증금 반환보증(HUG·HF)은 보증금 + 선순위채권이 주택가격의 90% 이내여야 합니다. 실제 주택가격은 공시가격 기준이라 시세로 재면 느슨하게 나옵니다.",
-      "bondToLoan": "은행 근저당 채권최고액은 대출원금의 120% 안팎으로 잡습니다. 등기부에 적힌 채권최고액 ÷ 1.2 가 대략의 실제 대출입니다."
-    }
+      "bondToLoan": "은행 근저당 채권최고액은 대출원금의 120% 안팎으로 잡습니다. 등기부에 적힌 채권최고액 ÷ 1.2 가 대략의 실제 대출입니다.",
+      "priorityRepayment": "소액임차인 최우선변제 — 주택임대차보호법 시행령(2023.2) '그 밖의 지역' 기준. 보증금 7,500만 이하면 경매 때 2,500만까지 먼저 돌려받습니다(전입·확정일자 필요). 창원은 광역시가 아니라 이 기준으로 봅니다 — 계약 전 확인.",
+      "rentalOnlyMinDeals": "매매가 한 건도 없는데 월세가 이만큼 넘으면 임대 전용(공공·민간임대) 단지로 봅니다."
+    },
+    "priorityRepayment": {
+      "depositMax": 75000000,
+      "amount": 25000000
+    },
+    "rentalOnlyMinDeals": 30
   },
   "products": [
     {
@@ -41,9 +52,19 @@
         "requires_no_house": true,
         "requires_householder": true
       },
-      "limits": { "cap": 100000000, "depositRatio": 1.0 },
-      "rate": { "min": 0.015, "max": 0.015 },
-      "term": { "years": 2, "extensions": 4, "maxYears": 10 },
+      "limits": {
+        "cap": 100000000,
+        "depositRatio": 1.0
+      },
+      "rate": {
+        "min": 0.015,
+        "max": 0.015
+      },
+      "term": {
+        "years": 2,
+        "extensions": 4,
+        "maxYears": 10
+      },
       "basis": "중소·중견기업 재직 또는 청년창업 지원 대상. 금리가 가장 낮아 자격이 되면 1순위로 봐야 합니다.",
       "watchOuts": [
         "중소기업 재직 증명이 필요합니다 — 재직증명서·사업자등록증명으로 기업 규모를 확인합니다.",
@@ -68,9 +89,19 @@
         "requires_no_house": true,
         "requires_householder": true
       },
-      "limits": { "cap": 200000000, "depositRatio": 0.8 },
-      "rate": { "min": 0.02, "max": 0.031 },
-      "term": { "years": 2, "extensions": 4, "maxYears": 10 },
+      "limits": {
+        "cap": 200000000,
+        "depositRatio": 0.8
+      },
+      "rate": {
+        "min": 0.02,
+        "max": 0.031
+      },
+      "term": {
+        "years": 2,
+        "extensions": 4,
+        "maxYears": 10
+      },
       "basis": "만 34세 이하 단독세대주도 됩니다. 중기청이 안 될 때 다음 선택지입니다.",
       "watchOuts": [
         "보증금의 80% 까지라 나머지 20% 는 자기 돈이 필요합니다.",
@@ -92,9 +123,19 @@
         "requires_no_house": true,
         "requires_householder": true
       },
-      "limits": { "cap": 80000000, "depositRatio": 0.7 },
-      "rate": { "min": 0.023, "max": 0.033 },
-      "term": { "years": 2, "extensions": 4, "maxYears": 10 },
+      "limits": {
+        "cap": 80000000,
+        "depositRatio": 0.7
+      },
+      "rate": {
+        "min": 0.023,
+        "max": 0.033
+      },
+      "term": {
+        "years": 2,
+        "extensions": 4,
+        "maxYears": 10
+      },
       "basis": "나이 제한이 없는 기본형입니다. 비수도권 한도가 8천만원이라 보증금이 크면 모자랍니다.",
       "watchOuts": [
         "비수도권 한도가 8천만원입니다 — 보증금이 1억을 넘으면 이 상품만으로는 부족합니다.",
@@ -117,9 +158,19 @@
         "requires_no_house": true,
         "requires_householder": true
       },
-      "limits": { "cap": 200000000, "depositRatio": 0.8 },
-      "rate": { "min": 0.019, "max": 0.031 },
-      "term": { "years": 2, "extensions": 4, "maxYears": 10 },
+      "limits": {
+        "cap": 200000000,
+        "depositRatio": 0.8
+      },
+      "rate": {
+        "min": 0.019,
+        "max": 0.031
+      },
+      "term": {
+        "years": 2,
+        "extensions": 4,
+        "maxYears": 10
+      },
       "basis": "혼인신고일 기준 7년 이내 또는 3개월 내 결혼예정. 동거만으로는 자격이 없습니다.",
       "watchOuts": [
         "혼인신고를 해야 자격이 생깁니다 — 같이 살기만 해서는 안 됩니다.",
@@ -141,9 +192,19 @@
         "requires_no_house": true,
         "requires_householder": true
       },
-      "limits": { "cap": 300000000, "depositRatio": 0.8 },
-      "rate": { "min": 0.011, "max": 0.03 },
-      "term": { "years": 2, "extensions": 4, "maxYears": 12 },
+      "limits": {
+        "cap": 300000000,
+        "depositRatio": 0.8
+      },
+      "rate": {
+        "min": 0.011,
+        "max": 0.03
+      },
+      "term": {
+        "years": 2,
+        "extensions": 4,
+        "maxYears": 12
+      },
       "basis": "2년 이내 출산·입양 가구. 소득 상한이 2억으로 넓고 금리가 가장 낮은 축입니다.",
       "watchOuts": [
         "임신 중은 안 되고 출산·입양이 있어야 합니다.",
@@ -159,9 +220,19 @@
       "eligibility": {
         "requires_householder": true
       },
-      "limits": { "cap": 222000000, "depositRatio": 0.8 },
-      "rate": { "min": 0.038, "max": 0.048 },
-      "term": { "years": 2, "extensions": 4, "maxYears": 10 },
+      "limits": {
+        "cap": 222000000,
+        "depositRatio": 0.8
+      },
+      "rate": {
+        "min": 0.038,
+        "max": 0.048
+      },
+      "term": {
+        "years": 2,
+        "extensions": 4,
+        "maxYears": 10
+      },
       "basis": "자격 제한이 거의 없는 대신 금리가 높습니다. 정책상품이 하나도 안 될 때의 기본값입니다. 한도는 보증기관에 따라 달라집니다 (HF 2.22억 · HUG·SGI 는 더 큼).",
       "watchOuts": [
         "금리가 정책상품의 두 배 안팎입니다 — 정책상품 자격을 먼저 다 확인하세요.",
@@ -187,9 +258,20 @@
         "requires_no_house": true,
         "requires_householder": true
       },
-      "limits": { "cap": 44000000, "depositRatio": 0.8, "monthlyCap": 600000 },
-      "rate": { "min": 0.013, "max": 0.018 },
-      "term": { "years": 2, "extensions": 3, "maxYears": 8 },
+      "limits": {
+        "cap": 44000000,
+        "depositRatio": 0.8,
+        "monthlyCap": 600000
+      },
+      "rate": {
+        "min": 0.013,
+        "max": 0.018
+      },
+      "term": {
+        "years": 2,
+        "extensions": 3,
+        "maxYears": 8
+      },
       "basis": "보증금과 월세를 나눠 빌려줍니다. 월세 부분은 매달 나눠 받는 구조입니다.",
       "watchOuts": [
         "보증금 6,500만원·월세 70만원 이하 주택만 됩니다.",
