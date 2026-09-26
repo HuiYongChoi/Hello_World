@@ -508,7 +508,8 @@ const PROFILE = __PROFILE__;
 /* 전세 신호 — 서버가 매일 쓰는 signals.json. 없으면(오프라인·GitHub Pages·아티팩트) null */
 const SIG = __SIGNALS__;
 const sigOf = (d) => (SIG && SIG.rows && SIG.rows[d.id]) || null;
-const sigSoon = (d) => { const s = sigOf(d); return s ? s.upcoming.filter((u) => u.gap <= SIG.windowMonths) : []; };
+/* 3개월 안 만기 — 갱신 끝난 계약(나올 가능성이 가장 높음)을 앞에, 그다음 가까운 달 순 */
+const sigSoon = (d) => { const s = sigOf(d); return s ? s.upcoming.filter((u) => u.gap <= SIG.windowMonths).sort((a, b) => (b.locked - a.locked) || a.end.localeCompare(b.end)) : []; };
 function sigScore(d) {
   if (!SIG) return null;
   const soon = sigSoon(d);
@@ -1005,10 +1006,12 @@ function switchMode(m, first) {
   if (m !== 'jeonse') sf.innerHTML = '';
   else if (!SIG) sf.innerHTML = '전세 신호 <b>서버판(hyfin)에서 매일 갱신</b>';
   else {
-    const soon = DATA.reduce((a, d) => a + sigSoon(d).length, 0);
-    const locked = DATA.reduce((a, d) => a + sigSoon(d).filter((u) => u.locked).length, 0);
-    const fresh = DATA.reduce((a, d) => a + (sigOf(d)?.recent.length || 0), 0);
-    sf.innerHTML = \`전세 신호 <b>\${SIG.asOf.slice(5).replace('-', '/')}</b> 기준 · 3개월 안 만기 <b>\${soon}건</b>(갱신 끝남 \${locked}) · 최근 45일 새 계약 <b>\${fresh}건</b>\`;
+    // 소거한 후보는 빼고 셉니다 — 메일도 남은 후보만 보냅니다
+    const live = DATA.filter((d) => !store.excluded[d.id]);
+    const soon = live.reduce((a, d) => a + sigSoon(d).length, 0);
+    const locked = live.reduce((a, d) => a + sigSoon(d).filter((u) => u.locked).length, 0);
+    const fresh = live.reduce((a, d) => a + (sigOf(d)?.recent.length || 0), 0);
+    sf.innerHTML = \`전세 신호 <b>\${SIG.asOf.slice(5).replace('-', '/')}</b> 기준 · 남은 후보에서 3개월 안 만기 <b>\${soon}건</b>(갱신 끝남 \${locked}) · 최근 45일 새 계약 <b>\${fresh}건</b>\`;
   }
   document.getElementById('viewsMode').textContent = CFG.label;
   document.querySelectorAll('.modes button').forEach((b) => b.toggleAttribute('aria-current', false) || (b.dataset.mode === m && b.setAttribute('aria-current', 'page')));
