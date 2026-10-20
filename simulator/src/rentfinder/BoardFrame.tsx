@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { buildBoardDoc, isBoardSignals, type BoardSignals } from './board/boardDoc';
+import { openComplexDetail } from './ComplexDetailDrawer';
 import { hasProfile, loadAdded, loadProfile } from './RentFinderApp';
 
 /**
@@ -53,6 +54,21 @@ export function BoardFrame() {
   );
   const ref = useRef<HTMLIFrameElement>(null);
   const [top, setTop] = useState(0);
+
+  /*
+   * 후보판 단지 이름 옆 "상세" → 부모(여기)로 postMessage → 단지 상세 패널.
+   * 이 iframe 이 보낸 것만 받습니다 — 다른 창이 보낸 같은 모양의 메시지는 무시합니다.
+   */
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.source !== ref.current?.contentWindow) return;
+      const m = e.data as { kind?: string; cx?: unknown; area?: unknown } | null;
+      if (m?.kind !== 'board:open-complex' || typeof m.cx !== 'string') return;
+      openComplexDetail(m.cx, typeof m.area === 'number' ? m.area : undefined);
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   useEffect(() => {
     const measure = () => setTop(document.querySelector('header')?.getBoundingClientRect().height ?? 0);

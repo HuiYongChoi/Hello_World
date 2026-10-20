@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PrototypeBanner } from './components/PrototypeBanner';
 import { Button } from './components/ui';
 import { RULES } from './engine/rules';
 import { ComparePage } from './pages/ComparePage';
@@ -11,7 +12,10 @@ import { RentFinderApp } from './rentfinder/RentFinderApp';
 import { BoardFrame } from './rentfinder/BoardFrame';
 import { MarketPage } from './pages/MarketPage';
 import { HandbookDrawer } from './pages/HandbookDrawer';
+import { ComplexDetailDrawer, openComplexDetail } from './rentfinder/ComplexDetailDrawer';
 import { TenurePage } from './pages/TenurePage';
+import { TodayCard, openTodayCard, type TodayTarget } from './pages/TodayCard';
+import { TownBoardPage } from './rentfinder/TownBoardPage';
 import { useStore } from './state/store';
 
 type TabId = 'input' | 'compare' | 'tenure' | 'subscription' | 'market' | 'report';
@@ -25,7 +29,7 @@ type InputStep = 'profile' | 'scenarios' | 'properties';
  * 청약과 전월세는 둘 다 **선택**이고 둘 다 "집을 사기 전/대신" 의 이야기라
  * 한 탭 안에 둡니다. 탭을 하나 더 늘리는 대신 입력 탭과 같은 패턴을 씁니다.
  */
-type OptionalStep = 'subscription' | 'rent' | 'board';
+type OptionalStep = 'subscription' | 'rent' | 'town' | 'board';
 
 /**
  * 탭 8개를 6개로 줄이고 3층으로 묶습니다.
@@ -66,6 +70,7 @@ const INPUT_STEPS: { id: InputStep; label: string }[] = [
 const OPTIONAL_STEPS: { id: OptionalStep; label: string }[] = [
   { id: 'subscription', label: '청약 공고 · 안전마진' },
   { id: 'rent', label: '전월세 찾기 · 내 조건' },
+  { id: 'town', label: '동네 시세판 — 동별 전세·매매·전세가율' },
   { id: 'board', label: '전·월세 후보판 — 소거 · 메모 · 지도' },
 ];
 
@@ -73,6 +78,19 @@ export function App() {
   const [tab, setTab] = useState<TabId>('compare');
   const [inputStep, setInputStep] = useState<InputStep>('profile');
   const [optionalStep, setOptionalStep] = useState<OptionalStep>('subscription');
+  /** 동네 시세판 → 전월세 찾기로 넘긴 구 — 바뀌면 찾기 화면을 그 구로 새로 엽니다 */
+  const [discoverRegion, setDiscoverRegion] = useState<string | null>(null);
+
+  /** 오늘 볼 것 → 그 화면. 탭은 늘리지 않고 기존 탭·단계로만 옮깁니다 */
+  const go = (t: TodayTarget) => {
+    if (t === 'market') {
+      setTab('market');
+    } else {
+      setTab('subscription');
+      setOptionalStep(t);
+    }
+    window.scrollTo({ top: 0 });
+  };
   const { reset, matrix } = useStore();
 
   const feasible = Object.values(matrix.cells).filter((c) => c.best?.feasible).length;
@@ -80,6 +98,7 @@ export function App() {
   return (
     <div className="min-h-full">
       <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/85 backdrop-blur no-print">
+        <PrototypeBanner />
         <div className="mx-auto max-w-7xl px-5 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -91,6 +110,9 @@ export function App() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <Button size="sm" variant="ghost" onClick={openTodayCard}>
+                오늘 볼 것
+              </Button>
               <span className="text-[11px] text-slate-500">
                 실행 가능 조합{' '}
                 <span className={feasible > 0 ? 'text-emerald-300' : 'text-rose-300'}>
@@ -156,6 +178,7 @@ export function App() {
       </header>
 
       <main className="mx-auto max-w-7xl px-5 py-6">
+        <TodayCard onGo={go} />
         {tab === 'input' && (
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
@@ -199,7 +222,22 @@ export function App() {
               ))}
             </div>
             {optionalStep === 'subscription' && <SubscriptionPage />}
-            {optionalStep === 'rent' && <RentFinderApp onOpenBoard={() => setOptionalStep('board')} />}
+            {optionalStep === 'rent' && (
+              <RentFinderApp
+                key={discoverRegion ?? 'default'}
+                initialRegions={discoverRegion ? [discoverRegion] : undefined}
+                onOpenBoard={() => setOptionalStep('board')}
+              />
+            )}
+            {optionalStep === 'town' && (
+              <TownBoardPage
+                onOpenComplex={openComplexDetail}
+                onDiscover={(code) => {
+                  setDiscoverRegion(code);
+                  setOptionalStep('rent');
+                }}
+              />
+            )}
             {optionalStep === 'board' && <BoardFrame />}
           </div>
         )}
@@ -210,6 +248,8 @@ export function App() {
       </main>
 
       <HandbookDrawer />
+      {/* 단지 상세 — 설명서와 대칭인 오른쪽 패널. 어느 화면에서든 openComplexDetail() 로 열립니다 */}
+      <ComplexDetailDrawer />
 
       <footer className="mx-auto max-w-7xl px-5 pb-10">
         <div className="rounded-xl border border-slate-800 bg-slate-900/30 px-4 py-3 print-plain">

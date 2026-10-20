@@ -129,6 +129,12 @@ export function buildBoardDoc(opts: BoardDocOptions = {}): string {
     hint: opts.borrower
       ? '전월세 찾기의 "내 조건" 을 바꾸면 이 칸이 다시 계산됩니다.'
       : '기본 가정입니다 — 전월세 찾기에서 내 조건을 넣으면 그 조건으로 다시 잽니다.',
+    /*
+     * 단지 이름 옆 "상세" 버튼 — 누르면 부모 창(사이트)에 postMessage 를 보내 단지 상세
+     * 패널을 엽니다. 이 문서는 사이트에서만 조립하므로 늘 켭니다. 아티팩트판은 이 값이
+     * 없어 버튼이 그려지지 않습니다 (받아 줄 부모가 없습니다).
+     */
+    detail: true,
   };
   const body = BOARD_TEMPLATE
     .replace('<!--FONTS-->', opts.fonts ?? '')

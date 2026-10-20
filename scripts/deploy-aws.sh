@@ -17,10 +17,19 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# 명령줄에서 준 배포 경로가 .env.deploy 보다 이깁니다 — prototype2 를 운영과 다른
+# 경로로 올릴 때 파일을 고치지 않게 하려는 것입니다.
+#   VITE_PROTOTYPE=2 DEPLOY_SITE_PATH=hyrealty-p2 ./scripts/deploy-aws.sh
+OVERRIDE_SITE_PATH="${DEPLOY_SITE_PATH:-}"
+
 # .env.deploy 가 있으면 읽어들입니다.
 if [[ -f .env.deploy ]]; then
   # shellcheck disable=SC1091
   set -a && source .env.deploy && set +a
+fi
+
+if [[ -n "$OVERRIDE_SITE_PATH" ]]; then
+  DEPLOY_SITE_PATH="$OVERRIDE_SITE_PATH"
 fi
 
 : "${DEPLOY_HOST:?DEPLOY_HOST 가 필요합니다 (예: bitnami@1.2.3.4)}"

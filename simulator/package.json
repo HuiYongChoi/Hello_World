@@ -13,6 +13,7 @@
     "typecheck": "tsc -b --noEmit",
     "standalone": "npm run build && node scripts/build-standalone.mjs",
     "deploy:realty": "npm run build && node scripts/build-standalone.mjs --full && mkdir -p ../realty && cp dist/realty.html ../realty/index.html",
+    "deploy:realty-p2": "VITE_PROTOTYPE=2 npm run deploy:realty",
     "fetch:market": "node ../scripts/fetch-market.mjs",
     "fetch:rent": "node ../scripts/fetch-rent.mjs",
     "fetch:index": "node ../scripts/fetch-index.mjs",

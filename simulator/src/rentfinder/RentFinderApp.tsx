@@ -33,6 +33,7 @@ import {
 } from './boardRow';
 import { BOARD_SNAPSHOT, DEFAULT_PROFILE } from './board/boardDoc';
 import { toSupplyPyeong } from './finder';
+import { openComplexDetail } from './ComplexDetailDrawer';
 
 /**
  * 전월세 찾기 — **내 조건으로 들어갈 수 있는 집을, 후보판 바깥에서.**
@@ -249,12 +250,19 @@ function LoanDetail({ borrower, target, onTarget }: { borrower: Borrower; target
   );
 }
 
-export function RentFinderApp({ onOpenBoard }: { onOpenBoard?: () => void }) {
+export function RentFinderApp({
+  onOpenBoard,
+  initialRegions,
+}: {
+  onOpenBoard?: () => void;
+  /** 동네 시세판의 "이 구에서 발굴하기" 가 넘기는 구 코드 — 없으면 마산회원·합포 */
+  initialRegions?: string[];
+}) {
   const [profile, setProfile] = useState<FinderProfile>(loadProfile);
   const [added, setAdded] = useState<AddedRows>(loadAdded);
   const [mode, setMode] = useState<BoardMode>('jeonse');
   const [sort, setSort] = useState<SortKey>('safe');
-  const [regions, setRegions] = useState<string[]>(['48127', '48125']);
+  const [regions, setRegions] = useState<string[]>(() => initialRegions ?? ['48127', '48125']);
   const [minBuild, setMinBuild] = useState<string>('0');
   const [limit, setLimit] = useState(30);
   const { borrower, cash, monthlyMax, target } = profile;
@@ -514,7 +522,15 @@ export function RentFinderApp({ onOpenBoard }: { onOpenBoard?: () => void }) {
                   return (
                     <tr key={row.id} className="border-b border-slate-900 align-top">
                       <td className="py-2 pr-3">
-                        <div className="font-medium text-slate-100">{row.name}</div>
+                        <button
+                          type="button"
+                          onClick={() => openComplexDetail(row.cx, row.area)}
+                          title="같은 단지·평형의 매매·전세 분기 추이 · 전세가율 · 평형별 표"
+                          className="text-left font-medium text-slate-100 underline decoration-slate-700 underline-offset-2 transition hover:text-sky-300 hover:decoration-sky-500"
+                        >
+                          {row.name}
+                          <span className="ml-1 text-[10px] font-normal text-sky-400/80">상세 ▸</span>
+                        </button>
                         <div className="text-[10px] text-slate-500">
                           {row.umd} · {row.region} · 함안 방향 {reg ? COMMUTE_LABEL[reg.commute] : '—'}
                         </div>

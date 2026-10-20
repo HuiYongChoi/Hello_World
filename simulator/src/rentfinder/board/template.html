@@ -248,6 +248,10 @@ thead th sup { font-size: 9px; margin-right: 1px; }
 tr.out .rankin { color: var(--struck); }
 .nm { display: inline; }
 .nm .mapbtn { margin-left: 3px; vertical-align: -5px; }
+.nm .dbtn { margin-left: 4px; vertical-align: 1px; }
+.dbtn { all: unset; cursor: pointer; font-size: 11px; line-height: 1; padding: 3px 6px; border-radius: 6px; color: var(--accent); border: 1px solid var(--line); white-space: nowrap; }
+.dbtn:hover, .dbtn:focus-visible { background: var(--accent-soft); border-color: var(--accent); }
+.dbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .mapbtn { all: unset; cursor: pointer; color: var(--faint); display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; flex: none; vertical-align: middle; }
 .mapbtn:hover, .mapbtn:focus-visible { color: var(--accent); background: var(--accent-soft); }
 .mapbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -451,6 +455,9 @@ const eok = (v) => v == null ? '—' : Math.abs(v) >= 1e8 ? (v / 1e8).toFixed(2)
 const man = (v) => Math.round(v / 1e4).toLocaleString('ko-KR') + '만';
 const pct = (v, d = 0) => v == null ? '—' : (v * 100).toFixed(d) + '%';
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/* 단지 상세 — 사이트(부모 창이 받아 줌)에서만 그립니다. 아티팩트판은 PROFILE.detail 이 없어 버튼이 없습니다 */
+const CAN_DETAIL = !!(PROFILE && PROFILE.detail) && window.parent && window.parent !== window;
+const detailBtn = (d) => CAN_DETAIL ? `<button type="button" class="dbtn" data-detail="${d.id}" aria-label="${esc(d.name)} ${d.area}㎡ 단지 상세" aria-haspopup="dialog" title="같은 단지·평형의 매매·전세 분기 추이">상세</button>` : '';
 const mapBtn = (d) => MAP.pts[d.name] ? `<button type="button" class="mapbtn" data-map="${d.id}" aria-label="${esc(d.name)} 위치 지도" aria-haspopup="dialog">${PIN}</button>` : '';
 const DEFAULT_W = Object.fromEntries(AXES.map((a) => [a.key, a.w]));
 
@@ -793,7 +800,7 @@ function row(d) {
   return `<tr class="${out ? 'out' : ''}" id="row-${d.id}">
     <td class="x"><button type="button" class="strike" data-toggle="${d.id}" aria-pressed="${out}">${out ? '되살리기' : '소거'}</button></td>
     <td class="r">${out ? '<span class="sub">순위 제외</span>' : `<span class="rk"><button type="button" class="mv" data-mv="${d.id}|-1" aria-label="${esc(d.name)} 한 칸 위로">▲</button><input type="number" class="rankin num" id="rank-${d.id}" data-rank-for="${d.id}" min="1" max="${rankMap.size}" value="${effRank(d)}" aria-label="${esc(d.name)} 순위"><button type="button" class="mv" data-mv="${d.id}|1" aria-label="${esc(d.name)} 한 칸 아래로">▼</button></span>${effRank(d) !== autoRank(d) ? `<span class="sub">자동 ${autoRank(d)}위</span>` : ''}`}</td>
-    <td class="cn stick2"><span class="nm"><a class="cname" href="#memo-${d.id}" data-jump="${d.id}">${esc(d.name)}</a>${mapBtn(d)}</span><span class="sub">${d.added ? '<b class="added">직접 담음</b> · ' : ''}아파트 · ${esc(d.umd)} · ${esc(d.region)}</span></td>
+    <td class="cn stick2"><span class="nm"><a class="cname" href="#memo-${d.id}" data-jump="${d.id}">${esc(d.name)}</a>${mapBtn(d)}${detailBtn(d)}</span><span class="sub">${d.added ? '<b class="added">직접 담음</b> · ' : ''}아파트 · ${esc(d.umd)} · ${esc(d.region)}</span></td>
     <td class="r"><span class="num">${d.area}㎡</span><span class="sub">공급 약 ${d.supply}평</span></td>
     <td class="r num">${d.km == null ? '—' : d.km.toFixed(1) + 'km'}</td>
     <td class="r num">${d.min == null ? '—' : Math.round(d.min) + '분'}</td>
@@ -1081,6 +1088,12 @@ function setSync(mode, text) { const s = document.getElementById('sync'); s.data
 function smooth() { return matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'; }
 const tbox = document.querySelector('.tablebox');
 document.addEventListener('click', (e) => {
+  const dt = e.target.closest('button[data-detail]');
+  if (dt) {
+    const d = DATA.find((x) => x.id === dt.dataset.detail);
+    if (d && CAN_DETAIL) { try { window.parent.postMessage({ kind: 'board:open-complex', cx: d.cx, area: d.area }, '*'); } catch (_) { /* 부모가 없으면 아무 일도 안 합니다 */ } }
+    return;
+  }
   const mb = e.target.closest('.mapbtn');
   if (mb) { if (!mapPop.hidden && mapFor === mb.dataset.map) hideMap(true); else showMap(mb); return; }
   if (!mapPop.hidden && !e.target.closest('#mapPop')) hideMap(true);

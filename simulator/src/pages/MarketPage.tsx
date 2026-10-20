@@ -32,6 +32,7 @@ import {
   type EntryQuarterStat,
   type SplitValidation,
 } from '../engine/backtest';
+import { TemperatureCard } from './TemperatureCard';
 
 /** 중위가 추이 스파크라인. 거래가 얇은 분기는 점을 비워 표시합니다. */
 function Series({
@@ -617,6 +618,7 @@ export function MarketPage() {
 
   return (
     <div className="space-y-5">
+      <TemperatureCard />
       <Card
         title="실거래 수익률"
         subtitle={`국토교통부 실거래가를 빌드 시점에 구워 넣은 스냅샷입니다. 가정값이 아니라 실제로 체결된 가격이고, 해제된 거래는 빼뒀습니다. ${MARKET.range.from.slice(0, 4)}년 ~ ${MARKET.range.to.slice(0, 4)}년 · 거래 ${MARKET.stats.deals.toLocaleString('ko-KR')}건 · 단지 ${MARKET.stats.complexes.toLocaleString('ko-KR')}개`}
