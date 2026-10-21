@@ -37,6 +37,7 @@ import {
   holdingSamples,
   yearsBetween,
   type HoldingDistribution,
+  type MarketComplex,
   type MarketPoint,
 } from './market';
 import type { RegionId } from './types';
@@ -54,7 +55,7 @@ function median(xs: number[]): number {
 }
 
 /** 지수 범위 — 한 권역이거나, 수집 지역 전체(시장 공통요인)입니다. */
-export type IndexScope = RegionId | 'all';
+export type IndexScope = RegionId | 'all' | `sgg:${string}`;
 
 export interface GrowthIndex {
   scope: IndexScope;
@@ -73,6 +74,12 @@ export interface GrowthIndex {
 
 const cache = new Map<IndexScope, GrowthIndex | null>();
 
+function inScope(c: MarketComplex, scope: IndexScope): boolean {
+  if (scope === 'all') return true;
+  if (scope.startsWith('sgg:')) return c.regionCode === scope.slice(4);
+  return c.region === scope;
+}
+
 /**
  * 연쇄 가격지수.
  *
@@ -81,13 +88,23 @@ const cache = new Map<IndexScope, GrowthIndex | null>();
  */
 function chainedIndex(scope: IndexScope): GrowthIndex | null {
   if (cache.has(scope)) return cache.get(scope)!;
+  const result = buildChainedIndex(
+    MARKET.complexes.filter((c) => inScope(c, scope)),
+    scope
+  );
+  cache.set(scope, result);
+  return result;
+}
 
+/**
+ * 단지 목록 하나로 연쇄 지수를 잇습니다 — 캐시 없는 순수 함수 (테스트는 이걸 씁니다).
+ */
+export function buildChainedIndex(complexes: MarketComplex[], scope: IndexScope): GrowthIndex | null {
   // 분기 → (칸 키 → 가격). 같은 칸끼리만 이어야 구성 변화가 안 들어옵니다.
   const byQuarter = new Map<number, Map<string, number>>();
   let cells = 0;
 
-  for (const c of MARKET.complexes) {
-    if (scope !== 'all' && c.region !== scope) continue;
+  for (const c of complexes) {
     for (const s of c.sizes) {
       const key = `${c.id}|${s.area}`;
       let contributed = false;
@@ -103,10 +120,7 @@ function chainedIndex(scope: IndexScope): GrowthIndex | null {
   }
 
   const quarters = [...byQuarter.keys()].sort((a, b) => a - b);
-  if (quarters.length < 8) {
-    cache.set(scope, null);
-    return null;
-  }
+  if (quarters.length < 8) return null;
 
   const points: MarketPoint[] = [];
   const linkCounts: number[] = [];
@@ -144,7 +158,7 @@ function chainedIndex(scope: IndexScope): GrowthIndex | null {
   const first = points[0];
   const last = points[points.length - 1];
   const years = yearsBetween(first.q, last.q);
-  const result: GrowthIndex = {
+  return {
     scope,
     points,
     linkCounts,
@@ -153,8 +167,6 @@ function chainedIndex(scope: IndexScope): GrowthIndex | null {
     cells,
     thin,
   };
-  cache.set(scope, result);
-  return result;
 }
 
 /** 권역 연쇄 가격지수. */
@@ -175,6 +187,16 @@ export function regionGrowthIndex(region: RegionId): GrowthIndex | null {
  */
 export function marketGrowthIndex(): GrowthIndex | null {
   return chainedIndex('all');
+}
+
+/**
+ * 시군구 연쇄 가격지수 — 구별 매매 차트가 씁니다.
+ *
+ * 권역 지수와 같은 규칙(같은 칸끼리, 이을 칸 8개 미만이면 직전 수준 유지)이고
+ * 같은 이유로 **위로 치우칩니다**. 화면에 그 주의가 같이 붙습니다.
+ */
+export function districtGrowthIndex(code: string): GrowthIndex | null {
+  return chainedIndex(`sgg:${code}`);
 }
 
 /**

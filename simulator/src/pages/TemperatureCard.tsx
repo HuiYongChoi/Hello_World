@@ -4,6 +4,8 @@ import { percent } from '../engine/format';
 import { MARKET } from '../engine/market';
 import { TEMPERATURE_CAVEATS, districtTemperature, qLabel, type SaleTemperature } from '../engine/temperature';
 import { RENT_REGIONS } from '../rentfinder/data';
+import { hasDistrictChart } from '../engine/districtChart';
+import { openDistrictChart } from './districtChartLink';
 import { SAFETY_RULES } from '../rentfinder/safety';
 import { TOWN_CAVEATS, jeonseTemperature, rentQLabel, type JeonseTemperature } from '../rentfinder/town';
 
@@ -141,7 +143,20 @@ export function TemperatureCard() {
               return (
                 <FragmentRows key={l.code} group={groupRow ? l.group : null}>
                   <tr className="border-b border-slate-800/60">
-                    <td className="px-2.5 py-2 whitespace-nowrap text-slate-200">{l.label}</td>
+                    <td className="px-2.5 py-2 whitespace-nowrap text-slate-200">
+                      {hasDistrictChart(l.code) ? (
+                        <button
+                          type="button"
+                          onClick={() => openDistrictChart(l.code)}
+                          className="underline decoration-slate-600 decoration-dotted underline-offset-4 transition hover:text-sky-300 hover:decoration-sky-400"
+                          title={`${l.label} 매매를 분기 차트로 — 아래 구별 매매 차트`}
+                        >
+                          {l.label} <span className="text-2xs text-slate-400">차트 ↓</span>
+                        </button>
+                      ) : (
+                        l.label
+                      )}
+                    </td>
                     <td className="px-2.5 py-2 text-right whitespace-nowrap">
                       {s ? (
                         <>

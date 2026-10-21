@@ -1,6 +1,8 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { Badge, Card, Foldable, InfoPopover, SegmentedControl } from '../components/ui';
+import { hasDistrictChart } from '../engine/districtChart';
 import { money, percent } from '../engine/format';
+import { openDistrictChart } from '../pages/districtChartLink';
 import { regionOf } from './data';
 import { toPyeong, toSupplyPyeong } from './finder';
 import { SAFETY_RULES } from './safety';
@@ -180,6 +182,19 @@ export function TownBoardPage({
                         <span className="mr-1 text-slate-500">{isOpen ? '▾' : '▸'}</span>
                         {r.label}
                         {multiRegion && <span className="ml-1 text-2xs text-slate-400">{regionShort(r.regionCode)}</span>}
+                        {hasDistrictChart(r.regionCode) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDistrictChart(r.regionCode);
+                            }}
+                            className="ml-2 rounded border border-slate-700 px-1.5 py-0.5 text-2xs text-slate-400 transition hover:border-sky-500/60 hover:text-sky-300"
+                            title={`${level === 'umd' ? '이 동이 속한 구' : '이 구'}의 매매를 분기 차트로 — 실거래 수익률 탭`}
+                          >
+                            {level === 'umd' ? '구 매매 차트' : '매매 차트'}
+                          </button>
+                        )}
                       </td>
                       <td className="px-2.5 py-2.5 text-right text-slate-300">{r.complexes}</td>
                       <td className="px-2.5 py-2.5 text-right text-slate-300">{r.jeonseDeals2y.toLocaleString('ko-KR')}</td>

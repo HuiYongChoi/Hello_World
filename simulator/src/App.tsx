@@ -13,6 +13,7 @@ import { RentFinderApp } from './rentfinder/RentFinderApp';
 import type { RentTarget } from './rentfinder/loans';
 import { BoardFrame } from './rentfinder/BoardFrame';
 import { MarketPage } from './pages/MarketPage';
+import { DISTRICT_CHART_EVENT } from './pages/districtChartLink';
 import { HandbookDrawer } from './pages/HandbookDrawer';
 import { ComplexDetailDrawer, openComplexDetail } from './rentfinder/ComplexDetailDrawer';
 import { TenurePage } from './pages/TenurePage';
@@ -133,6 +134,13 @@ export function App() {
     return () => ro.disconnect();
   }, []);
   useEffect(() => writeLast(LAST_STEP_KEY, optionalStep), [optionalStep]);
+
+  /* 시장 온도·동네 시세판의 구 이름 → 실거래 수익률 탭의 구별 매매 차트. 탭은 늘리지 않습니다 */
+  useEffect(() => {
+    const on = () => setTab('market');
+    window.addEventListener(DISTRICT_CHART_EVENT, on);
+    return () => window.removeEventListener(DISTRICT_CHART_EVENT, on);
+  }, []);
 
   /** 오늘 볼 것 → 그 화면. 탭은 늘리지 않고 기존 탭·단계로만 옮깁니다 */
   const go = (t: TodayTarget) => {

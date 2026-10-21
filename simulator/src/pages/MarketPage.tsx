@@ -34,6 +34,7 @@ import {
   type EntryQuarterStat,
   type SplitValidation,
 } from '../engine/backtest';
+import { DistrictChartCard } from './DistrictChartCard';
 import { TemperatureCard } from './TemperatureCard';
 
 /** 중위가 추이 스파크라인. 거래가 얇은 분기는 점을 비워 표시합니다. */
@@ -630,6 +631,7 @@ export function MarketPage() {
   return (
     <div className="space-y-6">
       <TemperatureCard />
+      <DistrictChartCard />
       <TwoCol rail="left">
         <Rail>
           <Card
