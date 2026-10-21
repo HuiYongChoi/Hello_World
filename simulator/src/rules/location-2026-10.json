@@ -1,0 +1,142 @@
+{
+  "version": "2026-10",
+  "effectiveFrom": "2026-10-22",
+  "sunset": null,
+  "label": "입지 자동 점수 변환 기준 (2026년 10월)",
+  "disclaimer": "거리·시간은 OpenStreetMap 과 FOSSGIS OSRM 으로 잰 신호·정체를 뺀 최소치이고, 시설 수는 한국 OSM 에 올라 있는 것만 셉니다. 점수 변환 기준은 이 파일에 적힌 규칙이지 시세 예측이 아닙니다.",
+  "source": {
+    "osm": "OpenStreetMap (Overpass API) — 단지 경계·정류장·역·학교·학원·마트·병원·공원·IC",
+    "routing": "FOSSGIS OSRM routing.openstreetmap.de — routed-foot(보행 5km/h) · routed-car(신호·정체 없음)",
+    "geocode": "Nominatim — 법정동 중심 (단지를 OSM 에서 못 찾았을 때만)"
+  },
+  "coordinate": {
+    "approxNote": "단지 이름을 OSM 에서 못 찾아 법정동 중심 좌표로 물러선 단지는 걸어서 닿는 거리(정류장·역·학교)와 반경 안 시설 수를 재지 않습니다. 동 중심은 단지에서 수백 m~1km 어긋나, 그 거리를 쓰면 없는 정확도를 만드는 셈입니다. 차로 재는 시간(IC·마트·병원·고용중심지·통근)만 근사로 씁니다.",
+    "walkMetrics": ["subwayWalk", "brt", "elemInComplex", "midHighSchool", "academyAccess", "park"]
+  },
+  "sparseZeroShare": {
+    "value": 0.4,
+    "basis": "후보판과 같은 규칙 — 한 권역에서 0곳인 단지가 40% 를 넘으면 그 축은 시설이 없는 것이 아니라 OSM 에 안 올라온 것으로 보고 점수로 쓰지 않습니다"
+  },
+  "indicators": {
+    "subwayWalk": {
+      "method": "walkMinutes",
+      "target": "가장 가까운 지하철·전철역 (OSM railway=station · 화물역 제외)",
+      "maxStraightM": 3000,
+      "beyondBasis": "직선 3km 안에 역이 없습니다 — 걸어서 닿는 역이 없다는 뜻이라 0점 쪽 끝(25분 이상)으로 봅니다",
+      "beyondMinutes": 40,
+      "basis": "OSRM 보행 경로(5km/h)로 직선 거리 가까운 역 둘까지 재고 짧은 쪽"
+    },
+    "gtx": {
+      "method": "driveMinutes",
+      "target": "개통한 광역급행(GTX) 역",
+      "regions": ["gyeonggi"],
+      "basis": "개통역까지 차로 가는 최소 시간(접근 시간). 미개통 노선(GTX-C 평택 연장 등)은 넣지 않습니다"
+    },
+    "brt": {
+      "method": "walkMinutes",
+      "target": "가장 가까운 버스 정류장 (OSM highway=bus_stop)",
+      "countRadiusM": 400,
+      "basis": "OSRM 보행 경로로 직선 거리 가까운 정류장 셋까지 재고 짧은 쪽. 반경 400m 정류장 수를 같이 적습니다"
+    },
+    "arterialRoad": {
+      "method": "driveMinutes",
+      "target": "가장 가까운 고속도로·도시고속도로 IC (OSM highway=motorway_junction · 이름에 JC·분기점 제외)",
+      "basis": "OSRM 차로 직선 거리 가까운 IC 셋까지 재고 짧은 쪽"
+    },
+    "commuteSelf": {
+      "method": "driveMinutes",
+      "target": "고른 본인 직장",
+      "basis": "법정동 단위로 묶어 잰 차 최소 시간. 직장을 바꾸면 다시 고릅니다"
+    },
+    "commuteSeoul": {
+      "method": "driveMinutes",
+      "target": "서울 도심 셋(시청·강남역·여의도) 중 가까운 곳",
+      "regions": ["gyeonggi"],
+      "basis": "법정동 단위 차 최소 시간. 출퇴근 시간대 실제 시간은 이보다 깁니다 — 정체를 넣을 자료가 없어 곱하지 않습니다"
+    },
+    "jobCenter": {
+      "method": "driveMinutes",
+      "target": "그 권역 고용중심지 중 가장 가까운 곳",
+      "basis": "법정동 단위 차 최소 시간"
+    },
+    "elemInComplex": {
+      "method": "walkSteps",
+      "target": "가장 가까운 초등학교 (OSM amenity=school · 이름에 초등학교)",
+      "maxStraightM": 2000,
+      "steps": [
+        { "maxMinutes": 2, "raw": 3, "label": "도보 2분 안 — 맞붙은 학교 (단지 안·횡단보도 여부는 모름)" },
+        { "maxMinutes": 5, "raw": 2, "label": "도보 5분 안" },
+        { "maxMinutes": null, "raw": 1, "label": "도보 5분 밖" }
+      ],
+      "basis": "지표 정의(3=단지 내 / 2=도보 5분 내 / 1=대로 횡단)를 보행 분으로 옮겼습니다. 2분(약 170m)은 단지 경계에 맞붙은 거리입니다. 횡단보도·대로는 자료가 없어 재지 않습니다"
+    },
+    "midHighSchool": {
+      "method": "countQuintile",
+      "target": "반경 1km 중·고등학교 수",
+      "radiusM": 1000,
+      "basis": "걸어서 닿는 중·고 수를 같은 권역 단지끼리 5분위로 나눕니다. 배정 학교군·학업성취도가 아닙니다"
+    },
+    "academyAccess": {
+      "method": "countQuintile",
+      "target": "반경 1km 학원 수 (OSM amenity=prep_school · 이름에 학원 · 운전·자동차학원 제외)",
+      "radiusM": 1000,
+      "basis": "같은 권역 단지끼리 5분위. 한국 OSM 은 학원이 많이 빠져 있어 0곳 비중이 높으면 쓰지 않습니다"
+    },
+    "mart": {
+      "method": "driveMinutes",
+      "target": "가장 가까운 대형마트·백화점 (OSM shop=department_store, 또는 이름에 이마트·홈플러스·롯데마트·코스트코·트레이더스·메가마트·하나로마트 — 이마트24·에브리데이·익스프레스·노브랜드 제외)",
+      "basis": "OSRM 차로 직선 거리 가까운 곳 셋까지 재고 짧은 쪽"
+    },
+    "hospital": {
+      "method": "driveMinutes",
+      "target": "가장 가까운 병원급 (OSM amenity=hospital · 요양·한방·치과·동물·전문 단과 이름 제외)",
+      "basis": "OSRM 차로 직선 거리 가까운 곳 셋까지 재고 짧은 쪽. 종합병원 지정 여부가 아니라 이름으로 거른 병원급입니다"
+    },
+    "park": {
+      "method": "countQuintile",
+      "target": "반경 800m 이름 있는 공원 수 (OSM leisure=park)",
+      "radiusM": 800,
+      "basis": "같은 권역 단지끼리 5분위 → 1~5단계. 공원 넓이는 세지 않습니다"
+    },
+    "brand": {
+      "method": "nameMatch",
+      "raw": 4,
+      "basis": "단지 이름에 시공능력평가 상위 10위권에 꾸준히 드는 10개사의 아파트 브랜드가 있으면 4단계. 하이엔드 라인(5단계)과 중견 브랜드(3단계)는 가르지 않고, 이름에서 못 찾으면 직접 입력으로 남깁니다 — 브랜드가 없다는 뜻이 아닙니다",
+      "brands": [
+        { "name": "래미안", "builder": "삼성물산", "patterns": ["래미안", "raemian"] },
+        { "name": "힐스테이트", "builder": "현대건설·현대엔지니어링", "patterns": ["힐스테이트", "hillstate", "디에이치"] },
+        { "name": "푸르지오", "builder": "대우건설", "patterns": ["푸르지오", "prugio"] },
+        { "name": "e편한세상", "builder": "DL이앤씨", "patterns": ["e편한세상", "이편한세상"] },
+        { "name": "자이", "builder": "GS건설", "patterns": ["자이"] },
+        { "name": "더샵", "builder": "포스코이앤씨", "patterns": ["더샵", "thesharp"] },
+        { "name": "롯데캐슬", "builder": "롯데건설", "patterns": ["롯데캐슬", "lottecastle"] },
+        { "name": "SK뷰", "builder": "SK에코플랜트", "patterns": ["sk뷰", "skview", "에스케이뷰"] },
+        { "name": "아이파크", "builder": "HDC현대산업개발", "patterns": ["아이파크", "ipark"] }
+      ],
+      "excludePatterns": ["자이언트"]
+    }
+  },
+  "places": [
+    { "id": "haman-uiryeong", "name": "함안의령지사", "kind": "workplace", "regions": ["changwon", "busan"], "lat": 35.27837, "lon": 128.40168, "basis": "후보판(board-2026-09)과 같은 기준점 — 함안군 가야읍 지사 인근 도로" },
+    { "id": "cw-cityhall", "name": "창원시청", "kind": "job", "regions": ["changwon"], "lat": 35.22786, "lon": 128.68181, "basis": "Nominatim '창원시청' → office=government, 성산구 용지동" },
+    { "id": "cw-industrial", "name": "창원국가산업단지", "kind": "job", "regions": ["changwon"], "lat": 35.20681, "lon": 128.66105, "basis": "Nominatim '창원국가산업단지' → landuse=industrial 중심, 성산구 완암동" },
+    { "id": "cw-ftz", "name": "마산자유무역지역", "kind": "job", "regions": ["changwon"], "lat": 35.2094, "lon": 128.58303, "basis": "OSM 정류장 '자유무역지역정문' (마산회원구 봉암동)" },
+    { "id": "bs-centum", "name": "센텀시티", "kind": "job", "regions": ["busan"], "lat": 35.16961, "lon": 129.13344, "basis": "Nominatim '센텀시티역' 벡스코 정류장 (해운대구 우동)" },
+    { "id": "bs-seomyeon", "name": "서면", "kind": "job", "regions": ["busan"], "lat": 35.15817, "lon": 129.05953, "basis": "Nominatim '서면역' → railway stop (부산진구 부전동)" },
+    { "id": "bs-munhyeon", "name": "문현금융단지", "kind": "job", "regions": ["busan"], "lat": 35.14722, "lon": 129.06568, "basis": "Nominatim '부산국제금융센터' (남구 문현동)" },
+    { "id": "gg-pangyo", "name": "판교테크노밸리", "kind": "job", "regions": ["gyeonggi"], "lat": 37.40293, "lon": 127.10558, "basis": "Nominatim '판교테크노밸리' → landuse=industrial 중심 (성남시 분당구 삼평동)" },
+    { "id": "gg-samsung-suwon", "name": "삼성전자 수원(디지털시티)", "kind": "job", "regions": ["gyeonggi"], "lat": 37.25733, "lon": 127.05155, "basis": "OSM '삼성전자 디지털시티' landuse=industrial 중심 (수원시 영통구 매탄동)" },
+    { "id": "gg-samsung-hwaseong", "name": "삼성전자 화성캠퍼스", "kind": "job", "regions": ["gyeonggi"], "lat": 37.21853, "lon": 127.06596, "basis": "Nominatim '삼성전자 화성캠퍼스' (화성시 반월동)" },
+    { "id": "gg-samsung-pyeongtaek", "name": "삼성전자 평택캠퍼스", "kind": "job", "regions": ["gyeonggi"], "lat": 37.03568, "lon": 127.05265, "basis": "OSM 정류장 '삼성전자평택캠퍼스' (평택시 고덕동)" },
+    { "id": "gg-dongtan-tv", "name": "동탄테크노밸리", "kind": "job", "regions": ["gyeonggi"], "lat": 37.2124, "lon": 127.09896, "basis": "Nominatim '동탄테크노밸리' 정류장 (화성시 영천동)" },
+    { "id": "seoul-cityhall", "name": "서울시청", "kind": "seoul", "regions": ["gyeonggi"], "lat": 37.56679, "lon": 126.97842, "basis": "Nominatim '서울특별시청' amenity=townhall" },
+    { "id": "seoul-gangnam", "name": "강남역", "kind": "seoul", "regions": ["gyeonggi"], "lat": 37.49756, "lon": 127.02681, "basis": "Nominatim '강남역' 정류장 (서초대로)" },
+    { "id": "seoul-yeouido", "name": "여의도역", "kind": "seoul", "regions": ["gyeonggi"], "lat": 37.52167, "lon": 126.9243, "basis": "Nominatim '여의도역' railway=station" },
+    { "id": "gtx-dongtan", "name": "GTX-A 동탄역", "kind": "gtx", "regions": ["gyeonggi"], "lat": 37.20036, "lon": 127.09558, "basis": "Nominatim '동탄역' railway=station · GTX-A 수서~동탄 2024-03 개통" },
+    { "id": "gtx-guseong", "name": "GTX-A 구성역", "kind": "gtx", "regions": ["gyeonggi"], "lat": 37.29944, "lon": 127.10585, "basis": "Nominatim '구성역' (용인시 기흥구 마북동) · GTX-A 2024-06 개통" }
+  ],
+  "workplace": {
+    "default": { "changwon": "haman-uiryeong", "busan": "haman-uiryeong", "gyeonggi": null },
+    "basis": "본인 직장이 함안의령지사라는 전제(전월세 찾기·후보판과 같음). 경기 물건은 정해 둔 직장이 없어 고르기 전까지 직접 입력입니다. 후보는 workplace·job 장소입니다"
+  }
+}

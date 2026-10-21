@@ -22,3 +22,4 @@ scripts/watch/signals.json
 scripts/watch/cache/
 scripts/watch/.env
 scripts/watch/signals.tmp.json
+scripts/location/work/

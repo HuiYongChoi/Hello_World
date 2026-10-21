@@ -22,6 +22,7 @@
  */
 
 import board from '../data/board-2026-09.json';
+import { LOCATION_RULES, brandOf } from './location';
 import { findComplex } from './market';
 import { POPULATION, POPULATION_CAVEATS, populationFeedback } from './population';
 import { RULES } from './rules';
@@ -112,7 +113,7 @@ const NONE_BASIS: Record<string, string> = {
   park: '후보판(마산 생활권) 밖 단지라 주변 공원을 센 적이 없습니다',
   householdCount: '국토부 실거래 자료에 세대수가 없습니다',
   builtYear: '실거래 단지와 이어지지 않아 기본정보 입력값을 씁니다',
-  brand: '브랜드 자료가 없습니다',
+  brand: '실거래 단지와 이으면 단지 이름에서 브랜드를 찾습니다',
   parking: '주차 대수 자료가 없습니다 (건축물대장 API 미신청)',
   aspect: '향·채광은 호수마다 달라 공개 자료가 없습니다',
   layout: '평면 자료가 없습니다',
@@ -263,6 +264,26 @@ function districtTier(property: Property): AutoIndicator {
 }
 
 /**
+ * 브랜드 — 단지 이름에 시공능력평가 상위 10위권 10개사 브랜드가 있으면 룰셋 단계(`rules/location-*.json`).
+ * 이름에서 못 찾으면 none — 브랜드가 없다는 뜻이 아니라 이름으로 못 가린 것입니다.
+ */
+function brand(property: Property): AutoIndicator {
+  const c = property.link ? findComplex(property.link.complexId) : null;
+  if (!c) return none('brand');
+  const b = brandOf(c.name);
+  const rule = LOCATION_RULES.indicators.brand;
+  if (!b) return none('brand', `단지 이름 "${c.name}" 에서 10대 건설사 브랜드를 찾지 못했습니다 — 브랜드가 없다는 뜻은 아닙니다`);
+  return {
+    id: 'brand',
+    status: 'proxy',
+    raw: rule.raw,
+    basis: `이름에 ${b.name}(${b.builder}) → ${rule.raw}단계`,
+    scope: '단지',
+    caveat: '시공능력평가 상위 10위권 브랜드인지만 봅니다. 하이엔드·중견 브랜드는 가르지 않습니다 — 고쳐 넣으세요.',
+  };
+}
+
+/**
  * 물건 하나의 자동 지표 25개. `INDICATORS` 순서 그대로, 빠지는 항목이 없습니다.
  *
  * 후보판 줄은 `link` 가 있어야 찾습니다. 시군구·권역 단위 항목(공급·인구·생활권 일부)은
@@ -283,6 +304,7 @@ export function autoIndicators(property: Property): AutoIndicator[] {
     futureSupply: () => futureSupply(property),
     populationTrend: () => populationTrend(property),
     builtYear: () => builtYear(property),
+    brand: () => brand(property),
     districtTier: () => districtTier(property),
   };
 

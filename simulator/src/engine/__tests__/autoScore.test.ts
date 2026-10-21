@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { autoIndicators, autoSummary } from '../autoScore';
+import { brandOf } from '../location';
 import { MARKET } from '../market';
 import { draftToProperty, pickFromMarket } from '../pick';
 import { INDICATORS } from '../scoring';
@@ -104,6 +105,21 @@ describe('자동 지표 — 25개 전부, 없는 것은 없다고', () => {
     const s = autoSummary(autoIndicators(picked('48125-555', 84)));
     expect(s.auto + s.none).toBe(INDICATORS.length);
     expect(s.measured).toBe(2); // 준공 · 인구
-    expect(s.proxy).toBe(6); // brt · 통근 · 마트 · 공원 · 공급 · 생활권
+    expect(s.proxy).toBe(7); // brt · 통근 · 마트 · 공원 · 브랜드(푸르지오) · 공급 · 생활권
+  });
+
+  it('브랜드 — 이름에 10대 건설사 브랜드가 있으면 룰셋 단계, 못 찾으면 none', () => {
+    const b = byId(picked('48125-555', 84)).get('brand')!; // 창원푸르지오더플래티넘1단지
+    expect(b.status).toBe('proxy');
+    expect(b.raw).toBe(4);
+    expect(b.basis).toContain('푸르지오');
+    expect(byId(picked('48123-90', 60)).get('brand')!.status).toBe('none'); // 소라
+    expect(byId(makeProperty()).get('brand')!.status).toBe('none');
+  });
+
+  it('브랜드 — 자이언트는 자이가 아니고, 롯데캐슬자이언트는 롯데캐슬', () => {
+    expect(brandOf('롯데캐슬자이언트')!.name).toBe('롯데캐슬');
+    expect(brandOf('자이언트빌')).toBeNull();
+    expect(brandOf('해운대SKVIEW')!.name).toBe('SK뷰');
   });
 });
