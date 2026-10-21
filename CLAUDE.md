@@ -232,7 +232,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 569건)
+npm test                 # 엔진 단위 테스트 (현재 592건)
 npm run scorecard        # 채점표 — 구조·연결·검증·산출물 100점 만점
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
@@ -843,6 +843,25 @@ claude.ai 아티팩트로도 쓰기 때문입니다(아티팩트는 공유 DB, �
   붙습니다 — 운영 빌드엔 없습니다. 검토판은 `/hyrealty-p2/` 에 직접 올리고, 이 빌드를
   master 에 커밋하면 GitHub Pages 에 배너가 올라가니 커밋 전에 `deploy:realty` 로 다시
   빌드합니다. `deploy-aws.sh` 는 `DEPLOY_SITE_PATH` 를 명령줄에서 덮어쓸 수 있습니다.
+
+### 화면 규칙 — 가독성 (ui-refresh)
+
+설계 `docs/ui-refresh/DESIGN.md`. 글자는 **12 / 13 / 14px 세 단계**, 표 본문 14px.
+10~11px 임의 크기와 흐린 `text-slate-600` 글자는 쓰지 않습니다 —
+`components/__tests__/typography.test.ts` 가 다시 들어오면 걸어 냅니다. 본문 폭은
+1800px, 넓은 화면에서 입력은 왼쪽 고정·결과는 오른쪽(찾기·실거래·청약), 설명 문단은
+지우지 않고 "자세히" 로 접습니다(인쇄 시 펼침). 처음 열면 후보판, 이후 마지막 탭·단계를
+기억합니다. 후보판 표는 24칸(2124px)이라 2000px 에서도 가로 스크롤이 조금 남습니다.
+
+### 구별 매매 차트 — 실거래 수익률 탭
+
+`engine/districtChart.ts`(구별 분기 ㎡당 중위·거래량·이동평균)와 `growth.ts` 의
+`districtGrowthIndex`(구 단위 연쇄 지수)를 `pages/DistrictChartCard.tsx` 가 recharts 로
+그립니다(Hedge Fund 앱과 같은 라이브러리 · 번들 안 · 외부 요청 0). 15개 구 중 최대 6개
+겹쳐 보기, 시작=100, 4분기 이동평균, 로그 축, 기간 버튼, 휠 확대·끌어 이동, 거래량 막대,
+내비게이터. 시장 온도의 구 이름·동네 시세판 "매매 차트" 가 그 구로 바로 엽니다.
+표본 얇은 분기(분기 거래 100건 미만, 연쇄 지수 칸 20개 미만)는 속 빈 점 — 이 기준은
+데이터를 보고 정한 값이라 근거 검토가 남아 있습니다.
 
 ### 함안·의령에는 살 집이 거의 없습니다
 
