@@ -16,13 +16,13 @@ export function Card({
 }) {
   return (
     <section
-      className={`rounded-2xl border border-slate-800 bg-slate-900/50 p-5 print-plain ${className}`}
+      className={`min-w-0 rounded-2xl border border-slate-800 bg-slate-900/50 p-5 xl:p-6 print-plain ${className}`}
     >
       {(title || action) && (
-        <header className="mb-4 flex items-start justify-between gap-4">
-          <div>
-            {title && <h2 className="text-base font-semibold text-slate-100">{title}</h2>}
-            {subtitle && <p className="mt-1 text-xs leading-relaxed text-slate-400">{subtitle}</p>}
+        <header className="mb-4 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0">
+            {title && <h2 className="text-lg font-semibold text-slate-100">{title}</h2>}
+            {subtitle && <p className="mt-1 max-w-[72ch] text-sm leading-relaxed text-slate-400">{subtitle}</p>}
           </div>
           {action}
         </header>
@@ -54,7 +54,7 @@ export function Badge({
   return (
     <span
       title={title}
-      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap ${TONE_CLASS[tone]}`}
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap ${TONE_CLASS[tone]}`}
     >
       {children}
     </span>
@@ -79,7 +79,7 @@ export type BadgeTier = 'block' | 'warn' | 'cond';
 const TIER_CLASS: Record<BadgeTier, string> = {
   block: 'bg-rose-500/85 text-white border-rose-400/60 font-semibold',
   warn: 'bg-amber-500/85 text-slate-950 border-amber-400/60 font-semibold',
-  cond: 'bg-transparent text-slate-400 border-slate-700',
+  cond: 'bg-transparent text-slate-300 border-slate-700',
 };
 
 export function TierBadge({
@@ -97,9 +97,9 @@ export function TierBadge({
   return (
     <span
       title={title}
-      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] whitespace-nowrap print-plain ${TIER_CLASS[tier]}`}
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs whitespace-nowrap print-plain ${TIER_CLASS[tier]}`}
     >
-      <span className={tier === 'cond' ? 'text-slate-500' : undefined}>{label}</span>
+      <span className={tier === 'cond' ? 'text-slate-400' : undefined}>{label}</span>
       {value && <span className="tabular-nums">{value}</span>}
     </span>
   );
@@ -128,13 +128,13 @@ export function ProvenanceValue({
   source: string;
   size?: 'sm' | 'md';
 }) {
-  const valueSize = size === 'sm' ? 'text-sm' : 'text-lg';
+  const valueSize = size === 'sm' ? 'text-base' : 'text-xl';
   return (
     <div>
       <div className="flex items-baseline gap-1.5">
-        <span className="text-[11px] text-slate-500">{label}</span>
+        <span className="text-xs text-slate-400">{label}</span>
         {assumed && (
-          <span className="rounded border border-slate-700 px-1 text-[9px] text-slate-500 print-plain">
+          <span className="rounded border border-slate-700 px-1 text-2xs text-slate-400 print-plain">
             가정
           </span>
         )}
@@ -148,7 +148,7 @@ export function ProvenanceValue({
       >
         {value}
       </div>
-      <div className="mt-0.5 text-[10px] leading-relaxed text-slate-600">{source}</div>
+      <div className="mt-0.5 text-xs leading-relaxed text-slate-400">{source}</div>
     </div>
   );
 }
@@ -174,9 +174,9 @@ export function ProvenanceChip({
 }) {
   return (
     <div className="mt-1 space-y-0.5">
-      <div className="flex items-start gap-1 text-[10px] leading-relaxed text-slate-500">
+      <div className="flex items-start gap-1 text-xs leading-relaxed text-slate-400">
         {footnote !== undefined && (
-          <sup className="text-slate-600 tabular-nums">{footnote}</sup>
+          <sup className="text-2xs text-slate-400 tabular-nums">{footnote}</sup>
         )}
         <span>{children}</span>
       </div>
@@ -184,7 +184,7 @@ export function ProvenanceChip({
         <button
           type="button"
           onClick={onOpen}
-          className="text-[10px] text-sky-400 transition hover:text-sky-300 no-print"
+          className="text-xs text-sky-400 transition hover:text-sky-300 no-print"
         >
           ▸ {openLabel}
         </button>
@@ -211,10 +211,10 @@ export function Foldable({
 }) {
   return (
     <details className="mt-3 print-open">
-      <summary className="cursor-pointer list-none text-[10px] text-slate-500 transition hover:text-slate-300">
+      <summary className="cursor-pointer list-none text-xs text-slate-300 transition hover:text-sky-300">
         ▸ {summary} {count}건
       </summary>
-      <div className="mt-1.5">{children}</div>
+      <div className="mt-1.5 text-xs leading-relaxed text-slate-400">{children}</div>
     </details>
   );
 }
@@ -230,15 +230,15 @@ export function Field({
 }) {
   return (
     <label className="block">
-      <span className="block text-xs font-medium text-slate-300">{label}</span>
+      <span className="block text-sm font-medium text-slate-200">{label}</span>
       {children}
-      {hint && <span className="mt-1 block text-[11px] text-slate-500">{hint}</span>}
+      {hint && <span className="mt-1 block text-xs text-slate-400">{hint}</span>}
     </label>
   );
 }
 
 const inputClass =
-  'mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500/40';
+  'mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-base text-slate-100 outline-none transition focus:border-sky-500 focus:ring-1 focus:ring-sky-500/40';
 
 export function TextInput({
   value,
@@ -285,7 +285,7 @@ export function MoneyInput({
           onChange(Number.isFinite(n) ? n * divisor : 0);
         }}
       />
-      <span className="pointer-events-none absolute right-3 bottom-2.5 text-xs text-slate-500">
+      <span className="pointer-events-none absolute right-3 bottom-3 text-sm text-slate-400">
         {unit}
       </span>
     </div>
@@ -316,7 +316,7 @@ export function NumberInput({
         }}
       />
       {suffix && (
-        <span className="pointer-events-none absolute right-3 bottom-2.5 text-xs text-slate-500">
+        <span className="pointer-events-none absolute right-3 bottom-3 text-sm text-slate-400">
           {suffix}
         </span>
       )}
@@ -375,8 +375,8 @@ export function Toggle({
         />
       </span>
       <span>
-        <span className="block text-xs font-medium text-slate-200">{label}</span>
-        {hint && <span className="mt-0.5 block text-[11px] text-slate-500">{hint}</span>}
+        <span className="block text-sm font-medium text-slate-200">{label}</span>
+        {hint && <span className="mt-0.5 block text-xs text-slate-400">{hint}</span>}
       </span>
     </button>
   );
@@ -399,7 +399,7 @@ export function Button({
     danger: 'border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20',
     ghost: 'border-transparent bg-transparent text-slate-400 hover:text-slate-200',
   };
-  const sizes = { sm: 'px-2.5 py-1 text-xs', md: 'px-3.5 py-2 text-sm' };
+  const sizes = { sm: 'px-3 py-1.5 text-sm', md: 'px-4 py-2 text-base' };
   return (
     <button
       type="button"
@@ -427,7 +427,7 @@ export function SegmentedControl<T extends string>({
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+          className={`rounded-md px-3.5 py-2 text-sm font-medium transition ${
             value === o.value
               ? 'bg-sky-500 text-white'
               : 'text-slate-400 hover:text-slate-200'
@@ -445,11 +445,14 @@ export function Stat({
   value,
   tone,
   hint,
+  size = 'md',
 }: {
   label: string;
   value: ReactNode;
   tone?: Tone;
-  hint?: string;
+  hint?: ReactNode;
+  /** lg 는 화면의 머리 숫자 — 단지 상세의 최근 전세처럼 그 화면이 답하는 값 */
+  size?: 'md' | 'lg';
 }) {
   const color =
     tone === 'good'
@@ -460,12 +463,63 @@ export function Stat({
           ? 'text-amber-300'
           : 'text-slate-100';
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/40 px-3.5 py-3 print-plain">
-      <div className="text-[11px] text-slate-500">{label}</div>
-      <div className={`mt-1 text-lg font-semibold tabular-nums ${color}`}>{value}</div>
-      {hint && <div className="mt-0.5 text-[11px] text-slate-500">{hint}</div>}
+    <div className="rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3.5 print-plain">
+      <div className="text-xs text-slate-400">{label}</div>
+      <div className={`mt-1 font-semibold tabular-nums ${size === 'lg' ? 'text-2xl' : 'text-xl'} ${color}`}>{value}</div>
+      {hint && <div className="mt-0.5 text-xs leading-relaxed text-slate-400">{hint}</div>}
     </div>
   );
+}
+
+/**
+ * 넓은 화면의 고정 열 — 입력·요약을 옆에 붙여 두고 결과만 스크롤합니다.
+ *
+ * 머리줄(탭)이 sticky 라 그 높이(App 이 재는 --header-h)만큼 내려 붙입니다. 화면보다 길면 레일 안에서만
+ * 스크롤합니다 — 안 그러면 아래쪽이 본문 끝까지 가려집니다. xl 미만에서는 그냥
+ * 블록이라 입력 → 결과 순서로 쌓입니다.
+ */
+export function Rail({
+  children,
+  className = '',
+  split = false,
+}: {
+  children: ReactNode;
+  className?: string;
+  /**
+   * true 면 레일 전체가 아니라 **첫 칸만** 스크롤하고 나머지는 아래에 붙여 둡니다.
+   * 입력(위) + 결과 숫자(아래) 레일에서, 입력을 내려 고쳐도 결과가 안 가려지게.
+   */
+  split?: boolean;
+}) {
+  const scroll = split
+    ? 'xl:flex xl:flex-col xl:[&>*:first-child]:min-h-0 xl:[&>*:first-child]:flex-1 xl:[&>*:first-child]:overflow-y-auto xl:[&>*:not(:first-child)]:shrink-0'
+    : 'xl:overflow-y-auto';
+  return (
+    <aside
+      className={`min-w-0 space-y-4 xl:sticky xl:top-[calc(var(--header-h,7.5rem)_+_1rem)] xl:max-h-[calc(100vh_-_var(--header-h,7.5rem)_-_2rem)] xl:self-start xl:overscroll-contain ${scroll} ${className}`}
+    >
+      {children}
+    </aside>
+  );
+}
+
+/**
+ * 2단 배치 — 화면마다 임의 그리드를 적지 않게 묶습니다.
+ *
+ * `rail="left"` 는 왼쪽 22rem 고정 열(입력) + 오른쪽 결과, `"right"` 는 반대입니다.
+ * 자식은 소스 순서 그대로 놓이므로 `left` 면 레일을 먼저, `right` 면 본문을 먼저 넣습니다.
+ */
+export function TwoCol({
+  rail = 'right',
+  children,
+  className = '',
+}: {
+  rail?: 'left' | 'right';
+  children: ReactNode;
+  className?: string;
+}) {
+  const cols = rail === 'left' ? 'xl:grid-cols-[22rem_minmax(0,1fr)]' : 'xl:grid-cols-[minmax(0,1fr)_22rem]';
+  return <div className={`grid gap-5 ${cols} ${className}`}>{children}</div>;
 }
 
 /**
@@ -506,21 +560,21 @@ export function InfoPopover({
           e.stopPropagation();
           setPinned((v) => !v);
         }}
-        className={`flex h-4.5 w-4.5 items-center justify-center rounded-full border text-[10px] leading-none transition ${
+        className={`flex h-5 w-5 items-center justify-center rounded-full border text-2xs leading-none transition ${
           open
             ? 'border-sky-500/60 bg-sky-500/15 text-sky-300'
-            : 'border-slate-700 text-slate-500 hover:border-sky-500/60 hover:text-sky-300'
+            : 'border-slate-700 text-slate-400 hover:border-sky-500/60 hover:text-sky-300'
         }`}
       >
         {icon}
       </button>
       {open && (
         <span
-          className={`absolute top-6 z-30 block w-72 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-left shadow-xl ${
+          className={`absolute top-6 z-30 block w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-left text-sm shadow-xl ${
             align === 'right' ? 'right-0' : 'left-0'
           }`}
         >
-          <span className="mb-1.5 block text-[10px] font-medium tracking-wide text-slate-500">
+          <span className="mb-1.5 block text-xs font-medium tracking-wide text-slate-400">
             {label}
           </span>
           {children}
@@ -532,7 +586,7 @@ export function InfoPopover({
 
 export function Empty({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-700 px-6 py-10 text-center text-sm text-slate-500">
+    <div className="rounded-xl border border-dashed border-slate-700 px-6 py-10 text-center text-base text-slate-400">
       {children}
     </div>
   );

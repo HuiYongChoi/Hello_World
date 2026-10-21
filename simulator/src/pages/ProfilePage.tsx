@@ -17,8 +17,9 @@ export function ProfilePage() {
   const householdIncome = profile.ownIncome + profile.spouseIncome;
   const householdCash = profile.ownCash + profile.spouseCash;
 
+  // 넓은 화면에서는 카드 두 장씩 — 한 번 채우고 잘 안 건드리는 값이라 세로로 길게 늘어놓을 이유가 없습니다.
   return (
-    <div className="space-y-5">
+    <div className="grid items-start gap-6 2xl:grid-cols-2">
       <Card
         title="소득"
         subtitle="DSR·DTI 판정과 정책상품 소득요건에 직접 들어가는 값입니다. 세전 연소득 기준."
@@ -37,7 +38,7 @@ export function ProfilePage() {
             />
           </Field>
         </div>
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-sm text-slate-400">
           합산 소득 <span className="text-slate-300">{money(householdIncome)}</span> — 보금자리론
           신혼 상한 8,500만원, 디딤돌 생애최초 상한 7,000만원과 비교됩니다.
         </p>
@@ -165,12 +166,13 @@ export function ProfilePage() {
           </p>
         )}
 
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-sm text-slate-400">
           가구 합산 현금 <span className="text-slate-300">{money(householdCash)}</span>
         </p>
       </Card>
 
       <Card
+        className="2xl:col-span-2"
         title="매수 조건 · 민감도"
         subtitle="시행일이 걸린 제도의 적용 여부와, 금리 변동 가정을 조정합니다."
       >

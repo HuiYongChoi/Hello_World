@@ -45,7 +45,7 @@ export function PrototypeBanner() {
   };
 
   return (
-    <div className="no-print border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-[11px] text-amber-200">
+    <div className="no-print border-b border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs text-amber-200">
       <button type="button" onClick={toggle} className="flex w-full items-center gap-2 text-left">
         <span className="font-semibold">prototype2</span>
         <span className="min-w-0 truncate text-amber-200/80">

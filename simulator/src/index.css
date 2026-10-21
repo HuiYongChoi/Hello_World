@@ -11,6 +11,26 @@
     'Pretendard', 'Pretendard Variable', -apple-system, BlinkMacSystemFont,
     'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Segoe UI', Roboto,
     'Helvetica Neue', sans-serif;
+
+  /*
+   * 글자 크기 — 2000px 어두운 화면에서 10~11px 가 본문 역할을 하던 것을 걷어 냅니다.
+   * text-xs 를 13px 로 올려 보조 본문의 하한으로 쓰고, 12px(text-2xs)는 범례·각주·축에만.
+   * 임의값 text-[9px]·[10px]·[11px] 은 가드 테스트가 막습니다.
+   */
+  --text-2xs: 0.75rem;
+  --text-2xs--line-height: 1.45;
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.55;
+  --text-base: 1rem;
+  --text-base--line-height: 1.55;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.35;
+  --text-2xl: 1.625rem;
+  --text-2xl--line-height: 1.3;
 }
 
 :root {
@@ -79,6 +99,13 @@ input[type='number'] {
   }
   details.print-open > *:not(summary) {
     display: block !important;
+  }
+  /* 접기는 화면 편의일 뿐 — 종이에서는 print-open 이 없는 details 도 전부 펼칩니다 */
+  details {
+    display: block;
+  }
+  details > * {
+    display: block;
   }
 
   /*

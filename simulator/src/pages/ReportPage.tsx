@@ -74,7 +74,7 @@ export function ReportPage() {
           {rec.best!.warnings.length > 0 && (
             <ul className="mt-3 space-y-1">
               {rec.best!.warnings.map((w) => (
-                <li key={w} className="flex gap-1.5 text-[11px] text-amber-300/90">
+                <li key={w} className="flex gap-1.5 text-xs text-amber-300/90">
                   <span>·</span>
                   <span>{w}</span>
                 </li>
@@ -122,7 +122,7 @@ export function ReportPage() {
                       .map((c) => (
                         <span
                           key={c.id}
-                          className="rounded-md border border-slate-800 bg-slate-900/50 px-2 py-0.5 text-[11px] text-slate-400"
+                          className="rounded-md border border-slate-800 bg-slate-900/50 px-2 py-0.5 text-xs text-slate-400"
                         >
                           {c.label} {c.score.toFixed(0)}
                         </span>
@@ -130,9 +130,9 @@ export function ReportPage() {
                     {score.penalty > 0 && <Badge tone="bad">감점 −{score.penalty}</Badge>}
                   </div>
 
-                  <table className="mt-3 w-full text-[11px]">
+                  <table className="mt-3 w-full text-sm">
                     <thead>
-                      <tr className="text-slate-500">
+                      <tr className="text-slate-400">
                         <th className="py-1 text-left font-medium">시나리오</th>
                         <th className="py-1 text-left font-medium">상품</th>
                         <th className="py-1 text-right font-medium">한도</th>
@@ -168,12 +168,12 @@ export function ReportPage() {
                                 <td className="py-1.5 text-right tabular-nums text-slate-300">
                                   {percent(r.dtiRatio, 0)}
                                 </td>
-                                <td className="py-1.5 pl-3 text-slate-500">
+                                <td className="py-1.5 pl-3 text-slate-400">
                                   {CONSTRAINT_LABELS[r.bindingConstraint]}
                                 </td>
                               </>
                             ) : (
-                              <td colSpan={6} className="py-1.5 text-slate-600">
+                              <td colSpan={6} className="py-1.5 text-slate-400">
                                 이용 가능 상품 없음 —{' '}
                                 {cell?.all.find((x) => x.rejectReason)?.rejectReason}
                               </td>
@@ -193,25 +193,25 @@ export function ReportPage() {
       <Card title="적용 규정 및 면책">
         <dl className="space-y-2 text-xs">
           <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-slate-500">룰셋 버전</dt>
+            <dt className="w-28 shrink-0 text-slate-400">룰셋 버전</dt>
             <dd className="text-slate-300">
               {RULES.version} ({RULES.label})
             </dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-slate-500">기준일</dt>
+            <dt className="w-28 shrink-0 text-slate-400">기준일</dt>
             <dd className="text-slate-300">{RULES.effectiveFrom}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-slate-500">매수 예정일</dt>
+            <dt className="w-28 shrink-0 text-slate-400">매수 예정일</dt>
             <dd className="text-slate-300">{profile.purchaseDate}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-slate-500">면책</dt>
+            <dt className="w-28 shrink-0 text-slate-400">면책</dt>
             <dd className="leading-relaxed text-slate-400">{RULES.disclaimer}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-slate-500">입지 점수</dt>
+            <dt className="w-28 shrink-0 text-slate-400">입지 점수</dt>
             <dd className="leading-relaxed text-slate-400">
               입지 점수는 사용자가 입력한 주관적 평가의 가중합입니다. 객관적 시세 예측이 아니며,
               가중치 프리셋을 바꾸면 순위도 바뀝니다.

@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
-import { Badge, Card, InfoPopover, SegmentedControl } from '../components/ui';
+import { Badge, Card, Foldable, InfoPopover, SegmentedControl } from '../components/ui';
 import { money, percent } from '../engine/format';
 import { regionOf } from './data';
 import { toPyeong, toSupplyPyeong } from './finder';
@@ -54,7 +54,7 @@ const CUTS = SAFETY_RULES.ratioCuts;
 /** 전세가율 4단 — 룰셋의 60·70·80 경계 */
 function ratioClass(v: number): string {
   if (v < CUTS.low) return 'text-emerald-300';
-  if (v < CUTS.mid) return 'text-sky-300';
+  if (v < CUTS.mid) return 'text-slate-200';
   if (v < CUTS.high) return 'text-amber-300';
   return 'text-rose-300';
 }
@@ -63,11 +63,11 @@ const signClass = (v: number) => (v > 0 ? 'text-teal-300' : v < 0 ? 'text-rose-3
 const signed = (v: number, d = 1) => `${v > 0 ? '+' : v < 0 ? '−' : '±'}${percent(Math.abs(v), d)}`;
 
 const Dash = ({ why }: { why: string }) => (
-  <span className="text-slate-600" title={why}>
+  <span className="text-slate-500" title={why}>
     —
   </span>
 );
-const N = ({ children }: { children: ReactNode }) => <span className="ml-0.5 text-[10px] text-slate-500">({children})</span>;
+const N = ({ children }: { children: ReactNode }) => <span className="ml-1 text-2xs text-slate-400">({children})</span>;
 
 export function TownBoardPage({
   onOpenComplex,
@@ -100,7 +100,7 @@ export function TownBoardPage({
   const multiRegion = SCOPES[scope].codes.length > 2 && level === 'umd';
 
   const head = (key: SortKey, label: string, formula?: string) => (
-    <th className="px-2 py-2 text-right font-medium whitespace-nowrap first:text-left">
+    <th className="px-2.5 py-2.5 text-right font-medium whitespace-nowrap first:text-left">
       <span className="inline-flex items-center gap-1">
         <button
           type="button"
@@ -112,7 +112,7 @@ export function TownBoardPage({
         </button>
         {formula && (
           <InfoPopover icon="ƒ" label={`${label} — 계산`}>
-            <span className="block text-[11px] leading-relaxed text-slate-300">{formula}</span>
+            <span className="block text-sm leading-relaxed text-slate-300">{formula}</span>
           </InfoPopover>
         )}
       </span>
@@ -120,11 +120,11 @@ export function TownBoardPage({
   );
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Card
         title="동네 시세판"
-        subtitle="동마다 ㎡당 전세·매매, 전세가율, 거래량·1년 변화, 신축 비중을 나란히 둡니다. 합친 점수는 없습니다 — 축마다 따로 읽고, 열 제목을 누르면 그 기준으로 정렬됩니다."
-        action={windows && <Badge tone="info">매매 {windows.sale.split(' 대 ')[0]} · 전세 {windows.rent.split(' 대 ')[0]}</Badge>}
+        subtitle="동마다 ㎡당 전세·매매, 전세가율, 거래량·1년 변화, 신축 비중을 나란히 둡니다. 합친 점수는 없습니다 — 열 제목을 누르면 그 기준으로 정렬됩니다."
+        action={windows && <Badge tone="neutral">매매 {windows.sale.split(' 대 ')[0]} · 전세 {windows.rent.split(' 대 ')[0]}</Badge>}
       >
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <SegmentedControl
@@ -146,12 +146,12 @@ export function TownBoardPage({
               { value: 'sgg', label: '구' },
             ]}
           />
-          <span className="text-[11px] text-slate-500">{rows.length}줄 · 동을 누르면 단지가 펼쳐집니다</span>
+          <span className="text-sm text-slate-400">{rows.length}줄 · 동을 누르면 단지가 펼쳐집니다</span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[60rem] text-xs tabular-nums">
-            <thead className="border-b border-slate-800 text-[11px] text-slate-500">
+          <table className="w-full min-w-[60rem] text-sm tabular-nums">
+            <thead className="border-b border-slate-800 text-xs text-slate-400">
               <tr>
                 {head('label', level === 'umd' ? '동' : '구')}
                 {head('complexes', '단지', '전월세·매매 두 스냅샷 단지의 합집합')}
@@ -176,15 +176,15 @@ export function TownBoardPage({
                       onClick={() => setOpen(isOpen ? null : r.key)}
                       className={`cursor-pointer border-b border-slate-800/60 hover:bg-slate-800/30 ${isOpen ? 'bg-slate-800/40' : ''}`}
                     >
-                      <td className="px-2 py-1.5 text-left whitespace-nowrap text-slate-200">
+                      <td className="px-2.5 py-2.5 text-left whitespace-nowrap text-slate-200">
                         <span className="mr-1 text-slate-500">{isOpen ? '▾' : '▸'}</span>
                         {r.label}
-                        {multiRegion && <span className="ml-1 text-[10px] text-slate-500">{regionShort(r.regionCode)}</span>}
+                        {multiRegion && <span className="ml-1 text-2xs text-slate-400">{regionShort(r.regionCode)}</span>}
                       </td>
-                      <td className="px-2 py-1.5 text-right text-slate-300">{r.complexes}</td>
-                      <td className="px-2 py-1.5 text-right text-slate-300">{r.jeonseDeals2y.toLocaleString('ko-KR')}</td>
-                      <td className="px-2 py-1.5 text-right text-slate-300">{r.wolseDeals2y.toLocaleString('ko-KR')}</td>
-                      <td className="px-2 py-1.5 text-right text-slate-300">
+                      <td className="px-2.5 py-2.5 text-right text-slate-300">{r.complexes}</td>
+                      <td className="px-2.5 py-2.5 text-right text-slate-300">{r.jeonseDeals2y.toLocaleString('ko-KR')}</td>
+                      <td className="px-2.5 py-2.5 text-right text-slate-300">{r.wolseDeals2y.toLocaleString('ko-KR')}</td>
+                      <td className="px-2.5 py-2.5 text-right text-slate-300">
                         {r.jeonsePerSqm ? (
                           <>
                             {money(r.jeonsePerSqm.v)}
@@ -194,7 +194,7 @@ export function TownBoardPage({
                           <Dash why="전세 창 안 거래 없음" />
                         )}
                       </td>
-                      <td className="px-2 py-1.5 text-right text-slate-300">
+                      <td className="px-2.5 py-2.5 text-right text-slate-300">
                         {r.salePerSqm ? (
                           <>
                             {money(r.salePerSqm.v)}
@@ -204,7 +204,7 @@ export function TownBoardPage({
                           <Dash why="매매 창 안 거래 없음 (또는 매매 스냅샷 밖 지역)" />
                         )}
                       </td>
-                      <td className="px-2 py-1.5 text-right">
+                      <td className="px-2.5 py-2.5 text-right">
                         {r.ratio ? (
                           <span className={ratioClass(r.ratio.v)}>
                             {percent(r.ratio.v, 0)}
@@ -216,7 +216,7 @@ export function TownBoardPage({
                       </td>
                       <ChangeCell c={r.jeonseDealsChange} />
                       <ChangeCell c={r.saleDealsChange} />
-                      <td className="px-2 py-1.5 text-right">
+                      <td className="px-2.5 py-2.5 text-right">
                         {r.salePrice1y ? (
                           <span className={signClass(r.salePrice1y.v)}>
                             {signed(r.salePrice1y.v)}
@@ -226,7 +226,7 @@ export function TownBoardPage({
                           <Dash why="짝지은 칸 5개 미만" />
                         )}
                       </td>
-                      <td className="px-2 py-1.5 text-right">
+                      <td className="px-2.5 py-2.5 text-right">
                         {r.jeonse1y ? (
                           <span className={signClass(r.jeonse1y.v)}>
                             {signed(r.jeonse1y.v)}
@@ -236,7 +236,7 @@ export function TownBoardPage({
                           <Dash why="짝지은 칸 5개 미만" />
                         )}
                       </td>
-                      <td className="px-2 py-1.5 text-right text-slate-300">
+                      <td className="px-2.5 py-2.5 text-right text-slate-300">
                         {r.newShare ? (
                           <>
                             {percent(r.newShare.v, 0)}
@@ -261,19 +261,21 @@ export function TownBoardPage({
           </table>
         </div>
         {windows && (
-          <p className="mt-2 text-[11px] text-slate-500">
-            거래량 창 — 매매 {windows.sale} · 전세 {windows.rent}. 매매·전세 창이 한 분기 어긋나는 것은 각 스냅샷의 마지막 완결
-            분기를 쓰기 때문입니다. 괄호 안은 거래 건수 또는 짝지은 칸 수입니다.
-          </p>
+          <Foldable summary="거래량 창 · 괄호 읽는 법" count={2}>
+            <p>
+              거래량 창 — 매매 {windows.sale} · 전세 {windows.rent}. 매매·전세 창이 한 분기 어긋나는 것은 각 스냅샷의 마지막 완결
+              분기를 쓰기 때문입니다.
+            </p>
+            <p className="mt-1">괄호 안은 거래 건수 또는 짝지은 칸 수입니다.</p>
+          </Foldable>
         )}
-      </Card>
-
-      <Card title="이 자료가 못 하는 것">
-        <ul className="list-disc space-y-1 pl-5 text-xs leading-relaxed text-slate-400">
-          {TOWN_CAVEATS.map((c) => (
-            <li key={c}>{c}</li>
-          ))}
-        </ul>
+        <Foldable summary="이 자료가 못 하는 것" count={TOWN_CAVEATS.length}>
+          <ul className="list-disc space-y-1 pl-5">
+            {TOWN_CAVEATS.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        </Foldable>
       </Card>
     </div>
   );
@@ -283,7 +285,7 @@ const regionShort = (code: string) => regionOf(code)?.short ?? code;
 
 function ChangeCell({ c }: { c: TownRow['jeonseDealsChange'] }) {
   return (
-    <td className="px-2 py-1.5 text-right" title={`${c.recent}건 대 ${c.prior}건`}>
+    <td className="px-2.5 py-2.5 text-right" title={`${c.recent}건 대 ${c.prior}건`}>
       {c.change != null ? (
         <span className={signClass(c.change)}>
           {signed(c.change, 0)}
@@ -292,7 +294,7 @@ function ChangeCell({ c }: { c: TownRow['jeonseDealsChange'] }) {
           </N>
         </span>
       ) : (
-        <span className="text-slate-600">
+        <span className="text-slate-500">
           — <N>기준 적음 {c.prior}</N>
         </span>
       )}
@@ -315,7 +317,7 @@ function TownDetail({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[11px] text-slate-400">
+        <span className="text-sm text-slate-300">
           {row.umd
             ? `${row.label} 단지 ${list.length}곳 — 최근 전세·전세가율은 후보판과 같은 계산입니다`
             : '구 단위 줄입니다. 단지 목록은 [동] 으로 바꿔 동을 펼치면 나옵니다.'}
@@ -324,25 +326,25 @@ function TownDetail({
           <button
             type="button"
             onClick={() => onDiscover(row.regionCode)}
-            className="rounded-md border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-[11px] text-sky-300 hover:bg-sky-500/20"
+            className="rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-sm text-sky-300 hover:bg-sky-500/20"
           >
             이 구에서 발굴하기 →
           </button>
         )}
       </div>
       {row.umd && (
-        <table className="w-full text-[11px] tabular-nums">
-          <thead className="text-slate-500">
+        <table className="w-full text-sm tabular-nums">
+          <thead className="text-xs text-slate-400">
             <tr>
-              <th className="px-1.5 py-1 text-left font-medium">단지</th>
-              <th className="px-1.5 py-1 text-right font-medium">준공</th>
-              <th className="px-1.5 py-1 text-left font-medium">평형 · 최근 전세 · 전세가율</th>
+              <th className="px-2 py-1.5 text-left font-medium">단지</th>
+              <th className="px-2 py-1.5 text-right font-medium">준공</th>
+              <th className="px-2 py-1.5 text-left font-medium">평형 · 최근 전세 · 전세가율</th>
             </tr>
           </thead>
           <tbody>
             {list.map((c) => (
               <tr key={c.cx} className="border-t border-slate-800/60 align-top">
-                <td className="px-1.5 py-1 text-left whitespace-nowrap">
+                <td className="px-2 py-1.5 text-left whitespace-nowrap">
                   {onOpenComplex ? (
                     <button type="button" onClick={() => onOpenComplex(c.cx)} className="text-sky-300 hover:underline">
                       {c.name}
@@ -350,10 +352,10 @@ function TownDetail({
                   ) : (
                     <span className="text-slate-200">{c.name}</span>
                   )}
-                  {c.rentDeals2y === 0 && <span className="ml-1 text-slate-600">매매만</span>}
+                  {c.rentDeals2y === 0 && <span className="ml-1 text-slate-500">매매만</span>}
                 </td>
-                <td className="px-1.5 py-1 text-right text-slate-400">{c.built || '—'}</td>
-                <td className="px-1.5 py-1">
+                <td className="px-2 py-1.5 text-right text-slate-400">{c.built || '—'}</td>
+                <td className="px-2 py-1.5">
                   <div className="flex flex-wrap gap-1">
                     {c.sizes.map((s) => (
                       <button

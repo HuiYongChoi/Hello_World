@@ -68,7 +68,7 @@ export function ComparePage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Card
         title="시나리오 × 물건 매트릭스"
         subtitle="셀마다 최적 상품·월납·필요현금·실행가능 여부를 표시합니다. 셀을 누르면 전 상품 계산 내역이 열립니다."
@@ -89,7 +89,7 @@ export function ComparePage() {
           <table className="w-full min-w-[720px] border-separate border-spacing-1">
             <thead>
               <tr>
-                <th className="w-52 px-2 pb-2 text-left text-xs font-medium text-slate-500">
+                <th className="w-52 px-2 pb-2 text-left text-xs font-medium text-slate-400">
                   물건 \ 시나리오
                 </th>
                 {matrix.scenarios.map((s) => (
@@ -104,7 +104,7 @@ export function ComparePage() {
                       {s.giftTaxFlag && <Badge tone="warn">증여세</Badge>}
                       {s.contributionRatioFlag && <Badge tone="warn">지분율 주의</Badge>}
                     </div>
-                    <div className="mt-1 text-[11px] tabular-nums text-slate-500">
+                    <div className="mt-1 text-xs tabular-nums text-slate-400">
                       소득 {money(s.assessedIncome)} · 현금 {money(s.availableCash)}
                     </div>
                   </th>
@@ -116,7 +116,7 @@ export function ComparePage() {
                 <tr key={p.id}>
                   <th className="rounded-lg bg-slate-900/50 px-3 py-2 text-left align-top print-plain">
                     <div className="text-sm font-semibold text-slate-100">{p.name}</div>
-                    <div className="mt-1 text-[11px] tabular-nums text-slate-400">
+                    <div className="mt-1 text-xs tabular-nums text-slate-400">
                       {money(p.price)} · 전용 {p.areaSqm}㎡
                     </div>
                     <div className="mt-1.5 flex flex-wrap gap-1">
@@ -157,10 +157,10 @@ export function ComparePage() {
         {/* 인쇄본 각주 — 화면에서는 칩으로, 종이에서는 여기로 나옵니다 */}
         {footnotes.length > 0 && (
           <div className="mt-5 hidden border-t border-slate-300 pt-3 print:block">
-            <h3 className="text-[11px] font-semibold text-slate-700">한도 산출 근거</h3>
+            <h3 className="text-xs font-semibold text-slate-700">한도 산출 근거</h3>
             <ol className="mt-1 space-y-1">
               {footnotes.map((f) => (
-                <li key={f.n} className="text-[10px] leading-relaxed text-slate-700">
+                <li key={f.n} className="text-xs leading-relaxed text-slate-700">
                   <sup className="tabular-nums">{f.n}</sup> {f.text}
                 </li>
               ))}
@@ -168,7 +168,7 @@ export function ComparePage() {
           </div>
         )}
 
-        <div className="mt-4 flex flex-wrap gap-3 text-[11px] text-slate-500">
+        <div className="mt-4 flex flex-wrap gap-4 text-sm text-slate-400">
           <span className="flex items-center gap-1">
             <span className="text-emerald-400">✅</span> 실행 가능
           </span>
@@ -184,35 +184,38 @@ export function ComparePage() {
         </div>
       </Card>
 
-      {rec && recProperty && recScenario && (
-        <Card
-          title="현재 목적함수 기준 최적 조합"
-          subtitle={`${OBJECTIVE_LABELS[objective]} 기준으로 실행 가능한 조합 중 최우수입니다. 목적함수를 바꾸면 답도 바뀝니다.`}
-        >
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="text-lg font-semibold text-slate-100">{recProperty.name}</span>
-            <Badge tone="info">{recScenario.label}</Badge>
-            <Badge tone="good">{rec.best!.productName}</Badge>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Stat label="대출 한도" value={money(rec.best!.limit)} />
-            <Stat label="월 상환액" value={money(rec.best!.monthlyPayment)} />
-            <Stat
-              label="필요 현금"
-              value={money(rec.best!.requiredCash)}
-              tone={rec.best!.tight ? 'warn' : 'good'}
-            />
-            <Stat
-              label="상환부담률"
-              value={percent(rec.best!.dtiRatio, 0)}
-              tone={rec.best!.dtiRatio > 0.35 ? 'warn' : 'good'}
-            />
-            <Stat label="입지 점수" value={`${rec.localeScore.toFixed(1)} · ${rec.grade}`} />
-          </div>
-        </Card>
-      )}
+      {/* 넓은 화면에서는 최적 조합(왼쪽)과 얼마까지 되나(오른쪽)를 나란히 — 둘 다 매트릭스를 읽은 다음 보는 답입니다 */}
+      <div className="grid items-start gap-6 xl:grid-cols-2">
+        {rec && recProperty && recScenario && (
+          <Card
+            title="현재 목적함수 기준 최적 조합"
+            subtitle={`${OBJECTIVE_LABELS[objective]} 기준으로 실행 가능한 조합 중 최우수입니다. 목적함수를 바꾸면 답도 바뀝니다.`}
+          >
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="text-lg font-semibold text-slate-100">{recProperty.name}</span>
+              <Badge tone="neutral">{recScenario.label}</Badge>
+              <Badge tone="good">{rec.best!.productName}</Badge>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+              <Stat label="대출 한도" value={money(rec.best!.limit)} />
+              <Stat label="월 상환액" value={money(rec.best!.monthlyPayment)} />
+              <Stat
+                label="필요 현금"
+                value={money(rec.best!.requiredCash)}
+                tone={rec.best!.tight ? 'warn' : 'good'}
+              />
+              <Stat
+                label="상환부담률"
+                value={percent(rec.best!.dtiRatio, 0)}
+                tone={rec.best!.dtiRatio > 0.35 ? 'warn' : 'good'}
+              />
+              <Stat label="입지 점수" value={`${rec.localeScore.toFixed(1)} · ${rec.grade}`} />
+            </div>
+          </Card>
+        )}
 
-      <AffordabilityCard />
+        <AffordabilityCard />
+      </div>
 
       {detail && (
         <DetailDrawer
@@ -248,7 +251,7 @@ function LeverageControl() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-xs font-semibold text-slate-200">연 가격상승률 가정</div>
-          <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-slate-500">
+          <p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-400">
             자기자본 수익률 ≈ 가격상승률 + 부채비율 × (가격상승률 − 금리). 배율은 곱셈,
             금리는 스프레드 안의 한 항입니다. 그래서 <b>스프레드의 부호</b>가 먼저입니다.
           </p>
@@ -271,7 +274,7 @@ function LeverageControl() {
       </div>
 
       {rates.length > 0 && (
-        <p className="mt-3 text-[11px] leading-relaxed">
+        <p className="mt-3 text-xs leading-relaxed">
           {allBelow ? (
             <span className="text-rose-300">
               가정한 상승률이 모든 상품 금리({(minRate * 100).toFixed(2)}% 이상)를 밑돕니다 —
@@ -321,12 +324,12 @@ function MatrixCell({
         onClick={onClick}
         className="h-full w-full rounded-lg border border-slate-800 bg-slate-950/30 px-3 py-2.5 text-left transition hover:border-slate-700"
       >
-        <div className="text-xs font-medium text-slate-500">
+        <div className="text-sm font-medium text-slate-300">
           ✖ 이용 가능 상품 없음 ({reasons.length}종 전부 부적격)
         </div>
         <ul className="mt-1 space-y-0.5">
           {reasons.map((x) => (
-            <li key={x.productName} className="text-[11px] leading-relaxed text-slate-600">
+            <li key={x.productName} className="text-xs leading-relaxed text-slate-400">
               {x.productName} — {x.reason}
             </li>
           ))}
@@ -353,13 +356,13 @@ function MatrixCell({
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-slate-200">{r.productName}</span>
+        <span className="text-sm font-semibold text-slate-100">{r.productName}</span>
         <span className="text-sm">{icon}</span>
       </div>
-      <div className="mt-1.5 text-[11px] tabular-nums text-slate-400">
+      <div className="mt-1.5 text-xs tabular-nums text-slate-400">
         LTV {(r.appliedLtv * 100).toFixed(0)}% · {money(r.limit)}
       </div>
-      <div className="mt-0.5 text-sm font-semibold tabular-nums text-slate-100">
+      <div className="mt-0.5 text-base font-semibold tabular-nums text-slate-100">
         월 {money(r.monthlyPayment)}
       </div>
       {/*
@@ -407,12 +410,12 @@ function MatrixCell({
       */}
       {r.limitBeforeRepay > 0 && (
         <div
-          className={`mt-1 text-[10px] leading-snug tabular-nums ${
+          className={`mt-1 text-xs leading-snug tabular-nums ${
             r.requiredIncomeBlocked
               ? 'text-rose-300'
               : r.incomeGap > 0
                 ? 'text-amber-300/90'
-                : 'text-slate-500'
+                : 'text-slate-400'
           }`}
           title={requiredIncomeNote(r)}
         >
@@ -448,7 +451,7 @@ function HiddenProductBadges({ summary }: { summary: CellSummary }) {
         강등합니다 (가이드 01). 대신 문장이라 무엇이 어떻게 밀렸는지 상시 보입니다.
       */}
       {passedOver && (
-        <p className="text-[10px] leading-relaxed text-slate-500">
+        <p className="text-xs leading-relaxed text-slate-400">
           {passedOver.shortName}은 한도 {money(passedOver.limit)}(
           {passedOver.limitDelta >= 0 ? '+' : ''}
           {money(passedOver.limitDelta)})로 더 크지만 월 {money(passedOver.monthlyPayment)}(
@@ -460,7 +463,7 @@ function HiddenProductBadges({ summary }: { summary: CellSummary }) {
         <Foldable summary="자격 미달 상품" count={rejected.length}>
           <ul className="space-y-0.5">
             {rejected.map((x) => (
-              <li key={x.productName} className="text-[10px] leading-relaxed text-slate-500">
+              <li key={x.productName} className="text-xs leading-relaxed text-slate-400">
                 {x.productName} — {x.reason}
               </li>
             ))}
@@ -549,7 +552,7 @@ function DetailDrawer({
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 no-print" onClick={onClose}>
       <div
-        className="h-full w-full max-w-2xl overflow-y-auto border-l border-slate-800 bg-slate-950 p-6"
+        className="h-full w-full max-w-3xl overflow-y-auto border-l border-slate-800 bg-slate-950 p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-start justify-between">
@@ -633,7 +636,7 @@ function ProductDetail({ result: r, property }: { result: LoanResult; property: 
       </div>
 
       <div className="mt-4">
-        <div className="mb-1.5 text-[11px] font-medium text-slate-400">
+        <div className="mb-1.5 text-sm font-medium text-slate-300">
           한도 산출 — 가장 작은 값이 최종 한도가 됩니다
         </div>
         <div className="space-y-1">
@@ -643,8 +646,8 @@ function ProductDetail({ result: r, property }: { result: LoanResult; property: 
             return (
               <div
                 key={s.label}
-                className={`flex items-center justify-between rounded-md px-2.5 py-1.5 text-xs ${
-                  binding ? 'bg-sky-500/10 text-sky-200' : 'text-slate-500'
+                className={`flex items-center justify-between rounded-md px-2.5 py-1.5 text-sm ${
+                  binding ? 'bg-sky-500/10 text-sky-200' : 'text-slate-400'
                 }`}
               >
                 <span>
@@ -663,7 +666,7 @@ function ProductDetail({ result: r, property }: { result: LoanResult; property: 
         */}
         {r.limitBeforeRepay > 0 && (
           <div
-            className={`mt-2 rounded-md border px-2.5 py-2 text-[11px] leading-relaxed ${
+            className={`mt-2 rounded-md border px-2.5 py-2 text-xs leading-relaxed ${
               r.requiredIncomeBlocked
                 ? 'border-rose-500/40 bg-rose-500/10 text-rose-200'
                 : r.incomeGap > 0
@@ -679,7 +682,7 @@ function ProductDetail({ result: r, property }: { result: LoanResult; property: 
               <span>
                 필요 연소득{' '}
                 <b className="tabular-nums">{money(r.requiredIncome)}</b>
-                <span className="ml-1 text-[10px] opacity-70">
+                <span className="ml-1 text-xs opacity-80">
                   ({r.regulatoryKind} {percent(r.regulatoryCap, 0)} 기준
                   {r.regulatoryKind === 'DSR' ? ' · 스트레스 금리 적용' : ''})
                 </span>
@@ -704,7 +707,7 @@ function ProductDetail({ result: r, property }: { result: LoanResult; property: 
             </div>
           </div>
         )}
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-xs text-slate-400">
           {constraintAdvice(r, property)}
         </p>
       </div>
@@ -712,8 +715,8 @@ function ProductDetail({ result: r, property }: { result: LoanResult; property: 
       <LeverageBlock result={r} property={property} />
 
       <div className="mt-4">
-        <div className="mb-1.5 text-[11px] font-medium text-slate-400">부대비용</div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-400 sm:grid-cols-3">
+        <div className="mb-1.5 text-sm font-medium text-slate-300">부대비용</div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-400 sm:grid-cols-3">
           <Row label="취득세" value={won(r.costs.acquisitionTax)} />
           {r.costs.acquisitionTaxRelief > 0 && (
             <Row label="생애최초 감면" value={`−${won(r.costs.acquisitionTaxRelief)}`} good />
@@ -725,7 +728,7 @@ function ProductDetail({ result: r, property }: { result: LoanResult; property: 
           <Row label="이사·수리" value={won(r.costs.movingAndRepair)} />
           <Row label="합계" value={won(r.costs.total)} strong />
         </div>
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-xs text-slate-400">
           필요현금 = 자기부담금 {money(r.downPayment)} + 부대비용 {money(r.costs.total)} ={' '}
           <span className="text-slate-300">{money(r.requiredCash)}</span>
         </p>
@@ -734,7 +737,7 @@ function ProductDetail({ result: r, property }: { result: LoanResult; property: 
       {r.warnings.length > 0 && (
         <ul className="mt-4 space-y-1">
           {r.warnings.map((w) => (
-            <li key={w} className="flex gap-1.5 text-[11px] text-amber-300/90">
+            <li key={w} className="flex gap-1.5 text-xs text-amber-300/90">
               <span>·</span>
               <span>{w}</span>
             </li>
@@ -755,7 +758,7 @@ function LeverageBlock({ result, property }: { result: LoanResult; property: Pro
   return (
     <div className="mt-4">
       <div className="mb-1.5 flex items-center gap-2">
-        <span className="text-[11px] font-medium text-slate-400">레버리지 방향</span>
+        <span className="text-xs font-medium text-slate-400">레버리지 방향</span>
         {view.amplifying ? (
           <Badge tone="good">수익 증폭</Badge>
         ) : (
@@ -765,27 +768,27 @@ function LeverageBlock({ result, property }: { result: LoanResult; property: Pro
 
       <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2.5">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs tabular-nums">
-          <span className="text-slate-500">가격상승 {percent(view.unleveredReturn, 1)}</span>
-          <span className="text-slate-600">−</span>
-          <span className="text-slate-500">금리 {percent(view.breakEvenGrowth, 2)}</span>
-          <span className="text-slate-600">=</span>
+          <span className="text-slate-400">가격상승 {percent(view.unleveredReturn, 1)}</span>
+          <span className="text-slate-500">−</span>
+          <span className="text-slate-400">금리 {percent(view.breakEvenGrowth, 2)}</span>
+          <span className="text-slate-500">=</span>
           <span className={tone}>스프레드 {percent(view.spread, 2)}</span>
         </div>
 
         <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs tabular-nums">
-          <span className="text-slate-500">
+          <span className="text-slate-400">
             자기자본 {money(view.equity)} · 배율 {view.debtToEquity.toFixed(2)}배
           </span>
-          <span className="text-slate-600">→</span>
+          <span className="text-slate-500">→</span>
           <span className={`font-semibold ${tone}`}>
             자기자본 수익률 ≈ {percent(view.equityReturn, 1)}/년
           </span>
-          <span className="text-slate-600">
+          <span className="text-slate-400">
             (무차입 {percent(view.unleveredReturn, 1)})
           </span>
         </div>
 
-        <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+        <p className="mt-2 text-xs leading-relaxed text-slate-400">
           {view.amplifying
             ? `스프레드가 양수라 배율 ${view.debtToEquity.toFixed(
                 2
@@ -795,7 +798,7 @@ function LeverageBlock({ result, property }: { result: LoanResult; property: Pro
               )}배가 손실을 키웁니다. 이 구간에서는 LTV가 높을수록 불리하며, 비수도권 80% 우대가 오히려 독이 됩니다.`}
         </p>
 
-        <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
+        <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
           방향을 보기 위한 1차 근사입니다. 원금상환·보유세·거래비용·양도세를 제외했으므로
           수익률 예측치가 아닙니다. 실제 수익률은 부대비용 {money(result.costs.total)}만큼 더
           낮고, 보유기간이 짧을수록 격차가 벌어집니다.
@@ -818,7 +821,7 @@ function Row({
 }) {
   return (
     <div className="flex justify-between gap-2">
-      <span className="text-slate-500">{label}</span>
+      <span className="text-slate-400">{label}</span>
       <span
         className={`tabular-nums ${
           good ? 'text-emerald-300' : strong ? 'font-semibold text-slate-200' : ''

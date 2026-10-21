@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
-import { Badge, Card, InfoPopover } from '../components/ui';
+import { Badge, Card, Foldable, InfoPopover } from '../components/ui';
 import { percent } from '../engine/format';
 import { MARKET } from '../engine/market';
 import { TEMPERATURE_CAVEATS, districtTemperature, qLabel, type SaleTemperature } from '../engine/temperature';
@@ -29,7 +29,7 @@ const signClass = (v: number) => (v > 0 ? 'text-teal-300' : v < 0 ? 'text-rose-3
 const signed = (v: number, d = 1) => `${v > 0 ? '+' : v < 0 ? '−' : '±'}${percent(Math.abs(v), d)}`;
 function ratioClass(v: number): string {
   if (v < CUTS.low) return 'text-emerald-300';
-  if (v < CUTS.mid) return 'text-sky-300';
+  if (v < CUTS.mid) return 'text-slate-200';
   if (v < CUTS.high) return 'text-amber-300';
   return 'text-rose-300';
 }
@@ -60,9 +60,9 @@ function Spark({ values, tone = 'fill-sky-400/70', cuts }: { values: (number | n
   );
 }
 
-const N = ({ children }: { children: ReactNode }) => <span className="ml-0.5 text-[10px] text-slate-500">({children})</span>;
+const N = ({ children }: { children: ReactNode }) => <span className="ml-1 text-2xs text-slate-400">({children})</span>;
 const Dash = ({ why }: { why: string }) => (
-  <span className="text-slate-600" title={why}>
+  <span className="text-slate-500" title={why}>
     —
   </span>
 );
@@ -98,11 +98,11 @@ export function TemperatureCard() {
   const rentCaveats = TOWN_CAVEATS.filter((c) => c.includes('전세') || c.includes('월세'));
 
   const head = (label: string, formula: string) => (
-    <th className="px-2 py-2 text-right font-medium whitespace-nowrap">
+    <th className="px-2.5 py-2.5 text-right font-medium whitespace-nowrap">
       <span className="inline-flex items-center gap-1">
         {label}
         <InfoPopover icon="ƒ" label={`${label} — 계산`}>
-          <span className="block text-[11px] leading-relaxed text-slate-300">{formula}</span>
+          <span className="block text-sm leading-relaxed text-slate-300">{formula}</span>
         </InfoPopover>
       </span>
     </th>
@@ -113,17 +113,17 @@ export function TemperatureCard() {
     <Card
       title={
         <span className="inline-flex items-center gap-2">
-          시장 온도 <span className="text-xs font-normal text-slate-500">축마다 따로 읽습니다 — 합친 점수는 없습니다</span>
+          시장 온도 <span className="text-xs font-normal text-slate-400">축마다 따로 읽습니다 — 합친 점수는 없습니다</span>
         </span>
       }
-      subtitle="실거래로 잴 수 있는 축만 나란히 둡니다. 부동산원 매매수급·심리지수는 호가·설문이라 재현할 수 없습니다. 색은 부호(＋청록 / −장미)와 전세가율 경계에만 칠합니다."
-      action={<Badge tone="info">매매 {MARKET.asOf} 수집</Badge>}
+      subtitle="실거래로 잴 수 있는 축만 나란히 둡니다. 색은 부호(＋청록 / −장미)와 전세가율 경계에만 칠합니다."
+      action={<Badge tone="neutral">매매 {MARKET.asOf} 수집</Badge>}
     >
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[52rem] text-xs tabular-nums">
-          <thead className="border-b border-slate-800 text-[11px] text-slate-500">
+        <table className="w-full min-w-[52rem] text-sm tabular-nums">
+          <thead className="border-b border-slate-800 text-xs text-slate-400">
             <tr>
-              <th className="px-2 py-2 text-left font-medium">시군구</th>
+              <th className="px-2.5 py-2.5 text-left font-medium">시군구</th>
               {head('매매 거래량', `최근 12분기 거래 수 막대 · 최근 4분기 ÷ 그 앞 4분기 − 1 (${saleWin}). 앞 창이 10건 미만이면 내지 않습니다. 마지막 완결 분기까지만 — 신고 지연으로 진행 중인 분기는 늘 적게 잡힙니다.`)}
               {head('매매 1년', '같은 칸(단지·평형)의 마지막 완결 분기 가격 ÷ 4분기 전 가격 → 칸들의 중위 − 1. 칸 5개 미만이면 내지 않습니다.')}
               {head('전세 1년', `같은 칸 전세 보증금 마지막 완결 분기 ÷ 4분기 전 → 중위 − 1 (${rentWin}). 전월세 스냅샷이 마산권뿐이라 부산·경기는 없습니다.`)}
@@ -141,25 +141,25 @@ export function TemperatureCard() {
               return (
                 <FragmentRows key={l.code} group={groupRow ? l.group : null}>
                   <tr className="border-b border-slate-800/60">
-                    <td className="px-2 py-1.5 whitespace-nowrap text-slate-200">{l.label}</td>
-                    <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                    <td className="px-2.5 py-2 whitespace-nowrap text-slate-200">{l.label}</td>
+                    <td className="px-2.5 py-2 text-right whitespace-nowrap">
                       {s ? (
                         <>
                           <Spark values={s.deals.series.map((p) => p.n)} />{' '}
                           {s.deals.change != null ? (
                             <span className={signClass(s.deals.change)}>{signed(s.deals.change, 0)}</span>
                           ) : (
-                            <span className="text-slate-600">기준 적음</span>
+                            <span className="text-slate-500">기준 적음</span>
                           )}
                           <N>
                             {s.deals.recent.toLocaleString('ko-KR')}/{s.deals.prior.toLocaleString('ko-KR')}
                           </N>
                         </>
                       ) : (
-                        <span className="text-slate-600">매매 자료 없음</span>
+                        <span className="text-slate-500">매매 자료 없음</span>
                       )}
                     </td>
-                    <td className="px-2 py-1.5 text-right">
+                    <td className="px-2.5 py-2 text-right">
                       {s?.price1y ? (
                         <span className={signClass(s.price1y.v)}>
                           {signed(s.price1y.v)}
@@ -169,7 +169,7 @@ export function TemperatureCard() {
                         <Dash why={s ? '짝지은 칸 5개 미만' : '매매 자료 없음'} />
                       )}
                     </td>
-                    <td className="px-2 py-1.5 text-right">
+                    <td className="px-2.5 py-2 text-right">
                       {j ? (
                         j.jeonse1y ? (
                           <span className={signClass(j.jeonse1y.v)}>
@@ -180,10 +180,10 @@ export function TemperatureCard() {
                           <Dash why="짝지은 칸 5개 미만" />
                         )
                       ) : (
-                        <span className="text-slate-600">자료 없음</span>
+                        <span className="text-slate-500">자료 없음</span>
                       )}
                     </td>
-                    <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                    <td className="px-2.5 py-2 text-right whitespace-nowrap">
                       {j ? (
                         <>
                           <Spark values={j.series.map((p) => p.ratio)} tone="fill-amber-400/60" cuts={[CUTS.low, CUTS.mid, CUTS.high]} />{' '}
@@ -197,10 +197,10 @@ export function TemperatureCard() {
                           )}
                         </>
                       ) : (
-                        <span className="text-slate-600">자료 없음</span>
+                        <span className="text-slate-500">자료 없음</span>
                       )}
                     </td>
-                    <td className="px-2 py-1.5 text-right text-slate-300">
+                    <td className="px-2.5 py-2 text-right text-slate-300">
                       {s?.newShare ? (
                         <>
                           {percent(s.newShare.v, 0)}
@@ -217,14 +217,16 @@ export function TemperatureCard() {
           </tbody>
         </table>
       </div>
-      <p className="mt-2 text-[11px] text-slate-500">
-        창 — 매매 {saleWin} · 전세 {rentWin}. 매매는 {MARKET.range.to} 수집이라 {qLabel(lines[0]?.sale?.window.recent[1] ?? 0, MARKET.quarterBaseYear)}{' '}
-        까지가 마지막 완결 분기입니다. 괄호 안은 거래 건수(최근/이전) 또는 짝지은 칸 수입니다.
-      </p>
-
-      <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-3">
-        <div className="mb-1.5 text-[11px] font-medium text-slate-400">이 자료가 못 하는 것</div>
-        <ul className="list-disc space-y-1 pl-5 text-[11px] leading-relaxed text-slate-500">
+      <Foldable summary="창 · 괄호 읽는 법" count={2}>
+        <p>
+          창 — 매매 {saleWin} · 전세 {rentWin}. 매매는 {MARKET.range.to} 수집이라 {qLabel(lines[0]?.sale?.window.recent[1] ?? 0, MARKET.quarterBaseYear)}{' '}
+          까지가 마지막 완결 분기입니다.
+        </p>
+        <p className="mt-1">괄호 안은 거래 건수(최근/이전) 또는 짝지은 칸 수입니다.</p>
+      </Foldable>
+      <Foldable summary="이 자료가 못 하는 것" count={TEMPERATURE_CAVEATS.length + rentCaveats.length + 2}>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>부동산원 매매수급·심리지수는 호가·설문이라 재현할 수 없어 넣지 않았습니다.</li>
           {TEMPERATURE_CAVEATS.map((c) => (
             <li key={c}>{c}</li>
           ))}
@@ -233,7 +235,7 @@ export function TemperatureCard() {
           ))}
           <li>금리 국면이 바뀌면 전세가율은 상수가 아닙니다 — 같은 70% 도 금리가 높을 때와 낮을 때 뜻이 다릅니다.</li>
         </ul>
-      </div>
+      </Foldable>
     </Card>
   );
 }
@@ -243,7 +245,7 @@ function FragmentRows({ group, children }: { group: string | null; children: Rea
     <>
       {group && (
         <tr>
-          <td colSpan={6} className="px-2 pt-3 pb-1 text-[10px] font-medium tracking-wide text-slate-500">
+          <td colSpan={6} className="px-2.5 pt-4 pb-1 text-sm font-medium text-slate-300">
             {group}
           </td>
         </tr>

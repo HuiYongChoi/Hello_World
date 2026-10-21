@@ -1,5 +1,5 @@
-import { Badge, Card, SegmentedControl, Stat } from '../components/ui';
-import { money, percent } from '../engine/format';
+import { Badge, Card, SegmentedControl } from '../components/ui';
+import { money } from '../engine/format';
 import { OBJECTIVE_LABELS } from '../engine/loan';
 import { RULES } from '../engine/rules';
 import { ALL_SCENARIO_AXES, deriveScenario } from '../engine/scenario';
@@ -10,7 +10,7 @@ export function ScenarioPage() {
   const { profile, enabledScenarioIds, toggleScenario, objective, setObjective } = useStore();
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Card
         title="시나리오 축"
         subtitle="지역군은 물건에 귀속되므로 시나리오 축은 혼인시점 × 명의 4종입니다. 최종 조합 수는 4 × 물건 수가 됩니다."
@@ -46,27 +46,27 @@ export function ScenarioPage() {
 
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                   <div className="flex justify-between">
-                    <dt className="text-slate-500">판정소득</dt>
+                    <dt className="text-slate-400">판정소득</dt>
                     <dd className="tabular-nums text-slate-300">{money(s.assessedIncome)}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-slate-500">가용현금</dt>
+                    <dt className="text-slate-400">가용현금</dt>
                     <dd className="tabular-nums text-slate-300">{money(s.availableCash)}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-slate-500">무주택세대</dt>
+                    <dt className="text-slate-400">무주택세대</dt>
                     <dd className={s.hasNoHouseHousehold ? 'text-emerald-300' : 'text-rose-300'}>
                       {s.hasNoHouseHousehold ? '충족' : '미충족'}
                     </dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-slate-500">신혼 판정</dt>
+                    <dt className="text-slate-400">신혼 판정</dt>
                     <dd className="text-slate-300">{s.isNewlywed ? '해당' : '비해당'}</dd>
                   </div>
                 </dl>
 
                 {s.firstTimeLostReason && (
-                  <p className="mt-2.5 text-[11px] leading-relaxed text-rose-300/90">
+                  <p className="mt-2.5 text-xs leading-relaxed text-rose-300/90">
                     {s.firstTimeLostReason}
                   </p>
                 )}
@@ -74,7 +74,7 @@ export function ScenarioPage() {
             );
           })}
         </div>
-        <p className="mt-3 text-[11px] text-slate-500">
+        <p className="mt-3 text-xs text-slate-400">
           카드를 눌러 비교 매트릭스에 포함할 시나리오를 켜고 끕니다. 최소 1개는 유지됩니다.
         </p>
       </Card>
@@ -91,7 +91,7 @@ export function ScenarioPage() {
             label: OBJECTIVE_LABELS[k],
           }))}
         />
-        <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+        <p className="mt-3 text-xs leading-relaxed text-slate-400">
           주의: 월납·이자 최소화는 <b>덜 빌리는 쪽</b>을 유리하게 만듭니다. 대출을 적게 받으면 월납은
           당연히 낮아지지만 필요현금이 늘어납니다. 매트릭스에서 월납과 필요현금을 반드시 함께 읽으세요.
         </p>
@@ -113,37 +113,17 @@ export function ScenarioPage() {
                   {r.isCapitalArea ? '수도권 · LTV 70%' : '비수도권 · LTV 80%'}
                 </Badge>
               </div>
-              <p className="mt-2 text-[11px] leading-relaxed text-slate-400">{r.note}</p>
+              <p className="mt-2 text-xs leading-relaxed text-slate-400">{r.note}</p>
               <ul className="mt-3 space-y-1">
                 {r.checklist.map((c) => (
-                  <li key={c} className="flex gap-1.5 text-[11px] text-slate-500">
-                    <span className="text-slate-600">·</span>
+                  <li key={c} className="flex gap-1.5 text-xs text-slate-400">
+                    <span className="text-slate-500">·</span>
                     <span>{c}</span>
                   </li>
                 ))}
               </ul>
             </div>
           ))}
-        </div>
-      </Card>
-
-      <Card title="현재 프로필 요약">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="본인 연소득" value={money(profile.ownIncome)} />
-          <Stat label="합산 연소득" value={money(profile.ownIncome + profile.spouseIncome)} />
-          <Stat label="본인 현금" value={money(profile.ownCash)} />
-          <Stat
-            label="가구 합산 현금"
-            value={money(profile.ownCash + profile.spouseCash)}
-          />
-          <Stat label="순자산" value={money(profile.netWorth)} />
-          <Stat label="기존 대출 월납" value={money(profile.existingMonthlyDebt)} />
-          <Stat label="만기" value={`${profile.termYears}년`} />
-          <Stat
-            label="금리 가정 조정"
-            value={profile.rateAdjust === 0 ? '기본' : `${percent(profile.rateAdjust, 2)}p`}
-            tone={profile.rateAdjust > 0 ? 'warn' : 'neutral'}
-          />
         </div>
       </Card>
     </div>

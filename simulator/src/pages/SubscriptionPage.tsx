@@ -9,9 +9,11 @@ import {
   InfoPopover,
   MoneyInput,
   NumberInput,
+  Rail,
   Select,
   TextInput,
   Toggle,
+  TwoCol,
 } from '../components/ui';
 import { money, percent } from '../engine/format';
 import {
@@ -118,7 +120,7 @@ function defaultTerms(region: RegionId): RatingTerms {
  * 그게 제일 나쁩니다 — 읽는 사람은 그것도 판정이라고 믿습니다.
  */
 function Stars({ n }: { n: number | null }) {
-  if (n === null) return <span className="text-[11px] text-slate-600">잴 수 없음</span>;
+  if (n === null) return <span className="text-xs text-slate-400">잴 수 없음</span>;
   return (
     <span className="tracking-tight" title={`${n} / 5`}>
       <span className="text-amber-300">{'★'.repeat(n)}</span>
@@ -137,7 +139,7 @@ function AxisCard({ axis }: { axis: RatingAxis }) {
             질문이 라벨 옆에 붙어 있으면 "분양가이 값이 싼가" 로 읽힙니다.
             줄을 나누고 명도를 올려 별개의 문장으로 보이게 합니다.
           */}
-          <div className="mt-0.5 text-[11px] text-slate-400">{axis.question}</div>
+          <div className="mt-0.5 text-xs text-slate-400">{axis.question}</div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <Stars n={axis.stars} />
@@ -150,7 +152,7 @@ function AxisCard({ axis }: { axis: RatingAxis }) {
               {axis.bands.map((b) => (
                 <span
                   key={b.stars}
-                  className={`flex items-baseline justify-between gap-2 rounded px-1 py-0.5 text-[10px] ${
+                  className={`flex items-baseline justify-between gap-2 rounded px-1 py-0.5 text-2xs ${
                     b.current ? 'bg-sky-500/15 text-sky-200' : 'text-slate-400'
                   }`}
                 >
@@ -158,18 +160,18 @@ function AxisCard({ axis }: { axis: RatingAxis }) {
                   <span className="text-right leading-snug">{b.range}</span>
                 </span>
               ))}
-              <span className="block pt-1 text-[10px] text-slate-600">
+              <span className="block pt-1 text-xs text-slate-400">
                 파란 줄이 이 공고가 든 구간입니다.
               </span>
             </span>
           </InfoPopover>
           <InfoPopover icon="ƒ" label={`${axis.label} — 어떻게 계산했나`}>
-            <span className="block text-[10px] leading-relaxed text-slate-300">
+            <span className="block text-xs leading-relaxed text-slate-300">
               {axis.formula.expression}
             </span>
             <span className="mt-1.5 block space-y-0.5">
               {axis.formula.steps.map((st) => (
-                <span key={st} className="block text-[10px] leading-relaxed text-slate-500">
+                <span key={st} className="block text-xs leading-relaxed text-slate-400">
                   · {st}
                 </span>
               ))}
@@ -177,15 +179,15 @@ function AxisCard({ axis }: { axis: RatingAxis }) {
           </InfoPopover>
         </div>
       </div>
-      <p className="mt-1.5 text-[11px] leading-relaxed text-slate-300">{axis.headline}</p>
+      <p className="mt-1.5 text-xs leading-relaxed text-slate-300">{axis.headline}</p>
       <Foldable summary={`왜 이 별점인가 · ${axis.label}`} count={axis.reasons.length}>
         <ul className="space-y-1">
           {axis.reasons.map((r) => (
-            <li key={r} className="text-[10px] leading-relaxed text-slate-500">
+            <li key={r} className="text-xs leading-relaxed text-slate-400">
               · {r}
             </li>
           ))}
-          <li className="text-[10px] leading-relaxed text-amber-500/70">⚠ {axis.caveat}</li>
+          <li className="text-xs leading-relaxed text-amber-500/70">⚠ {axis.caveat}</li>
         </ul>
       </Foldable>
     </div>
@@ -247,264 +249,274 @@ function NoticePicker({
     [notice, model, terms, availableCash, profile.termYears]
   );
 
+  /*
+   * 넓은 화면: 왼쪽 레일 = 공고 고르기 + 공고문에서 넣을 값 / 오른쪽 = 공고 요약 + 별점 네 축.
+   * 손입력을 바꾸면 스크롤 없이 오른쪽 별점이 같이 움직입니다.
+   */
   return (
-    <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="권역">
-          <Select<RegionId>
-            value={region}
-            onChange={(v) => {
-              setRegion(v);
-              setNoticeId('');
-              setHouseType('');
-              // 권역이 바뀌면 LTV 기본값이 달라집니다 (수도권 70 / 비수도권 80).
-              setTerms(defaultTerms(v));
-            }}
-            options={REGION_OPTIONS}
-          />
-        </Field>
-        <Field
-          label="공고"
-          hint={
-            list.length
-              ? `${list.length}건 · 최근 순 · 최신 ${list[0].noticeDate}`
-              : '이 권역 공고 없음'
-          }
+    <TwoCol rail="left">
+      <Rail>
+        <Card
+          title="공고에서 불러오기"
+          subtitle={`청약홈 공고 ${APPLYHOME.stats.notices}건 · 기준 ${APPLYHOME.asOf}`}
         >
-          <Select<string>
-            value={notice?.id ?? ''}
-            onChange={(v) => {
-              setNoticeId(v);
-              setHouseType('');
-            }}
-            options={
-              list.length
-                ? list.map((n) => ({
-                    value: n.id,
-                    label: `${n.noticeDate.slice(2)} ${n.name}${n.sigungu ? ` · ${n.sigungu}` : ''}`,
-                  }))
-                : [{ value: '', label: '— 공고 없음' }]
-            }
-          />
-        </Field>
-        <Field label="주택형" hint="전용면적 · 분양가 · 1순위 경쟁률">
-          <Select<string>
-            value={model?.houseType ?? ''}
-            onChange={setHouseType}
-            options={
-              notice
-                ? notice.models.map((m) => ({
-                    value: m.houseType,
-                    label: `${m.areaSqm}㎡ · ${money(m.price)} · ${rateLabel(m.rank1Rate)}`,
-                  }))
-                : [{ value: '', label: '—' }]
-            }
-          />
-        </Field>
-      </div>
-
-      {/*
-        목록이 오래돼 보이면 "기능이 사라졌나" 로 읽힙니다. 그 권역에 새 공고가
-        없는 것과 스냅샷이 낡은 것은 다른 문제라, 최신 공고일과 수집 기준일을
-        나란히 적어 어느 쪽인지 바로 가려집니다.
-      */}
-      {staleDays !== null && staleDays > 45 && (
-        <p className="text-[11px] leading-relaxed text-amber-300/90">
-          이 권역은 <b>{list[0].noticeDate}</b> 이후 새 공고가 없습니다 (수집 기준{' '}
-          {APPLYHOME.asOf} · {staleDays}일째). 목록이 비는 게 아니라 그동안 이 권역에
-          분양 공고가 나오지 않았다는 뜻입니다.
-        </p>
-      )}
-
-      {notice && model && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/30 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-slate-200">{notice.name}</span>
-            {notice.regulated && <Badge tone="warn">규제지역</Badge>}
-            {notice.speculative && <Badge tone="warn">투기과열</Badge>}
-            {notice.priceCapped && <Badge tone="good">분양가상한제</Badge>}
-            <Badge>{notice.kind}</Badge>
-            <a
-              href={noticeUrl(notice)}
-              target="_blank"
-              rel="noreferrer"
-              className="text-[11px] text-sky-400 underline-offset-2 hover:underline"
+          <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
+            <Field label="권역">
+              <Select<RegionId>
+                value={region}
+                onChange={(v) => {
+                  setRegion(v);
+                  setNoticeId('');
+                  setHouseType('');
+                  // 권역이 바뀌면 LTV 기본값이 달라집니다 (수도권 70 / 비수도권 80).
+                  setTerms(defaultTerms(v));
+                }}
+                options={REGION_OPTIONS}
+              />
+            </Field>
+            <Field
+              label="공고"
+              hint={
+                list.length
+                  ? `${list.length}건 · 최근 순 · 최신 ${list[0].noticeDate}`
+                  : '이 권역 공고 없음'
+              }
             >
-              공고 원문 ↗
-            </a>
+              <Select<string>
+                value={notice?.id ?? ''}
+                onChange={(v) => {
+                  setNoticeId(v);
+                  setHouseType('');
+                }}
+                options={
+                  list.length
+                    ? list.map((n) => ({
+                        value: n.id,
+                        label: `${n.noticeDate.slice(2)} ${n.name}${n.sigungu ? ` · ${n.sigungu}` : ''}`,
+                      }))
+                    : [{ value: '', label: '— 공고 없음' }]
+                }
+              />
+            </Field>
+            <Field label="주택형" hint="전용면적 · 분양가 · 1순위 경쟁률">
+              <Select<string>
+                value={model?.houseType ?? ''}
+                onChange={setHouseType}
+                options={
+                  notice
+                    ? notice.models.map((m) => ({
+                        value: m.houseType,
+                        label: `${m.areaSqm}㎡ · ${money(m.price)} · ${rateLabel(m.rank1Rate)}`,
+                      }))
+                    : [{ value: '', label: '—' }]
+                }
+              />
+            </Field>
           </div>
-          <div className="mt-2 grid gap-x-6 gap-y-1 text-[11px] text-slate-400 sm:grid-cols-2 lg:grid-cols-4">
-            <span>
-              총 <b className="text-slate-200 tabular-nums">{notice.households}</b>세대 ·
-              이 주택형 <b className="text-slate-200 tabular-nums">{model.general + model.special}</b>
-            </span>
-            <span>
-              모집공고 <span className="tabular-nums">{notice.noticeDate}</span>
-            </span>
-            <span>
-              계약 <span className="tabular-nums">{notice.contractDate || '—'}</span>
-            </span>
-            <span>
-              입주예정{' '}
-              <span className="tabular-nums">
-                {notice.moveInYm ? `${notice.moveInYm.slice(0, 4)}.${notice.moveInYm.slice(4)}` : '—'}
-              </span>
-              {notice.waitMonths !== null && (
-                <span className="text-slate-500"> ({notice.waitMonths}개월 뒤)</span>
-              )}
-            </span>
-            <span>
-              특별공급 <span className="tabular-nums">{model.special}</span>세대 · 생애최초{' '}
-              <span className="tabular-nums">{model.lifeFirst}</span> · 신혼{' '}
-              <span className="tabular-nums">{model.newlywed}</span>
-            </span>
-            <span className="lg:col-span-3">{notice.address}</span>
-          </div>
-
           {/*
-            시군구를 못 뜯은 공고는 안전마진이 권역 전체와 비교됩니다. 불러온
-            뒤에 조용히 어긋나느니 여기서 미리 말합니다.
+            목록이 오래돼 보이면 "기능이 사라졌나" 로 읽힙니다. 그 권역에 새 공고가
+            없는 것과 스냅샷이 낡은 것은 다른 문제라, 최신 공고일과 수집 기준일을
+            나란히 적어 어느 쪽인지 바로 가려집니다.
           */}
-          {!matched && (
-            <p className="mt-2 text-[11px] leading-relaxed text-amber-300">
-              ⚠ 이 공고 주소에서 수집 시군구를 특정하지 못했습니다
-              {notice.sigungu ? ` (${notice.sigungu})` : ''} — 불러온 뒤 위에서 시군구를 직접
-              고르세요. 비워 두면 안전마진이 권역 전체와 비교됩니다.
+          {staleDays !== null && staleDays > 45 && (
+            <p className="mt-3 text-xs leading-relaxed text-amber-300/90">
+              이 권역은 <b>{list[0].noticeDate}</b> 이후 새 공고가 없습니다 (수집 기준{' '}
+              {APPLYHOME.asOf} · {staleDays}일째). 목록이 비는 게 아니라 그동안 이 권역에
+              분양 공고가 나오지 않았다는 뜻입니다.
             </p>
           )}
-
-          {/*
-            공고문에만 있는 값들. 여기서 넣어야 아래 별점이 그 조건으로 다시
-            계산됩니다 — 추가한 뒤에 넣으면 판단이 끝난 다음에 값을 넣는 셈입니다.
-          */}
-          <div className="mt-3 border-t border-slate-800 pt-3">
-            <h5 className="mb-2 text-[11px] font-medium tracking-wide text-slate-500">
-              공고문을 보고 넣을 값 — API 에 없습니다
-            </h5>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="계약금 비율" hint="자기 돈으로만 냅니다">
-                <NumberInput
-                  value={Math.round(terms.downPaymentRatio * 1000) / 10}
-                  step={1}
-                  suffix="%"
-                  onChange={(v) => patchTerms({ downPaymentRatio: v / 100 })}
-                />
-              </Field>
-              <Field label="중도금 비율" hint={`${RULES.subscription.interimInstallments}회 분할`}>
-                <NumberInput
-                  value={Math.round(terms.interimRatio * 1000) / 10}
-                  step={1}
-                  suffix="%"
-                  onChange={(v) => patchTerms({ interimRatio: v / 100 })}
-                />
-              </Field>
-              <Field label="중도금 금리">
-                <NumberInput
-                  value={Math.round(terms.interimLoanRate * 10000) / 100}
-                  step={0.05}
-                  suffix="%"
-                  onChange={(v) => patchTerms({ interimLoanRate: v / 100 })}
-                />
-              </Field>
-              <Field label="전매제한" hint="이 기간엔 팔 수 없습니다">
-                <NumberInput
-                  value={terms.resaleBanMonths}
-                  step={1}
-                  suffix="개월"
-                  onChange={(v) => patchTerms({ resaleBanMonths: Math.max(0, v) })}
-                />
-              </Field>
-            </div>
-            <div className="mt-2">
-              <Toggle
-                label="중도금 이자후불제"
-                hint="대기 중엔 안 내고 입주 때 한꺼번에 정산합니다. 대기 부담은 가벼워지고 입주 목돈이 커집니다."
-                checked={terms.interimDeferred}
-                onChange={(v) => patchTerms({ interimDeferred: v })}
-              />
-            </div>
-          </div>
-
-          {rating && (
-            <div className="mt-3 border-t border-slate-800 pt-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h5 className="text-[11px] font-medium tracking-wide text-slate-500">
-                  이 공고, 지역 안에서 몇 점인가
-                </h5>
-                <span className="text-[10px] text-slate-600">{rating.scope} 대비</span>
+          {notice && model && (
+            <>
+            {/*
+              공고문에만 있는 값들. 여기서 넣어야 아래 별점이 그 조건으로 다시
+              계산됩니다 — 추가한 뒤에 넣으면 판단이 끝난 다음에 값을 넣는 셈입니다.
+            */}
+            <div className="mt-4 border-t border-slate-800 pt-4">
+              <h5 className="mb-2 text-sm font-medium text-slate-300">
+                공고문을 보고 넣을 값 — API 에 없습니다
+              </h5>
+              <div className="grid gap-3 grid-cols-2">
+                <Field label="계약금 비율" hint="자기 돈으로만 냅니다">
+                  <NumberInput
+                    value={Math.round(terms.downPaymentRatio * 1000) / 10}
+                    step={1}
+                    suffix="%"
+                    onChange={(v) => patchTerms({ downPaymentRatio: v / 100 })}
+                  />
+                </Field>
+                <Field label="중도금 비율" hint={`${RULES.subscription.interimInstallments}회 분할`}>
+                  <NumberInput
+                    value={Math.round(terms.interimRatio * 1000) / 10}
+                    step={1}
+                    suffix="%"
+                    onChange={(v) => patchTerms({ interimRatio: v / 100 })}
+                  />
+                </Field>
+                <Field label="중도금 금리">
+                  <NumberInput
+                    value={Math.round(terms.interimLoanRate * 10000) / 100}
+                    step={0.05}
+                    suffix="%"
+                    onChange={(v) => patchTerms({ interimLoanRate: v / 100 })}
+                  />
+                </Field>
+                <Field label="전매제한" hint="이 기간엔 팔 수 없습니다">
+                  <NumberInput
+                    value={terms.resaleBanMonths}
+                    step={1}
+                    suffix="개월"
+                    onChange={(v) => patchTerms({ resaleBanMonths: Math.max(0, v) })}
+                  />
+                </Field>
               </div>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {rating.axes
-                  .filter((a) => a.id !== 'cash' || showCash)
-                  .map((a) => (
-                    <AxisCard key={a.id} axis={a} />
-                  ))}
+              <div className="mt-2">
+                <Toggle
+                  label="중도금 이자후불제"
+                  hint="대기 중엔 안 내고 입주 때 한꺼번에 정산합니다. 대기 부담은 가벼워지고 입주 목돈이 커집니다."
+                  checked={terms.interimDeferred}
+                  onChange={(v) => patchTerms({ interimDeferred: v })}
+                />
               </div>
-              <button
-                type="button"
-                onClick={() => setShowCash((v) => !v)}
-                className="mt-2 text-[11px] text-slate-500 underline decoration-dotted underline-offset-2 transition hover:text-slate-300"
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Button
+                size="sm"
+                onClick={() => onPick({ ...planPatch(notice, model), ...terms })}
               >
-                {showCash ? '자금 부담 축 숨기기' : '자금 부담 축도 보기 (가구 프로필 기준)'}
-              </button>
-              {/*
-                합치지 않는 이유를 화면에도 적습니다. 별을 넷 그려 놓으면
-                사람은 자동으로 평균을 냅니다.
-              */}
-              <p className="mt-2 text-[10px] leading-relaxed text-slate-600">
-                네 축을 <b className="text-slate-500">합치지 않습니다</b> — 싸지만 붙기 어려운
-                공고와 비싸지만 붙기 쉬운 공고는 해야 할 일이 다릅니다. 별점은 예측이 아니라
-                같은 권역 최근 공고들 사이에서의 위치입니다.
-              </p>
-              <Foldable summary="별점이 못 하는 것" count={RATING_CAVEATS.length}>
-                <ul className="space-y-1">
-                  {RATING_CAVEATS.map((c) => (
-                    <li key={c} className="text-[10px] leading-relaxed text-slate-500">
-                      · {c}
-                    </li>
-                  ))}
-                </ul>
-              </Foldable>
+                이 주택형으로 단지 추가
+              </Button>
+              <span className="text-xs text-slate-400">
+                위에서 넣은 중도금 조건·전매제한이 그대로 따라갑니다.
+              </span>
             </div>
+            </>
           )}
+        </Card>
+      </Rail>
 
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <Button
-              size="sm"
-              onClick={() => onPick({ ...planPatch(notice, model), ...terms })}
-            >
-              이 주택형으로 단지 추가
-            </Button>
-            <span className="text-[11px] text-slate-500">
-              위에서 넣은 중도금 조건·전매제한이 그대로 따라갑니다.
-            </span>
-          </div>
-        </div>
-      )}
-
-      {stats && (
-        <p className="text-[11px] leading-relaxed text-slate-500">
-          이 권역 1순위 경쟁률 — 중위{' '}
-          <b className="text-slate-300 tabular-nums">{stats.median.toFixed(1)} : 1</b> · 하위 25%{' '}
-          <span className="tabular-nums">{stats.p25.toFixed(1)}</span> · 상위 25%{' '}
-          <span className="tabular-nums">{stats.p75.toFixed(1)}</span> · 1순위 미달{' '}
-          <span className="tabular-nums text-amber-300">{percent(stats.underShare, 0)}</span>{' '}
-          <span className="text-slate-600">
-            (공고 {stats.notices}건 · 주택형 {stats.n}개, {APPLYHOME.range.from} 이후)
-          </span>
-        </p>
-      )}
-
-      <Foldable summary="이 자료가 못 하는 것" count={APPLYHOME_CAVEATS.length}>
-        <ul className="space-y-1">
-          {APPLYHOME_CAVEATS.map((c) => (
-            <li key={c} className="text-[10px] leading-relaxed text-slate-500">
-              · {c}
-            </li>
-          ))}
-        </ul>
-      </Foldable>
-    </div>
+      <div className="min-w-0 space-y-6">
+        {notice && model ? (
+          <Card title={notice.name} action={<a
+                href={noticeUrl(notice)}
+                target="_blank"
+                rel="noreferrer"
+                className="shrink-0 text-sm text-sky-400 underline-offset-2 hover:underline"
+              >
+                공고 원문 ↗
+              </a>}>
+            <div className="flex flex-wrap items-center gap-2">
+              {notice.regulated && <Badge tone="warn">규제지역</Badge>}
+              {notice.speculative && <Badge tone="warn">투기과열</Badge>}
+              {notice.priceCapped && <Badge tone="good">분양가상한제</Badge>}
+              <Badge>{notice.kind}</Badge>
+            </div>
+            <div className="mt-3 grid gap-x-6 gap-y-1.5 text-sm text-slate-400 sm:grid-cols-2 2xl:grid-cols-4">
+              <span>
+                총 <b className="text-slate-200 tabular-nums">{notice.households}</b>세대 ·
+                이 주택형 <b className="text-slate-200 tabular-nums">{model.general + model.special}</b>
+              </span>
+              <span>
+                모집공고 <span className="tabular-nums">{notice.noticeDate}</span>
+              </span>
+              <span>
+                계약 <span className="tabular-nums">{notice.contractDate || '—'}</span>
+              </span>
+              <span>
+                입주예정{' '}
+                <span className="tabular-nums">
+                  {notice.moveInYm ? `${notice.moveInYm.slice(0, 4)}.${notice.moveInYm.slice(4)}` : '—'}
+                </span>
+                {notice.waitMonths !== null && (
+                  <span className="text-slate-400"> ({notice.waitMonths}개월 뒤)</span>
+                )}
+              </span>
+              <span>
+                특별공급 <span className="tabular-nums">{model.special}</span>세대 · 생애최초{' '}
+                <span className="tabular-nums">{model.lifeFirst}</span> · 신혼{' '}
+                <span className="tabular-nums">{model.newlywed}</span>
+              </span>
+              <span className="lg:col-span-3">{notice.address}</span>
+            </div>
+            {/*
+              시군구를 못 뜯은 공고는 안전마진이 권역 전체와 비교됩니다. 불러온
+              뒤에 조용히 어긋나느니 여기서 미리 말합니다.
+            */}
+            {!matched && (
+              <p className="mt-2 text-xs leading-relaxed text-amber-300">
+                ⚠ 이 공고 주소에서 수집 시군구를 특정하지 못했습니다
+                {notice.sigungu ? ` (${notice.sigungu})` : ''} — 불러온 뒤 위에서 시군구를 직접
+                고르세요. 비워 두면 안전마진이 권역 전체와 비교됩니다.
+              </p>
+            )}
+            {rating && (
+              <div className="mt-4 border-t border-slate-800 pt-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h5 className="text-sm font-medium text-slate-300">
+                    이 공고, 지역 안에서 몇 점인가
+                  </h5>
+                  <span className="text-xs text-slate-400">{rating.scope} 대비</span>
+                </div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {rating.axes
+                    .filter((a) => a.id !== 'cash' || showCash)
+                    .map((a) => (
+                      <AxisCard key={a.id} axis={a} />
+                    ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCash((v) => !v)}
+                  className="mt-2 text-xs text-slate-400 underline decoration-dotted underline-offset-2 transition hover:text-slate-300"
+                >
+                  {showCash ? '자금 부담 축 숨기기' : '자금 부담 축도 보기 (가구 프로필 기준)'}
+                </button>
+                {/*
+                  합치지 않는 이유를 화면에도 적습니다. 별을 넷 그려 놓으면
+                  사람은 자동으로 평균을 냅니다.
+                */}
+                <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                  네 축을 <b className="text-slate-500">합치지 않습니다</b> — 싸지만 붙기 어려운
+                  공고와 비싸지만 붙기 쉬운 공고는 해야 할 일이 다릅니다. 별점은 예측이 아니라
+                  같은 권역 최근 공고들 사이에서의 위치입니다.
+                </p>
+                <Foldable summary="별점이 못 하는 것" count={RATING_CAVEATS.length}>
+                  <ul className="space-y-1">
+                    {RATING_CAVEATS.map((c) => (
+                      <li key={c} className="text-xs leading-relaxed text-slate-400">
+                        · {c}
+                      </li>
+                    ))}
+                  </ul>
+                </Foldable>
+              </div>
+            )}
+            {stats && (
+              <p className="mt-4 text-xs leading-relaxed text-slate-400">
+                이 권역 1순위 경쟁률 — 중위{' '}
+                <b className="text-slate-300 tabular-nums">{stats.median.toFixed(1)} : 1</b> · 하위 25%{' '}
+                <span className="tabular-nums">{stats.p25.toFixed(1)}</span> · 상위 25%{' '}
+                <span className="tabular-nums">{stats.p75.toFixed(1)}</span> · 1순위 미달{' '}
+                <span className="tabular-nums text-amber-300">{percent(stats.underShare, 0)}</span>{' '}
+                <span className="text-slate-500">
+                  (공고 {stats.notices}건 · 주택형 {stats.n}개, {APPLYHOME.range.from} 이후)
+                </span>
+              </p>
+            )}
+          </Card>
+        ) : (
+          <Empty>이 권역에는 고를 공고가 없습니다.</Empty>
+        )}
+        <Foldable summary="이 자료가 못 하는 것" count={APPLYHOME_CAVEATS.length}>
+          <ul className="space-y-1">
+            {APPLYHOME_CAVEATS.map((c) => (
+              <li key={c} className="text-xs leading-relaxed text-slate-400">
+                · {c}
+              </li>
+            ))}
+          </ul>
+        </Foldable>
+      </div>
+    </TwoCol>
   );
 }
 
@@ -520,9 +532,9 @@ function PlanForm({
   const ratioBroken = balanceRatio < -0.0001;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <section>
-        <h4 className="mb-2 text-[11px] font-medium tracking-wide text-slate-500">단지</h4>
+        <h4 className="mb-2 text-sm font-medium text-slate-300">단지</h4>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="단지명">
             <TextInput value={plan.name} onChange={(v) => onChange({ name: v })} />
@@ -590,7 +602,7 @@ function PlanForm({
       </section>
 
       <section>
-        <h4 className="mb-2 text-[11px] font-medium tracking-wide text-slate-500">
+        <h4 className="mb-2 text-sm font-medium text-slate-300">
           납입 구조 — 단지마다 다릅니다
         </h4>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -641,7 +653,7 @@ function PlanForm({
       </section>
 
       <section>
-        <h4 className="mb-2 text-[11px] font-medium tracking-wide text-slate-500">
+        <h4 className="mb-2 text-sm font-medium text-slate-300">
           입주 시 전환할 주담대
         </h4>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -687,7 +699,7 @@ function Schedule({ plan }: { plan: SubscriptionPlan }) {
   const maxMonth = Math.max(1, ...steps.map((s) => s.monthOffset));
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center justify-end gap-3 pb-1 text-[10px] text-slate-500">
+      <div className="flex items-center justify-end gap-3 pb-1 text-2xs text-slate-400">
         <span className="flex items-center gap-1">
           <span className="inline-block h-2 w-3 rounded-sm bg-sky-500/45" /> 내 돈
         </span>
@@ -697,7 +709,7 @@ function Schedule({ plan }: { plan: SubscriptionPlan }) {
       </div>
       {steps.map((s, i) => (
         <div key={i} className="flex items-center gap-3">
-          <span className="w-24 shrink-0 text-[11px] text-slate-500 tabular-nums">
+          <span className="w-24 shrink-0 text-xs text-slate-400 tabular-nums">
             +{s.monthOffset}개월
           </span>
           <span className="w-28 shrink-0 text-xs text-slate-300">{s.label}</span>
@@ -714,7 +726,7 @@ function Schedule({ plan }: { plan: SubscriptionPlan }) {
             {money(s.amount)}
           </span>
           <span
-            className={`w-14 shrink-0 text-right text-[10px] ${
+            className={`w-14 shrink-0 text-right text-2xs ${
               s.funded === 'cash' ? 'text-sky-300' : 'text-slate-500'
             }`}
           >
@@ -745,7 +757,7 @@ function PlanResult({ plan }: { plan: SubscriptionPlan }) {
   const moveInNet = res.moveInCash - res.waitDeposit;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-3">
         {[
           {
@@ -783,7 +795,7 @@ function PlanResult({ plan }: { plan: SubscriptionPlan }) {
             key={s.k}
             className="rounded-xl border border-slate-800 bg-slate-900/30 px-4 py-3"
           >
-            <div className="text-[11px] text-slate-500">{s.k}</div>
+            <div className="text-xs text-slate-400">{s.k}</div>
             <div
               className={`mt-0.5 text-lg font-semibold tabular-nums ${
                 s.bad ? 'text-rose-300' : 'text-slate-100'
@@ -791,7 +803,7 @@ function PlanResult({ plan }: { plan: SubscriptionPlan }) {
             >
               {money(s.v)}
             </div>
-            <div className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{s.sub}</div>
+            <div className="mt-0.5 text-xs leading-relaxed text-slate-400">{s.sub}</div>
           </div>
         ))}
       </div>
@@ -805,7 +817,7 @@ function PlanResult({ plan }: { plan: SubscriptionPlan }) {
       )}
 
       <div>
-        <h4 className="mb-2 text-[11px] font-medium tracking-wide text-slate-500">
+        <h4 className="mb-2 text-sm font-medium text-slate-300">
           납입 일정 — 비율이 아니라 시점이 문제입니다
         </h4>
         <Schedule plan={plan} />
@@ -840,7 +852,7 @@ function PlanResult({ plan }: { plan: SubscriptionPlan }) {
       )}
 
       {(res.notes.length > 0 || res.warnings.length > 0) && (
-        <ul className="space-y-1.5 text-[11px] leading-relaxed">
+        <ul className="space-y-1.5 text-xs leading-relaxed">
           {res.warnings.map((w, i) => (
             <li key={`w${i}`} className="text-amber-300">
               ⚠ {w}
@@ -863,7 +875,7 @@ export function SubscriptionPage() {
   const current = plans.find((p) => p.id === openId) ?? plans[0] ?? null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Card
         title="청약 단지 (선택)"
         subtitle="매수·전세·월세와 구조가 다릅니다 — 계약금을 먼저 내고, 입주까지 몇 년을 다른 집에서 임차로 삽니다"
@@ -873,27 +885,19 @@ export function SubscriptionPage() {
           </Button>
         }
       >
-        <p className="text-xs leading-relaxed text-slate-500">
-          분양가·전용면적·일정은 <b className="text-slate-300">청약홈 공고에서 불러옵니다</b> —
-          아래에서 고르면 채워집니다. 다만 <b className="text-slate-300">중도금 조건과
-          전매제한은 API 에 없어</b> 공고문을 보고 아래에서 직접 넣으셔야 합니다 — 넣는 즉시
-          별점이 그 조건으로 다시 계산됩니다. 넣으면 계약·대기·입주
-          시점별로 현금이 언제 얼마나 필요한지와, 같은 지역·평형 분양권이 실제로 얼마나
-          붙었는지를 나란히 봅니다.
+        <p className="text-sm leading-relaxed text-slate-300">
+          분양가·전용면적·일정은 <b className="text-slate-100">청약홈 공고에서 불러옵니다</b> — 아래 왼쪽에서 고르면 채워집니다.
         </p>
-
-        <div className="mt-4 border-t border-slate-800 pt-4">
-          <h4 className="mb-2 text-[11px] font-medium tracking-wide text-slate-500">
-            공고에서 불러오기 — {APPLYHOME.stats.notices}건 (기준 {APPLYHOME.asOf})
-          </h4>
-          <NoticePicker
-            onPick={(patch) => {
-              const id = addPlan();
-              updatePlan(id, patch);
-              setOpenId(id);
-            }}
-          />
-        </div>
+        <Foldable summary="손으로 넣는 값과 이 화면이 보여 주는 것" count={2}>
+          <ul className="space-y-1">
+            <li>
+              · 중도금 조건과 전매제한은 API 에 없어 공고문을 보고 직접 넣으셔야 합니다 — 넣는 즉시 별점이 그 조건으로 다시 계산됩니다.
+            </li>
+            <li>
+              · 넣으면 계약·대기·입주 시점별로 현금이 언제 얼마나 필요한지와, 같은 지역·평형 분양권이 실제로 얼마나 붙었는지를 나란히 봅니다.
+            </li>
+          </ul>
+        </Foldable>
 
         {plans.length === 0 ? (
           <div className="mt-4">
@@ -909,14 +913,14 @@ export function SubscriptionPage() {
                 key={p.id}
                 type="button"
                 onClick={() => setOpenId(p.id)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
                   current?.id === p.id
                     ? 'bg-sky-500/15 text-sky-300'
-                    : 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
+                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-300'
                 }`}
               >
                 {p.name || '이름 없음'}
-                <span className="ml-2 text-[10px] text-slate-500 tabular-nums">
+                <span className="ml-2 text-xs text-slate-400 tabular-nums">
                   {money(p.price)}
                 </span>
               </button>
@@ -924,6 +928,14 @@ export function SubscriptionPage() {
           </div>
         )}
       </Card>
+
+      <NoticePicker
+        onPick={(patch) => {
+          const id = addPlan();
+          updatePlan(id, patch);
+          setOpenId(id);
+        }}
+      />
 
       {current && (
         <>
@@ -951,30 +963,35 @@ export function SubscriptionPage() {
             />
           </Card>
 
-          <Card
-            title="분양가가 싼가 — 안전마진"
-            subtitle="네 자로 재고 점수로 합치지 않습니다. 어긋나는 지점이 곧 봐야 할 곳입니다"
-          >
-            <SafetyMargin plan={current} />
-          </Card>
+          {/* 넓은 화면에서는 "싼가" 와 "현금이 언제 얼마나" 를 나란히 — 둘 다 같은 단지의 판정입니다 */}
+          <div className="grid items-start gap-6 xl:grid-cols-2">
+            <Card
+              className="h-full"
+              title="분양가가 싼가 — 안전마진"
+              subtitle="네 자로 재고 점수로 합치지 않습니다. 어긋나는 지점이 곧 봐야 할 곳입니다"
+            >
+              <SafetyMargin plan={current} />
+            </Card>
+
+            <Card
+              className="h-full"
+              title="이 단지를 하면 현금이 언제 얼마나 필요한가"
+              subtitle="가용현금은 1번 가구 프로필, 전세가율·전세대출 금리는 실측치를 씁니다"
+              action={
+                current.resaleBanMonths > 0 ? (
+                  <Badge tone="warn">전매제한 {current.resaleBanMonths}개월</Badge>
+                ) : undefined
+              }
+            >
+              <PlanResult plan={current} />
+            </Card>
+          </div>
 
           {/*
             떨어졌을 때의 대안이라 청약 옆이 제자리입니다. 예전에는 실거래 탭에
             있었는데, 거기서는 "이걸 왜 보고 있지" 가 됩니다.
           */}
           <PremiumCard />
-
-          <Card
-            title="이 단지를 하면 현금이 언제 얼마나 필요한가"
-            subtitle="가용현금은 1번 가구 프로필, 전세가율·전세대출 금리는 실측치를 씁니다"
-            action={
-              current.resaleBanMonths > 0 ? (
-                <Badge tone="warn">전매제한 {current.resaleBanMonths}개월</Badge>
-              ) : undefined
-            }
-          >
-            <PlanResult plan={current} />
-          </Card>
         </>
       )}
     </div>
@@ -1022,7 +1039,7 @@ function SafetyMargin({ plan }: { plan: SubscriptionPlan }) {
         마산이 섞여 숫자가 통째로 달라집니다. 호버에만 적으면 못 보고 지나칩니다.
       */}
       {!plan.sigungu.trim() && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200">
           시군구를 고르지 않아 <b>권역 전체</b>와 비교하고 있습니다. 창원이면 성산구와 마산이
           섞여 기준가가 통째로 달라집니다 — 위에서 시군구를 고르면 정확해집니다.
         </div>
@@ -1034,17 +1051,17 @@ function SafetyMargin({ plan }: { plan: SubscriptionPlan }) {
           return (
             <div key={b.id} className="rounded-lg px-2 py-1.5 hover:bg-slate-900/40" title={b.note}>
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[11px] font-medium text-slate-200">
+                <span className="text-xs font-medium text-slate-200">
                   {b.label}
-                  <span className={`ml-1.5 text-[9px] ${b.thin ? 'text-amber-500/70' : 'text-slate-600'}`}>
+                  <span className={`ml-1.5 text-xs ${b.thin ? 'text-amber-500/70' : 'text-slate-400'}`}>
                     n={b.n}
                     {b.thin && ' 얇음'}
                   </span>
                 </span>
-                <span className="shrink-0 text-[10px] tabular-nums text-slate-500">
+                <span className="shrink-0 text-xs tabular-nums text-slate-400">
                   {b.value === null ? '표본 없음' : money(b.value)}
                   {b.low !== undefined && b.high !== undefined && (
-                    <span className="ml-1 text-slate-600">
+                    <span className="ml-1 text-slate-500">
                       ({money(b.low)}~{money(b.high)})
                     </span>
                   )}
@@ -1066,7 +1083,7 @@ function SafetyMargin({ plan }: { plan: SubscriptionPlan }) {
                     />
                   </div>
                   <span
-                    className={`w-16 shrink-0 text-right text-[11px] tabular-nums ${
+                    className={`w-16 shrink-0 text-right text-xs tabular-nums ${
                       b.thin ? 'text-slate-500' : cheap ? 'font-semibold text-slate-100' : 'text-slate-400'
                     }`}
                   >
@@ -1080,14 +1097,14 @@ function SafetyMargin({ plan }: { plan: SubscriptionPlan }) {
         })}
       </div>
 
-      <p className="text-[10px] leading-relaxed text-slate-600">
+      <p className="text-xs leading-relaxed text-slate-400">
         가운데 선이 분양가입니다. 막대가 <b className="text-slate-400">오른쪽</b>으로 뻗으면 그
         기준보다 분양가가 <b className="text-slate-400">싸다</b>는 뜻입니다. 각 줄에 마우스를 올리면
         그 기준이 무엇을 말하고 무엇을 못 말하는지 나옵니다.
       </p>
 
       {a.conflicted && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-200">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200">
           <b>기준끼리 어긋납니다.</b> 어떤 자로는 싸고 어떤 자로는 비쌉니다 — 그 간격이 곧 봐야 할
           곳입니다. 대개 주변 구축 대비로는 싸 보이는데 신축 하한과 견주면 아닌 경우이고, 그렇다면
           분양가가 신축 프리미엄을 미리 당겨 받았다는 뜻입니다.
@@ -1097,7 +1114,7 @@ function SafetyMargin({ plan }: { plan: SubscriptionPlan }) {
       <Foldable summary="이 판정이 못 하는 것" count={OFFERING_CAVEATS.length}>
         <ul className="space-y-1">
           {OFFERING_CAVEATS.map((c) => (
-            <li key={c} className="text-[10px] leading-relaxed text-slate-500">
+            <li key={c} className="text-xs leading-relaxed text-slate-400">
               · {c}
             </li>
           ))}

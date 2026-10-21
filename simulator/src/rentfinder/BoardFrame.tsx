@@ -81,10 +81,8 @@ export function BoardFrame() {
 
   return (
     <div className="space-y-2">
-      <p className="text-[11px] leading-relaxed text-slate-500">
-        왼쪽 사이드바에서 <b className="text-slate-300">전세 · 월세</b>를 오갑니다. 소거·메모·순위·점수는
-        이 브라우저에 저장되고, 다른 기기로는 사이드바 아래 <b className="text-slate-300">설정 옮기기</b>로 파일을
-        주고받습니다.
+      <p className="truncate text-xs text-slate-400">
+        전세 ↔ 월세는 왼쪽 사이드바 · 소거·메모는 이 브라우저 저장 · 기기 이동은 사이드바 아래 <b className="font-medium text-slate-300">설정 옮기기</b>
       </p>
       <iframe
         ref={ref}

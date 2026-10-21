@@ -66,13 +66,13 @@ function EntryDetail({ entry }: { entry: HandbookEntry }) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-slate-100">{entry.name}</h3>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">{entry.headline}</p>
+        <h3 className="text-base font-semibold text-slate-100">{entry.name}</h3>
+        <p className="mt-0.5 text-sm leading-relaxed text-slate-400">{entry.headline}</p>
       </div>
 
       {entry.sections.map((sec) => (
         <section key={sec.title}>
-          <h4 className="mb-1.5 text-[11px] font-medium tracking-wide text-slate-500">
+          <h4 className="mb-1.5 text-sm font-medium text-slate-300">
             {sec.title}
           </h4>
           <dl className="divide-y divide-slate-900 rounded-lg border border-slate-800 bg-slate-950/40">
@@ -87,7 +87,7 @@ function EntryDetail({ entry }: { entry: HandbookEntry }) {
                */
               const stacked = r.value.length > 24;
               const label = (
-                <dt className="shrink-0 text-[11px] whitespace-nowrap text-slate-400">
+                <dt className="shrink-0 text-sm whitespace-nowrap text-slate-400">
                   {r.label}
                   {r.unlabeled && (
                     <span
@@ -104,20 +104,20 @@ function EntryDetail({ entry }: { entry: HandbookEntry }) {
                   {stacked ? (
                     <>
                       {label}
-                      <dd className="mt-1 text-[11px] leading-relaxed font-medium break-words text-slate-100">
+                      <dd className="mt-1 text-sm leading-relaxed font-medium break-words text-slate-100">
                         {r.value}
                       </dd>
                     </>
                   ) : (
                     <div className="flex items-baseline justify-between gap-3">
                       {label}
-                      <dd className="min-w-0 text-right text-[11px] font-medium break-words text-slate-100 tabular-nums">
+                      <dd className="min-w-0 text-right text-sm font-medium break-words text-slate-100 tabular-nums">
                         {r.value}
                       </dd>
                     </div>
                   )}
                   {r.note && (
-                    <p className="mt-0.5 text-[10px] leading-relaxed text-slate-600">{r.note}</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{r.note}</p>
                   )}
                 </div>
               );
@@ -128,12 +128,12 @@ function EntryDetail({ entry }: { entry: HandbookEntry }) {
 
       {entry.watchOuts.length > 0 && (
         <section>
-          <h4 className="mb-1.5 text-[11px] font-medium tracking-wide text-slate-500">
+          <h4 className="mb-1.5 text-sm font-medium text-slate-300">
             놓치면 손해 보는 것
           </h4>
           <ul className="space-y-1.5">
             {entry.watchOuts.map((w) => (
-              <li key={w} className="text-[11px] leading-relaxed text-slate-400">
+              <li key={w} className="text-xs leading-relaxed text-slate-400">
                 · {w}
               </li>
             ))}
@@ -206,7 +206,7 @@ export function HandbookDrawer() {
         type="button"
         onClick={() => setOpen(true)}
         title="전세·매매 정책 대출 설명서를 엽니다"
-        className="fixed top-1/2 left-0 z-40 -translate-y-1/2 rounded-r-xl border border-l-0 border-slate-700 bg-slate-900 px-2 py-4 text-[11px] font-medium text-slate-300 transition hover:bg-slate-800 no-print"
+        className="fixed top-1/2 left-0 z-40 -translate-y-1/2 rounded-r-xl border border-l-0 border-slate-700 bg-slate-900 px-2 py-4 text-sm font-medium text-slate-300 transition hover:bg-slate-800 no-print"
         style={{ writingMode: 'vertical-rl' }}
       >
         대출 설명서
@@ -222,14 +222,14 @@ export function HandbookDrawer() {
         onClick={() => setOpen(false)}
         className="fixed inset-0 z-40 bg-black/50 no-print"
       />
-      <aside className="fixed inset-y-0 left-0 z-50 flex w-full max-w-2xl flex-col border-r border-slate-800 bg-slate-950 no-print">
+      <aside className="fixed inset-y-0 left-0 z-50 flex w-full max-w-3xl flex-col border-r border-slate-800 bg-slate-950 no-print">
         <header className="flex items-start justify-between gap-3 border-b border-slate-800 px-5 py-3">
           <div>
-            <h2 className="text-sm font-semibold text-slate-100">전세 · 매매 대출 설명서</h2>
-            <p className="mt-0.5 text-[11px] text-slate-500">
+            <h2 className="text-lg font-semibold text-slate-100">전세 · 매매 대출 설명서</h2>
+            <p className="mt-0.5 text-xs text-slate-400">
               화면에 쓰인 규정을 그대로 폈습니다 — 숫자는 전부 룰셋에서 옵니다
             </p>
-            <p className="mt-0.5 text-[10px] text-slate-600">
+            <p className="mt-0.5 text-xs text-slate-400">
               필요소득은 <b className="text-slate-500">{scenario.label}</b> 기준 — 판정소득{' '}
               {money(scenario.assessedIncome)} · 만기 {profile.termYears}년
               {profile.existingMonthlyDebt > 0 &&
@@ -241,7 +241,7 @@ export function HandbookDrawer() {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="rounded-lg px-2 py-1 text-xs text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
+              className="rounded-lg px-2 py-1 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
             >
               닫기
             </button>
@@ -252,7 +252,7 @@ export function HandbookDrawer() {
           <nav className="w-44 shrink-0 overflow-y-auto border-r border-slate-800 py-2">
             {grouped.map((g) => (
               <div key={g.category} className="mb-2">
-                <div className="px-3 py-1 text-[10px] font-medium tracking-wide text-slate-600">
+                <div className="px-3 py-1 text-xs font-medium tracking-wide text-slate-400">
                   {HANDBOOK_CATEGORY_LABEL[g.category]}
                 </div>
                 {g.items.map((e) => (
@@ -260,14 +260,14 @@ export function HandbookDrawer() {
                     key={e.id}
                     type="button"
                     onClick={() => setCurrentId(e.id)}
-                    className={`block w-full px-3 py-1.5 text-left text-[11px] transition ${
+                    className={`block w-full px-3 py-1.5 text-left text-sm transition ${
                       current?.id === e.id
                         ? 'bg-sky-500/15 text-sky-300'
                         : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
                     }`}
                   >
                     {e.shortName}
-                    <span className="block text-[10px] text-slate-600">{e.name}</span>
+                    <span className="block text-xs text-slate-400">{e.name}</span>
                   </button>
                 ))}
               </div>
@@ -279,7 +279,7 @@ export function HandbookDrawer() {
           </div>
         </div>
 
-        <footer className="border-t border-slate-800 px-5 py-2.5 text-[10px] leading-relaxed text-slate-600">
+        <footer className="border-t border-slate-800 px-5 py-2.5 text-xs leading-relaxed text-slate-400">
           {HANDBOOK_META.label} · 시행 {HANDBOOK_META.effectiveFrom}
           {HANDBOOK_META.sunset && ` · 일몰 ${HANDBOOK_META.sunset}`} — {HANDBOOK_META.disclaimer}
         </footer>

@@ -8,8 +8,10 @@ import {
   NumberInput,
   SegmentedControl,
   Select,
+  Rail,
   Stat,
   Toggle,
+  TwoCol,
 } from '../components/ui';
 import { money, percent } from '../engine/format';
 import { COMMUTE_LABEL, RENT_CAVEATS, RENT_REGIONS, RENT_SNAPSHOT, regionOf } from './data';
@@ -117,7 +119,8 @@ const TIER_LABEL: Record<BoardTier, string> = {
   C: '주의 · 위험',
   D: '판단 보류',
 };
-const TIER_TONE: Record<BoardTier, 'good' | 'info' | 'bad' | 'neutral'> = { A: 'good', B: 'info', C: 'bad', D: 'neutral' };
+// 하늘색은 선택·행동에만 씁니다 — B(조건부)와 D(보류)는 무채색, 라벨로 가릅니다.
+const TIER_TONE: Record<BoardTier, 'good' | 'bad' | 'neutral'> = { A: 'good', B: 'neutral', C: 'bad', D: 'neutral' };
 
 const BINDING_LABEL = {
   CASH_RATIO: '내 돈이 막음',
@@ -146,17 +149,40 @@ const TIER_ORDER: Record<BoardTier, number> = { A: 0, B: 1, C: 2, D: 3 };
 const man = (v: number) => `${Math.round(v / 10000).toLocaleString('ko-KR')}만`;
 
 /** 상품 하나를 보증금 하나로 자세히 — 자격 사유와 한도 */
-function LoanDetail({ borrower, target, onTarget }: { borrower: Borrower; target: RentTarget; onTarget: (p: Partial<RentTarget>) => void }) {
+function LoanDetail({
+  borrower,
+  target,
+  onTarget,
+  onOpenBoard,
+}: {
+  borrower: Borrower;
+  target: RentTarget;
+  onTarget: (p: Partial<RentTarget>) => void;
+  onOpenBoard?: () => void;
+}) {
   const results = useMemo(() => compareRentLoans(borrower, target), [borrower, target]);
   const advice = useMemo(() => adviseRentLoans(borrower, target, results), [borrower, target, results]);
   const best = results.find((r) => r.eligible);
   return (
     <Card
-      title="대출 자세히 — 보증금 하나로 상품별 자격·한도"
-      subtitle='목록의 "대출 자세히" 를 누르면 그 집 보증금이 들어옵니다. 떨어진 상품은 이유를 전부 보여 줍니다 — 그게 "무엇을 바꾸면 되나" 입니다'
-      action={<Badge tone="info">기준 {RENT_LOAN_RULES.effectiveFrom}</Badge>}
+      title="④ 대출 자세히 — 보증금 하나로 상품별 자격·한도"
+      subtitle='목록·단지 상세의 "대출 자세히" 를 누르면 그 집 보증금이 들어옵니다. 떨어진 상품은 이유를 전부 보여 줍니다 — 그게 "무엇을 바꾸면 되나" 입니다'
+      action={
+        <div className="flex shrink-0 items-center gap-2">
+          <Badge tone="neutral">기준 {RENT_LOAN_RULES.effectiveFrom}</Badge>
+          {onOpenBoard && (
+            <button
+              type="button"
+              onClick={onOpenBoard}
+              className="rounded-lg bg-sky-500/15 px-3 py-1.5 text-sm font-medium text-sky-300 transition hover:bg-sky-500/25 no-print"
+            >
+              후보판으로 →
+            </button>
+          )}
+        </div>
+      }
     >
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Field label="보증금">
           <MoneyInput value={target.deposit} onChange={(v) => onTarget({ deposit: v })} />
         </Field>
@@ -168,54 +194,54 @@ function LoanDetail({ borrower, target, onTarget }: { borrower: Borrower; target
         </Field>
       </div>
       {advice.length > 0 && (
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 grid gap-2 xl:grid-cols-2">
           {advice.map((a) => (
-            <div key={a.headline} className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2">
-              <div className="text-xs font-semibold text-sky-200">{a.headline}</div>
-              <div className="mt-0.5 text-[11px] leading-relaxed text-sky-100/80">{a.detail}</div>
+            <div key={a.headline} className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3.5 py-2.5">
+              <div className="text-sm font-semibold text-sky-200">{a.headline}</div>
+              <div className="mt-0.5 text-xs leading-relaxed text-sky-100/85">{a.detail}</div>
             </div>
           ))}
         </div>
       )}
       <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[46rem] text-left text-[11px]">
-          <thead className="text-slate-500">
+        <table className="w-full min-w-[46rem] text-left text-sm">
+          <thead className="text-xs text-slate-400">
             <tr className="border-b border-slate-800">
-              <th className="py-1.5 pr-3 font-medium">상품</th>
-              <th className="py-1.5 pr-3 text-right font-medium">한도</th>
-              <th className="py-1.5 pr-3 text-right font-medium">내 돈</th>
-              <th className="py-1.5 pr-3 text-right font-medium">금리</th>
-              <th className="py-1.5 pr-3 text-right font-medium">월 이자</th>
-              <th className="py-1.5 font-medium">판정</th>
+              <th className="py-2.5 pr-3 font-medium">상품</th>
+              <th className="py-2.5 pr-3 text-right font-medium">한도</th>
+              <th className="py-2.5 pr-3 text-right font-medium">내 돈</th>
+              <th className="py-2.5 pr-3 text-right font-medium">금리</th>
+              <th className="py-2.5 pr-3 text-right font-medium">월 이자</th>
+              <th className="py-2.5 font-medium">판정</th>
             </tr>
           </thead>
           <tbody>
             {results.map((r) => (
-              <tr key={r.product.id} className={`border-b border-slate-900 ${r.eligible ? '' : 'opacity-60'}`}>
-                <td className="py-2 pr-3">
-                  <div className="font-medium text-slate-200">{r.product.shortName}</div>
-                  <div className="text-[10px] text-slate-600">{r.product.name}</div>
+              <tr key={r.product.id} className={`border-b border-slate-900 align-top ${r.eligible ? '' : 'opacity-70'}`}>
+                <td className="py-2.5 pr-3">
+                  <div className="font-medium text-slate-100">{r.product.shortName}</div>
+                  <div className="text-xs text-slate-400">{r.product.name}</div>
                 </td>
-                <td className="py-2 pr-3 text-right tabular-nums text-slate-200">
+                <td className="py-2.5 pr-3 text-right tabular-nums text-slate-100">
                   {r.eligible ? money(r.limit) : '—'}
-                  {r.eligible && r.bindingConstraint === 'CAP' && <div className="text-[10px] text-amber-500/80">상품 상한</div>}
+                  {r.eligible && r.bindingConstraint === 'CAP' && <div className="text-xs text-amber-300">상품 상한</div>}
                 </td>
-                <td className="py-2 pr-3 text-right tabular-nums text-slate-300">{r.eligible ? money(r.ownCash) : '—'}</td>
-                <td className="py-2 pr-3 text-right tabular-nums text-slate-300">
+                <td className="py-2.5 pr-3 text-right tabular-nums text-slate-200">{r.eligible ? money(r.ownCash) : '—'}</td>
+                <td className="py-2.5 pr-3 text-right tabular-nums text-slate-300">
                   {percent(r.product.rate.min, 1)}~{percent(r.product.rate.max, 1)}
                 </td>
-                <td className="py-2 pr-3 text-right tabular-nums text-slate-100">
+                <td className="py-2.5 pr-3 text-right tabular-nums text-slate-100">
                   {r.eligible ? `${man(r.monthlyInterest.min)}~${man(r.monthlyInterest.max)}` : '—'}
                 </td>
-                <td className="py-2">
+                <td className="py-2.5">
                   {r.eligible ? (
                     <span className="text-emerald-300">가능</span>
                   ) : (
-                    <details>
+                    <details className="print-open">
                       <summary className="cursor-pointer text-rose-300">불가 ({r.rejectReasons.length})</summary>
                       <ul className="mt-1 space-y-0.5">
                         {r.rejectReasons.map((x) => (
-                          <li key={x} className="text-[10px] leading-relaxed text-slate-500">· {x}</li>
+                          <li key={x} className="text-xs leading-relaxed text-slate-300">· {x}</li>
                         ))}
                       </ul>
                     </details>
@@ -230,22 +256,22 @@ function LoanDetail({ borrower, target, onTarget }: { borrower: Borrower; target
         <Foldable summary={`${best.product.shortName} 에서 놓치면 손해 보는 것`} count={best.product.watchOuts.length}>
           <ul className="space-y-1">
             {best.product.watchOuts.map((w) => (
-              <li key={w} className="text-[10px] leading-relaxed text-slate-500">· {w}</li>
+              <li key={w}>· {w}</li>
             ))}
-            <li className="text-[10px] leading-relaxed text-slate-600">근거 · {best.product.basis}</li>
+            <li>근거 · {best.product.basis}</li>
           </ul>
         </Foldable>
       )}
-      <Foldable summary="이 표가 못 하는 것" count={RENT_LOAN_CAVEATS.length}>
+      <Foldable summary="이 표가 못 하는 것 · 면책" count={RENT_LOAN_CAVEATS.length + 1}>
         <ul className="space-y-1">
           {RENT_LOAN_CAVEATS.map((c) => (
-            <li key={c} className="text-[10px] leading-relaxed text-slate-500">· {c}</li>
+            <li key={c}>· {c}</li>
           ))}
+          <li>
+            · {RENT_LOAN_RULES.disclaimer} · 출처 {RENT_LOAN_RULES.sources.join(' · ')}
+          </li>
         </ul>
       </Foldable>
-      <p className="mt-3 text-[10px] leading-relaxed text-slate-600">
-        {RENT_LOAN_RULES.disclaimer} · 출처 {RENT_LOAN_RULES.sources.join(' · ')}
-      </p>
     </Card>
   );
 }
@@ -253,12 +279,18 @@ function LoanDetail({ borrower, target, onTarget }: { borrower: Borrower; target
 export function RentFinderApp({
   onOpenBoard,
   initialRegions,
+  initialTarget,
 }: {
   onOpenBoard?: () => void;
   /** 동네 시세판의 "이 구에서 발굴하기" 가 넘기는 구 코드 — 없으면 마산회원·합포 */
   initialRegions?: string[];
+  /** 단지 상세의 "이 보증금으로 대출 자세히" 가 넘기는 보증금·평형 — 있으면 ④ 로 바로 갑니다 */
+  initialTarget?: RentTarget;
 }) {
-  const [profile, setProfile] = useState<FinderProfile>(loadProfile);
+  const [profile, setProfile] = useState<FinderProfile>(() => {
+    const p = loadProfile();
+    return initialTarget ? { ...p, target: { ...p.target, ...initialTarget } } : p;
+  });
   const [added, setAdded] = useState<AddedRows>(loadAdded);
   const [mode, setMode] = useState<BoardMode>('jeonse');
   const [sort, setSort] = useState<SortKey>('safe');
@@ -266,6 +298,12 @@ export function RentFinderApp({
   const [minBuild, setMinBuild] = useState<string>('0');
   const [limit, setLimit] = useState(30);
   const { borrower, cash, monthlyMax, target } = profile;
+
+  // 단지 상세에서 넘어왔으면 ④ 대출 자세히로 내려 줍니다 (마운트 한 번).
+  useEffect(() => {
+    if (!initialTarget) return;
+    requestAnimationFrame(() => document.getElementById('loan-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, []);
 
   useEffect(() => {
     try {
@@ -334,318 +372,337 @@ export function RentFinderApp({
     setSort(m === 'jeonse' ? 'safe' : 'cheap');
   };
 
+
+  const openBoardButton = onOpenBoard && (
+    <button
+      type="button"
+      onClick={onOpenBoard}
+      className="shrink-0 rounded-lg bg-sky-500/15 px-3 py-1.5 text-sm font-medium text-sky-300 transition hover:bg-sky-500/25 no-print"
+    >
+      후보판 열기{addedCount ? ` · 담은 집 ${addedCount}` : ''} →
+    </button>
+  );
+
+  /*
+   * 넓은 화면: 왼쪽 레일 = ① 내 조건 + ② 얼마까지 / 오른쪽 = ③ 발굴 + ④ 대출 자세히.
+   * 조건을 고치면 스크롤하지 않고도 오른쪽 결과가 같이 바뀝니다.
+   */
   return (
-    <div className="space-y-5">
-      <Card
-        title="전월세 찾기 — 내 조건으로 들어갈 수 있는 집"
-        subtitle={`비교·소거·메모는 후보판에서 합니다. 여기서는 ① 내 조건을 넣고 ② 얼마짜리까지 되는지 보고 ③ 후보판에 없는 집을 골라 담습니다. 국토부 아파트 전월세 실거래 ${RENT_SNAPSHOT.stats.deals.toLocaleString('ko-KR')}건 · 기준 ${RENT_SNAPSHOT.asOf}`}
-        action={
-          onOpenBoard && (
-            <button
-              type="button"
-              onClick={onOpenBoard}
-              className="shrink-0 rounded-lg bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-300 transition hover:bg-sky-500/25"
-            >
-              후보판 열기{addedCount ? ` · 담은 집 ${addedCount}` : ''} →
-            </button>
-          )
-        }
-      >
-        <p className="text-xs leading-relaxed text-slate-500">
-          여기 넣은 조건은 <b className="text-slate-300">후보판의 "되는 대출 · 자기 돈 · 월 이자" 칸도 다시 잽니다</b> — 후보판은 원래
-          "32세 · 소득 4천만" 가정으로 계산돼 있었습니다.
-        </p>
-      </Card>
-
-      <Card title="① 내 조건" subtitle="대출 자격이 여기서 갈립니다. 한 번 넣으면 이 브라우저에 남습니다">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="보증금에 넣을 내 돈" hint="예금·청약 해지 등 계약 때 낼 수 있는 돈">
-            <MoneyInput value={cash} onChange={(v) => setProfile((s) => ({ ...s, cash: v }))} />
-          </Field>
-          <Field label="월 주거비 한도" hint="월세 + 대출 이자 (관리비 빼고)">
-            <MoneyInput value={monthlyMax} onChange={(v) => setProfile((s) => ({ ...s, monthlyMax: v }))} />
-          </Field>
-          <Field label="나이" hint="청년 상품은 만 34세까지">
-            <NumberInput value={borrower.age} step={1} suffix="세" onChange={(v) => setB({ age: Math.max(0, v) })} />
-          </Field>
-          <Field label="본인 연소득" hint="세전">
-            <MoneyInput value={borrower.income} onChange={(v) => setB({ income: v })} />
-          </Field>
-          <Field label="상대방 연소득" hint={borrower.married ? '혼인신고를 해서 합산합니다' : '혼인신고 전이라 합산하지 않습니다'}>
-            <MoneyInput value={borrower.spouseIncome} onChange={(v) => setB({ spouseIncome: v })} />
-          </Field>
-          <Field label="순자산" hint="정책상품은 3.37억 이하">
-            <MoneyInput value={borrower.netWorth} onChange={(v) => setB({ netWorth: v })} />
-          </Field>
-          <Field label="혼인 연차" hint="신혼부부 상품은 7년 이내">
-            <NumberInput value={borrower.marriedYears} step={1} suffix="년" onChange={(v) => setB({ marriedYears: Math.max(0, v) })} />
-          </Field>
-        </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <Toggle label="혼인신고를 했다" hint="동거만으로는 신혼부부 상품 자격이 없습니다. 대신 소득도 합산하지 않습니다." checked={borrower.married} onChange={(v) => setB({ married: v })} />
-          <Toggle label="중소·중견기업 재직" hint="중기청 전월세보증금대출은 연 1.5% 로 가장 쌉니다." checked={borrower.smeEmployed} onChange={(v) => setB({ smeEmployed: v })} />
-          <Toggle label="군 복무를 했다" hint="중기청 나이 상한이 만 34세 → 39세로 늘어납니다." checked={borrower.militaryServed} onChange={(v) => setB({ militaryServed: v })} />
-          <Toggle label="2년 이내 출산·입양" hint="신생아 특례 전세자금 자격입니다." checked={borrower.newbornWithin2y} onChange={(v) => setB({ newbornWithin2y: v })} />
-          <Toggle label="무주택 세대주가 된다" hint="거의 모든 정책상품의 전제입니다." checked={borrower.householder && borrower.noHouse} onChange={(v) => setB({ householder: v, noHouse: v })} />
-        </div>
-      </Card>
-
-      <Card
-        title="② 그래서 얼마짜리까지 되나"
-        subtitle="보증금 = 내 돈 + 대출. 대출은 보증금의 일정 비율까지이고 상품마다 절대 한도와 보증금 상한이 있어, 상품별로 잽니다"
-      >
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Stat
-            label="전세 최대 보증금"
-            value={bestReach ? money(bestReach.maxDeposit) : money(cash)}
-            hint={
-              bestReach
-                ? `${bestReach.product} ${money(bestReach.loan)} + 내 돈 ${money(bestReach.maxDeposit - bestReach.loan)} · ${BINDING_LABEL[bestReach.binding]}`
-                : '되는 대출이 없어 내 돈만큼'
-            }
-          />
-          <Stat
-            label="그때 월 이자"
-            value={bestReach ? `${man((bestReach.loan * bestReach.rate.min) / 12)}~${man((bestReach.loan * bestReach.rate.max) / 12)}` : '—'}
-            hint={`월 한도 ${man(monthlyMax)} 대비`}
-          />
-          <Stat label="월세로 가면" value={`월 ${man(monthlyMax)}까지`} hint={`보증금은 내 돈 ${money(cash)} (+ 대출) 안에서`} />
-        </div>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[40rem] text-left text-[11px]">
-            <thead className="text-slate-500">
-              <tr className="border-b border-slate-800">
-                <th className="py-1.5 pr-3 font-medium">상품</th>
-                <th className="py-1.5 pr-3 text-right font-medium">최대 보증금</th>
-                <th className="py-1.5 pr-3 text-right font-medium">대출</th>
-                <th className="py-1.5 pr-3 font-medium">막는 것</th>
-                <th className="py-1.5 pr-3 text-right font-medium">금리</th>
-                <th className="py-1.5 font-medium">안 되는 이유</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reach.map((r) => (
-                <tr key={r.product} className={`border-b border-slate-900 ${r.maxDeposit ? '' : 'opacity-55'}`}>
-                  <td className="py-1.5 pr-3 font-medium text-slate-200">{r.product}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-slate-100">{r.maxDeposit ? money(r.maxDeposit) : '—'}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-slate-300">{r.maxDeposit ? money(r.loan) : '—'}</td>
-                  <td className="py-1.5 pr-3 text-slate-400">{r.maxDeposit ? BINDING_LABEL[r.binding] : ''}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-slate-400">
-                    {percent(r.rate.min, 1)}~{percent(r.rate.max, 1)}
-                  </td>
-                  <td className="py-1.5 text-[10px] leading-relaxed text-slate-500">{r.rejectReasons.join(' · ')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-2 text-[10px] leading-relaxed text-slate-600">
-          전용 85㎡ 이하 집 기준입니다. 넘으면 정책상품이 빠지고 은행 상품만 남습니다. 실제 한도는 보증기관 심사로 줄 수 있습니다.
-        </p>
-      </Card>
-
-      <Card
-        title="③ 후보판에 없는 집 — 내 조건으로 들어갈 수 있는 것만"
-        subtitle={`내 돈 ${money(cash)} · 월 ${man(monthlyMax)} 안에서 되는 집만 남깁니다. 방 2개 이상(전용 ${BOARD_MIN_AREA}㎡↑) · 최근 1년 안에 거래가 있는 평형. 후보판에 이미 있는 집은 뺐습니다`}
-        action={<Badge tone="info">{sorted.length}곳</Badge>}
-      >
-        <div className="flex flex-wrap items-center gap-3">
-          <SegmentedControl<BoardMode>
-            value={mode}
-            onChange={switchMode}
-            options={[
-              { value: 'jeonse', label: '전세' },
-              { value: 'wolse', label: '월세' },
-            ]}
-          />
-          <div className="min-w-[14rem]">
-            <Select<SortKey> value={sort} onChange={setSort} options={SORTS[mode]} />
+    <TwoCol rail="left">
+      <Rail split>
+        <Card
+          title="① 내 조건"
+          subtitle="여기 넣은 조건은 후보판의 대출 칸도 다시 잽니다. 한 번 넣으면 이 브라우저에 남습니다"
+        >
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+            <Field label="보증금에 넣을 내 돈" hint="예금·청약 해지 등 계약 때 낼 수 있는 돈">
+              <MoneyInput value={cash} onChange={(v) => setProfile((s) => ({ ...s, cash: v }))} />
+            </Field>
+            <Field label="월 주거비 한도" hint="월세 + 대출 이자 (관리비 빼고)">
+              <MoneyInput value={monthlyMax} onChange={(v) => setProfile((s) => ({ ...s, monthlyMax: v }))} />
+            </Field>
+            <Field label="나이" hint="청년 상품은 만 34세까지">
+              <NumberInput value={borrower.age} step={1} suffix="세" onChange={(v) => setB({ age: Math.max(0, v) })} />
+            </Field>
+            <Field label="본인 연소득" hint="세전">
+              <MoneyInput value={borrower.income} onChange={(v) => setB({ income: v })} />
+            </Field>
+            <Field label="상대방 연소득" hint={borrower.married ? '혼인신고를 해서 합산합니다' : '혼인신고 전이라 합산하지 않습니다'}>
+              <MoneyInput value={borrower.spouseIncome} onChange={(v) => setB({ spouseIncome: v })} />
+            </Field>
+            <Field label="순자산" hint="정책상품은 3.37억 이하">
+              <MoneyInput value={borrower.netWorth} onChange={(v) => setB({ netWorth: v })} />
+            </Field>
+            <Field label="혼인 연차" hint="신혼부부 상품은 7년 이내">
+              <NumberInput value={borrower.marriedYears} step={1} suffix="년" onChange={(v) => setB({ marriedYears: Math.max(0, v) })} />
+            </Field>
           </div>
-          <div className="min-w-[9rem]">
-            <Select<string>
-              value={minBuild}
-              onChange={setMinBuild}
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+            <Toggle label="혼인신고를 했다" hint="동거만으로는 신혼부부 상품 자격이 없습니다. 대신 소득도 합산하지 않습니다." checked={borrower.married} onChange={(v) => setB({ married: v })} />
+            <Toggle label="중소·중견기업 재직" hint="중기청 전월세보증금대출은 연 1.5% 로 가장 쌉니다." checked={borrower.smeEmployed} onChange={(v) => setB({ smeEmployed: v })} />
+            <Toggle label="군 복무를 했다" hint="중기청 나이 상한이 만 34세 → 39세로 늘어납니다." checked={borrower.militaryServed} onChange={(v) => setB({ militaryServed: v })} />
+            <Toggle label="2년 이내 출산·입양" hint="신생아 특례 전세자금 자격입니다." checked={borrower.newbornWithin2y} onChange={(v) => setB({ newbornWithin2y: v })} />
+            <Toggle label="무주택 세대주가 된다" hint="거의 모든 정책상품의 전제입니다." checked={borrower.householder && borrower.noHouse} onChange={(v) => setB({ householder: v, noHouse: v })} />
+          </div>
+          <Foldable summary="이 화면의 역할" count={3}>
+            <ul className="space-y-1">
+              <li>· 비교·소거·메모는 후보판에서 합니다. 여기서는 ① 내 조건을 넣고 ② 얼마짜리까지 되는지 보고 ③ 후보판에 없는 집을 골라 담습니다.</li>
+              <li>
+                · 여기 넣은 조건은 후보판의 "되는 대출 · 자기 돈 · 월 이자" 칸도 다시 잽니다 — 후보판은 원래 "32세 · 소득 4천만" 가정으로
+                계산돼 있었습니다.
+              </li>
+              <li>
+                · 자료는 국토부 아파트 전월세 실거래 {RENT_SNAPSHOT.stats.deals.toLocaleString('ko-KR')}건 · 기준 {RENT_SNAPSHOT.asOf} 입니다.
+              </li>
+            </ul>
+          </Foldable>
+        </Card>
+
+        <Card
+          className="xl:max-h-[calc((100vh_-_var(--header-h,7.5rem))*0.55)] xl:overflow-y-auto"
+          title="② 그래서 얼마짜리까지 되나"
+          subtitle="보증금 = 내 돈 + 대출. 상품마다 비율·절대 한도·보증금 상한이 달라 상품별로 잽니다"
+        >
+          <div className="grid gap-2.5 sm:grid-cols-3 xl:grid-cols-1">
+            <Stat
+              label="전세 최대 보증금"
+              size="lg"
+              value={bestReach ? money(bestReach.maxDeposit) : money(cash)}
+              hint={
+                bestReach
+                  ? `${bestReach.product} ${money(bestReach.loan)} + 내 돈 ${money(bestReach.maxDeposit - bestReach.loan)} · ${BINDING_LABEL[bestReach.binding]}`
+                  : '되는 대출이 없어 내 돈만큼'
+              }
+            />
+            <Stat
+              label="그때 월 이자"
+              value={bestReach ? `${man((bestReach.loan * bestReach.rate.min) / 12)}~${man((bestReach.loan * bestReach.rate.max) / 12)}` : '—'}
+              hint={`월 한도 ${man(monthlyMax)} 대비`}
+            />
+            <Stat label="월세로 가면" value={`월 ${man(monthlyMax)}까지`} hint={`보증금은 내 돈 ${money(cash)} (+ 대출) 안에서`} />
+          </div>
+          <Foldable summary="상품별 자세히" count={reach.length}>
+            <ul className="divide-y divide-slate-800">
+              {reach.map((r) => (
+                <li key={r.product} className={`py-2 ${r.maxDeposit ? '' : 'opacity-75'}`}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm font-medium text-slate-100">{r.product}</span>
+                    <span className="text-sm tabular-nums text-slate-100">{r.maxDeposit ? money(r.maxDeposit) : '—'}</span>
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs tabular-nums text-slate-400">
+                    {r.maxDeposit ? (
+                      <>
+                        <span>대출 {money(r.loan)}</span>
+                        <span>· {BINDING_LABEL[r.binding]}</span>
+                      </>
+                    ) : null}
+                    <span>
+                      · 금리 {percent(r.rate.min, 1)}~{percent(r.rate.max, 1)}
+                    </span>
+                  </div>
+                  {r.rejectReasons.length > 0 && <div className="mt-0.5 text-xs leading-relaxed text-rose-300/90">{r.rejectReasons.join(' · ')}</div>}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2">
+              전용 85㎡ 이하 집 기준입니다. 넘으면 정책상품이 빠지고 은행 상품만 남습니다. 실제 한도는 보증기관 심사로 줄 수 있습니다.
+            </p>
+          </Foldable>
+        </Card>
+      </Rail>
+
+      <div className="min-w-0 space-y-6">
+        <Card
+          title="③ 후보판에 없는 집 — 내 조건으로 들어갈 수 있는 것만"
+          subtitle={`내 돈 ${money(cash)} · 월 ${man(monthlyMax)} 안에서 되는 집만 남깁니다. 방 2개 이상(전용 ${BOARD_MIN_AREA}㎡↑) · 최근 1년 안에 거래가 있는 평형. 후보판에 이미 있는 집은 뺐습니다`}
+          action={
+            <div className="flex shrink-0 items-center gap-2">
+              <Badge tone="neutral">{sorted.length}곳</Badge>
+              {openBoardButton}
+            </div>
+          }
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <SegmentedControl<BoardMode>
+              value={mode}
+              onChange={switchMode}
               options={[
-                { value: '0', label: '준공 전체' },
-                { value: '2005', label: '2005년 이후' },
-                { value: '2011', label: '2011년 이후 (15년 이내)' },
-                { value: '2016', label: '2016년 이후 (10년 이내)' },
+                { value: 'jeonse', label: '전세' },
+                { value: 'wolse', label: '월세' },
               ]}
             />
+            <div className="min-w-[16rem]">
+              <Select<SortKey> value={sort} onChange={setSort} options={SORTS[mode]} />
+            </div>
+            <div className="min-w-[12rem]">
+              <Select<string>
+                value={minBuild}
+                onChange={setMinBuild}
+                options={[
+                  { value: '0', label: '준공 전체' },
+                  { value: '2005', label: '2005년 이후' },
+                  { value: '2011', label: '2011년 이후 (15년 이내)' },
+                  { value: '2016', label: '2016년 이후 (10년 이내)' },
+                ]}
+              />
+            </div>
           </div>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {RENT_REGIONS.map((r) => {
-            const on = regions.includes(r.code);
-            return (
-              <button
-                key={r.code}
-                type="button"
-                title={r.note}
-                onClick={() => setRegions((x) => (on ? x.filter((c) => c !== r.code) : [...x, r.code]))}
-                className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${
-                  on ? 'bg-sky-500/15 text-sky-300' : 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300'
-                }`}
-              >
-                {r.short} <span className="text-[10px] text-slate-600">{COMMUTE_LABEL[r.commute]}</span>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {RENT_REGIONS.map((r) => {
+              const on = regions.includes(r.code);
+              return (
+                <button
+                  key={r.code}
+                  type="button"
+                  title={r.note}
+                  aria-pressed={on}
+                  onClick={() => setRegions((x) => (on ? x.filter((c) => c !== r.code) : [...x, r.code]))}
+                  className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+                    on ? 'border-sky-500/40 bg-sky-500/15 text-sky-300' : 'border-slate-800 text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                  }`}
+                >
+                  {r.short} <span className="text-xs font-normal text-slate-400">{COMMUTE_LABEL[r.commute]}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {sorted.length === 0 ? (
+            <p className="mt-4 rounded-lg border border-dashed border-slate-800 px-4 py-6 text-center text-sm text-slate-400">
+              조건에 맞는 집이 없습니다. 내 돈이나 월 한도를 올리거나, 지역·준공 조건을 넓혀 보세요.
+            </p>
+          ) : (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[60rem] text-left text-sm">
+                <thead className="text-xs text-slate-400">
+                  <tr className="border-b border-slate-800">
+                    <th className="py-2.5 pr-3 font-medium">단지</th>
+                    <th className="py-2.5 pr-3 text-right font-medium">평형</th>
+                    <th className="py-2.5 pr-3 text-right font-medium">준공</th>
+                    <th className="py-2.5 pr-3 text-right font-medium">{mode === 'jeonse' ? '최근 전세' : '보증금 / 월세'}</th>
+                    <th className="py-2.5 pr-3 text-right font-medium">{mode === 'jeonse' ? '전세가율' : '매달 (월세+이자)'}</th>
+                    <th className="py-2.5 pr-3 font-medium">판정</th>
+                    <th className="py-2.5 pr-3 font-medium">되는 대출</th>
+                    <th className="py-2.5 pr-3 text-right font-medium">내 돈</th>
+                    <th className="py-2.5 font-medium" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.slice(0, limit).map(({ row, own, monthlyOut, loan }) => {
+                    const isAdded = added[mode].includes(row.id);
+                    const reg = regionOf(row.cx.split('-')[0]);
+                    const j = row as JeonseBoardRow;
+                    const w = row as WolseBoardRow;
+                    return (
+                      <tr key={row.id} className="border-b border-slate-900 align-top">
+                        <td className="py-2.5 pr-3">
+                          <button
+                            type="button"
+                            onClick={() => openComplexDetail(row.cx, row.area)}
+                            title="같은 단지·평형의 매매·전세 분기 추이 · 전세가율 · 평형별 표"
+                            className="text-left font-medium text-slate-100 underline decoration-slate-700 underline-offset-2 transition hover:text-sky-300 hover:decoration-sky-500"
+                          >
+                            {row.name}
+                            <span className="ml-1 text-xs font-normal text-sky-400">상세 ▸</span>
+                          </button>
+                          <div className="text-xs text-slate-400">
+                            {row.umd} · {row.region} · 함안 방향 {reg ? COMMUTE_LABEL[reg.commute] : '—'}
+                          </div>
+                          {row.notes.length > 0 && <div className="mt-0.5 text-xs text-amber-300">{row.notes[0]}</div>}
+                        </td>
+                        <td className="py-2.5 pr-3 text-right tabular-nums text-slate-200">
+                          {row.area}㎡<div className="text-xs text-slate-400">공급 약 {Math.round(toSupplyPyeong(row.area))}평</div>
+                        </td>
+                        <td className="py-2.5 pr-3 text-right tabular-nums text-slate-200">{row.built || '—'}</td>
+                        <td className="py-2.5 pr-3 text-right tabular-nums text-slate-100">
+                          {mode === 'jeonse' ? (
+                            <>
+                              {money(j.est ?? 0)}
+                              <div className="text-xs text-slate-400">
+                                {j.estBasis} · {j.estN}건
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              {money(w.dep)} / {man(w.rent)}
+                              <div className="text-xs text-slate-400">월세 {w.wn}건 · 2년 중위</div>
+                            </>
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-3 text-right tabular-nums">
+                          {mode === 'jeonse' ? (
+                            <span className={j.ratio == null ? 'text-slate-400' : j.ratio < 0.7 ? 'text-emerald-300' : j.ratio < 0.8 ? 'text-amber-300' : 'text-rose-300'}>
+                              {j.ratio == null ? '잴 수 없음' : percent(j.ratio, 0)}
+                            </span>
+                          ) : (
+                            <span className="text-slate-100">{man(monthlyOut)}</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-3">
+                          <Badge tone={TIER_TONE[row.tier]}>{TIER_LABEL[row.tier]}</Badge>
+                        </td>
+                        <td className="py-2.5 pr-3 text-slate-200">
+                          {loan ? (
+                            <>
+                              {loan.n} {money(loan.lim)}
+                              <div className="text-xs text-slate-400">
+                                월 이자 {man(loan.i0)}~{man(loan.i1)}
+                                {loan.wolse && loan.mcap ? ` · 월세 지원 월 ${man(loan.mcap)}까지` : ''}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-slate-400">대출 없이 내 돈으로</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-3 text-right tabular-nums text-slate-100">{money(own)}</td>
+                        <td className="py-2.5">
+                          <div className="flex flex-col items-start gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => toggleAdd(row.id)}
+                              className={`rounded-md px-2.5 py-1 text-xs font-medium whitespace-nowrap transition ${
+                                isAdded ? 'bg-emerald-500/15 text-emerald-300 hover:bg-rose-500/15 hover:text-rose-300' : 'bg-sky-500/15 text-sky-300 hover:bg-sky-500/25'
+                              }`}
+                              title={isAdded ? '누르면 후보판에서 뺍니다' : '후보판에 이 집을 더합니다'}
+                            >
+                              {isAdded ? '담김 ✓ (빼기)' : '후보판에 담기'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setT({ deposit: mode === 'jeonse' ? (j.est ?? 0) : w.dep, rent: mode === 'jeonse' ? 0 : w.rent, areaSqm: row.area });
+                                document.getElementById('loan-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                              }}
+                              className="text-xs whitespace-nowrap text-slate-400 underline decoration-dotted underline-offset-2 hover:text-sky-300"
+                            >
+                              대출 자세히 ↓
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {sorted.length > limit && (
+                <button
+                  type="button"
+                  onClick={() => setLimit((l) => l + 30)}
+                  className="mt-3 rounded-lg bg-slate-800 px-3.5 py-2 text-sm text-slate-200 transition hover:bg-slate-700"
+                >
+                  {sorted.length - limit}곳 더 보기
+                </button>
+              )}
+            </div>
+          )}
+          {added[mode].length > 0 && onOpenBoard && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5">
+              <span className="text-sm text-emerald-200">
+                {mode === 'jeonse' ? '전세' : '월세'} 후보판에 {added[mode].length}곳을 담았습니다 — 후보판에서 "직접 담음" 표시로 나옵니다.
+              </span>
+              <button type="button" onClick={onOpenBoard} className="rounded-md bg-emerald-500/20 px-3 py-1.5 text-sm font-medium text-emerald-200 hover:bg-emerald-500/30">
+                후보판에서 비교하기 →
               </button>
-            );
-          })}
+            </div>
+          )}
+        </Card>
+
+        <div id="loan-detail" style={{ scrollMarginTop: 140 }}>
+          <LoanDetail borrower={borrower} target={target} onTarget={setT} onOpenBoard={onOpenBoard} />
         </div>
 
-        {sorted.length === 0 ? (
-          <p className="mt-4 rounded-lg border border-dashed border-slate-800 px-4 py-6 text-center text-xs text-slate-500">
-            조건에 맞는 집이 없습니다. 내 돈이나 월 한도를 올리거나, 지역·준공 조건을 넓혀 보세요.
+        <Foldable summary="이 자료가 못 하는 것 · 출처" count={RENT_CAVEATS.length + SAFETY_CAVEATS.length}>
+          <ul className="space-y-1">
+            {[...RENT_CAVEATS, ...SAFETY_CAVEATS].map((c) => (
+              <li key={c}>· {c}</li>
+            ))}
+          </ul>
+          <p className="mt-2">
+            출처 {RENT_SNAPSHOT.source.name} · {RENT_SNAPSHOT.source.license} · 수집 {RENT_SNAPSHOT.asOf} · 범위 {RENT_SNAPSHOT.range.from}~
+            {RENT_SNAPSHOT.range.to}
           </p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[60rem] text-left text-[11px]">
-              <thead className="text-slate-500">
-                <tr className="border-b border-slate-800">
-                  <th className="py-1.5 pr-3 font-medium">단지</th>
-                  <th className="py-1.5 pr-3 text-right font-medium">평형</th>
-                  <th className="py-1.5 pr-3 text-right font-medium">준공</th>
-                  <th className="py-1.5 pr-3 text-right font-medium">{mode === 'jeonse' ? '최근 전세' : '보증금 / 월세'}</th>
-                  <th className="py-1.5 pr-3 text-right font-medium">{mode === 'jeonse' ? '전세가율' : '매달 (월세+이자)'}</th>
-                  <th className="py-1.5 pr-3 font-medium">판정</th>
-                  <th className="py-1.5 pr-3 font-medium">되는 대출</th>
-                  <th className="py-1.5 pr-3 text-right font-medium">내 돈</th>
-                  <th className="py-1.5 font-medium" />
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.slice(0, limit).map(({ row, own, monthlyOut, loan }) => {
-                  const isAdded = added[mode].includes(row.id);
-                  const reg = regionOf(row.cx.split('-')[0]);
-                  const j = row as JeonseBoardRow;
-                  const w = row as WolseBoardRow;
-                  return (
-                    <tr key={row.id} className="border-b border-slate-900 align-top">
-                      <td className="py-2 pr-3">
-                        <button
-                          type="button"
-                          onClick={() => openComplexDetail(row.cx, row.area)}
-                          title="같은 단지·평형의 매매·전세 분기 추이 · 전세가율 · 평형별 표"
-                          className="text-left font-medium text-slate-100 underline decoration-slate-700 underline-offset-2 transition hover:text-sky-300 hover:decoration-sky-500"
-                        >
-                          {row.name}
-                          <span className="ml-1 text-[10px] font-normal text-sky-400/80">상세 ▸</span>
-                        </button>
-                        <div className="text-[10px] text-slate-500">
-                          {row.umd} · {row.region} · 함안 방향 {reg ? COMMUTE_LABEL[reg.commute] : '—'}
-                        </div>
-                        {row.notes.length > 0 && <div className="mt-0.5 text-[10px] text-amber-500/80">{row.notes[0]}</div>}
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums text-slate-300">
-                        {row.area}㎡<div className="text-[10px] text-slate-600">공급 약 {Math.round(toSupplyPyeong(row.area))}평</div>
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums text-slate-300">{row.built || '—'}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums text-slate-100">
-                        {mode === 'jeonse' ? (
-                          <>
-                            {money(j.est ?? 0)}
-                            <div className="text-[10px] text-slate-600">{j.estBasis} · {j.estN}건</div>
-                          </>
-                        ) : (
-                          <>
-                            {money(w.dep)} / {man(w.rent)}
-                            <div className="text-[10px] text-slate-600">월세 {w.wn}건 · 2년 중위</div>
-                          </>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums">
-                        {mode === 'jeonse' ? (
-                          <span className={j.ratio == null ? 'text-slate-500' : j.ratio < 0.7 ? 'text-emerald-300' : j.ratio < 0.8 ? 'text-sky-300' : 'text-rose-300'}>
-                            {j.ratio == null ? '잴 수 없음' : percent(j.ratio, 0)}
-                          </span>
-                        ) : (
-                          <span className="text-slate-100">{man(monthlyOut)}</span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <Badge tone={TIER_TONE[row.tier]}>{TIER_LABEL[row.tier]}</Badge>
-                      </td>
-                      <td className="py-2 pr-3 text-slate-300">
-                        {loan ? (
-                          <>
-                            {loan.n} {money(loan.lim)}
-                            <div className="text-[10px] text-slate-500">
-                              월 이자 {man(loan.i0)}~{man(loan.i1)}
-                              {loan.wolse && loan.mcap ? ` · 월세 지원 월 ${man(loan.mcap)}까지` : ''}
-                            </div>
-                          </>
-                        ) : (
-                          <span className="text-slate-500">대출 없이 내 돈으로</span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums text-slate-100">{money(own)}</td>
-                      <td className="py-2">
-                        <div className="flex flex-col items-start gap-1">
-                          <button
-                            type="button"
-                            onClick={() => toggleAdd(row.id)}
-                            className={`rounded-md px-2 py-1 text-[11px] font-medium transition ${
-                              isAdded ? 'bg-emerald-500/15 text-emerald-300 hover:bg-rose-500/15 hover:text-rose-300' : 'bg-sky-500/15 text-sky-300 hover:bg-sky-500/25'
-                            }`}
-                            title={isAdded ? '누르면 후보판에서 뺍니다' : '후보판에 이 집을 더합니다'}
-                          >
-                            {isAdded ? '담김 ✓ (빼기)' : '후보판에 담기'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setT({ deposit: mode === 'jeonse' ? (j.est ?? 0) : w.dep, rent: mode === 'jeonse' ? 0 : w.rent, areaSqm: row.area });
-                              document.getElementById('loan-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            }}
-                            className="text-[10px] text-slate-500 underline decoration-dotted underline-offset-2 hover:text-slate-300"
-                          >
-                            대출 자세히 ↓
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {sorted.length > limit && (
-              <button
-                type="button"
-                onClick={() => setLimit((l) => l + 30)}
-                className="mt-3 rounded-lg bg-slate-800 px-3 py-1.5 text-[11px] text-slate-300 transition hover:bg-slate-700"
-              >
-                {sorted.length - limit}곳 더 보기
-              </button>
-            )}
-          </div>
-        )}
-        {added[mode].length > 0 && onOpenBoard && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
-            <span className="text-xs text-emerald-200">
-              {mode === 'jeonse' ? '전세' : '월세'} 후보판에 {added[mode].length}곳을 담았습니다 — 후보판에서 "직접 담음" 표시로 나옵니다.
-            </span>
-            <button type="button" onClick={onOpenBoard} className="rounded-md bg-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-200 hover:bg-emerald-500/30">
-              후보판에서 비교하기 →
-            </button>
-          </div>
-        )}
-      </Card>
-
-      <div id="loan-detail" style={{ scrollMarginTop: 140 }}>
-        <LoanDetail borrower={borrower} target={target} onTarget={setT} />
+        </Foldable>
       </div>
-
-      <Card title="이 자료가 못 하는 것">
-        <ul className="space-y-1.5">
-          {[...RENT_CAVEATS, ...SAFETY_CAVEATS].map((c) => (
-            <li key={c} className="text-xs leading-relaxed text-slate-400">· {c}</li>
-          ))}
-        </ul>
-        <p className="mt-3 text-[10px] leading-relaxed text-slate-600">
-          출처 {RENT_SNAPSHOT.source.name} · {RENT_SNAPSHOT.source.license} · 수집 {RENT_SNAPSHOT.asOf} · 범위 {RENT_SNAPSHOT.range.from}~
-          {RENT_SNAPSHOT.range.to}
-        </p>
-      </Card>
-    </div>
+    </TwoCol>
   );
 }

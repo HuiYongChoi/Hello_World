@@ -4,6 +4,7 @@ import {
   Card,
   Empty,
   Field,
+  Foldable,
   NumberInput,
   ProvenanceValue,
   Select,
@@ -78,7 +79,7 @@ function RepairAnchor({
   return (
     <div className="mt-1.5 rounded-lg border border-slate-800 bg-slate-950/50 px-2 py-1.5">
       <div
-        className="text-[10px] leading-relaxed text-slate-500"
+        className="text-xs leading-relaxed text-slate-400"
         title={
           `${a.scope} 기준 · 단지 ${a.stat.n}개 표본\n` +
           `장기수선충당금 중위 ${a.stat.median}원/㎡/월 (사분위 ${a.stat.p25}~${a.stat.p75})\n` +
@@ -87,18 +88,18 @@ function RepairAnchor({
         }
       >
         실측 하한 <span className="text-slate-300 tabular-nums">{percent(a.measuredRate, 3)}</span>
-        <span className="ml-1 text-slate-600">
+        <span className="ml-1 text-slate-400">
           ({percent(a.lowRate, 3)}~{percent(a.highRate, 3)} · 단지 {a.stat.n}개)
         </span>
       </div>
-      <div className="mt-0.5 text-[9px] leading-relaxed text-slate-600">
+      <div className="mt-0.5 text-xs leading-relaxed text-slate-400">
         지금 가정 {percent(assumed, 2)}는 그 하한의{' '}
         <b className="text-slate-400">{a.ratioToAssumed.toFixed(1)}배</b>입니다. 실측은{' '}
         <b className="text-slate-400">장기수선충당금만</b>이라 세대 내부 수선(도배·싱크대·보일러)이
         빠져 있습니다 — 값을 대신 넣지 않습니다.
       </div>
       {a.thin && (
-        <div className="mt-0.5 text-[9px] text-amber-500/70">
+        <div className="mt-0.5 text-xs text-amber-500/70">
           표본이 {a.stat.n}개뿐이라 중위값이 흔들립니다
         </div>
       )}
@@ -132,13 +133,13 @@ function RateField({
     <div>
       <div className="flex items-baseline gap-1.5" title={help}>
         <span className="text-xs font-medium text-slate-300">{label}</span>
-        <span className="text-slate-600">ⓘ</span>
+        <span className="text-slate-500">ⓘ</span>
         {assumed ? (
-          <span className="rounded border border-slate-700 px-1 text-[9px] text-slate-500 print-plain">
+          <span className="rounded border border-slate-700 px-1 text-2xs text-slate-400 print-plain">
             가정
           </span>
         ) : (
-          <span className="text-[9px] text-slate-500">실측</span>
+          <span className="text-xs text-slate-400">실측</span>
         )}
       </div>
       <div
@@ -155,7 +156,7 @@ function RateField({
           onChange={(v) => onChange(v / 100)}
         />
       </div>
-      <span className="mt-1 block text-[10px] leading-relaxed text-slate-600">{source}</span>
+      <span className="mt-1 block text-xs leading-relaxed text-slate-400">{source}</span>
       {anchor}
     </div>
   );
@@ -189,9 +190,9 @@ function GrowthAnchor({
   return (
     <div className="mt-1.5 rounded-lg border border-slate-800 bg-slate-950/50 px-2 py-1.5">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[10px] text-slate-500">
+        <span className="text-xs text-slate-400">
           실측 <span className="text-slate-300 tabular-nums">{percent(s.cagr, 2)}</span>
-          <span className="ml-1 text-slate-600">
+          <span className="ml-1 text-slate-400">
             ({s.holdYears}년 보유 · {s.cells.toLocaleString('ko-KR')}칸 ·{' '}
             {s.samples.toLocaleString('ko-KR')}건 중위)
           </span>
@@ -200,9 +201,9 @@ function GrowthAnchor({
           type="button"
           disabled={same}
           onClick={() => onUse(s.cagr)}
-          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] transition no-print ${
+          className={`shrink-0 rounded px-1.5 py-0.5 text-2xs transition no-print ${
             same
-              ? 'text-slate-600'
+              ? 'text-slate-500'
               : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-slate-100'
           }`}
         >
@@ -211,7 +212,7 @@ function GrowthAnchor({
       </div>
       {d && (
         <div
-          className="mt-0.5 text-[9px] leading-relaxed text-slate-600"
+          className="mt-0.5 text-xs leading-relaxed text-slate-400"
           title={`${s.holdYears}년 보유를 단지·평형 ${s.cells}칸 × 진입분기 ${s.entryQuarters}개에서 각각 계산한 ${d.count}건의 분포입니다. 중위 ${percent(
             d.median,
             2
@@ -227,7 +228,7 @@ function GrowthAnchor({
         </div>
       )}
       {s.fellBack && (
-        <div className="mt-0.5 text-[9px] leading-relaxed text-amber-500/80">
+        <div className="mt-0.5 text-xs leading-relaxed text-amber-500/80">
           {years}년 보유 표본이 없어 <b>{s.holdYears}년</b>으로 물러섰습니다 — 스냅샷이{' '}
           {MARKET.range.from.slice(0, 4)}년부터입니다.
         </div>
@@ -239,7 +240,7 @@ function GrowthAnchor({
         지수는 얼마나 벌어지는지를 보이는 참고값으로 남깁니다.
       */}
       <div
-        className="mt-0.5 text-[9px] leading-relaxed text-slate-600"
+        className="mt-0.5 text-xs leading-relaxed text-slate-400"
         title={`연쇄 지수는 분기 중위 변화율을 곱해 이어 붙이면서 위로 치우칩니다(연쇄 드리프트). 가져다 쓰는 값은 지수가 아니라 실제 단지·평형 표본의 중위입니다.`}
       >
         참고 · 연쇄지수 전체 {s.indexYears.toFixed(1)}년 {percent(s.indexCagr, 2)}
@@ -250,7 +251,7 @@ function GrowthAnchor({
           </span>
         )}
       </div>
-      <div className="mt-0.5 text-[9px] leading-relaxed text-slate-600">
+      <div className="mt-0.5 text-xs leading-relaxed text-slate-400">
         과거 실측일 뿐 예측이 아닙니다. 구간을 어디서 끊느냐로 크게 달라집니다.
       </div>
     </div>
@@ -310,10 +311,10 @@ function Row({
       className={`flex items-baseline justify-between gap-3 py-1 ${indent ? 'pl-3' : ''}`}
       title={help}
     >
-      <span className={`text-[11px] ${strong ? 'text-slate-300' : 'text-slate-500'}`}>
+      <span className={`text-xs ${strong ? 'text-slate-300' : 'text-slate-400'}`}>
         {label}
-        {help && <span className="ml-1 text-slate-600">ⓘ</span>}
-        {hint && <span className="ml-1 text-slate-600">{hint}</span>}
+        {help && <span className="ml-1 text-slate-500">ⓘ</span>}
+        {hint && <span className="ml-1 text-slate-400">{hint}</span>}
       </span>
       <span
         className={`tabular-nums ${strong ? 'text-sm font-semibold' : 'text-xs'} ${
@@ -330,10 +331,10 @@ function Row({
 function Stage({ n, title }: { n: string; title: string }) {
   return (
     <div className="mt-3 mb-1 flex items-center gap-1.5 border-t border-slate-800/70 pt-2.5">
-      <span className="flex h-4 w-4 items-center justify-center rounded bg-slate-800 text-[9px] text-slate-400">
+      <span className="flex h-4 w-4 items-center justify-center rounded bg-slate-800 text-2xs text-slate-400">
         {n}
       </span>
-      <span className="text-[11px] font-medium text-slate-400">{title}</span>
+      <span className="text-xs font-medium text-slate-400">{title}</span>
     </div>
   );
 }
@@ -386,7 +387,7 @@ function LegCard({
         <span className={`text-2xl font-semibold tabular-nums ${tone.text}`}>
           {money(leg.terminalWealth)}
         </span>
-        <span className="text-[11px] text-slate-500">
+        <span className="text-xs text-slate-400">
           연환산 {percent(leg.annualizedReturn, 1)}
         </span>
       </div>
@@ -417,7 +418,7 @@ function LegCard({
         label="투자에 남김"
         hint="(주식·채권 등)"
         value={money(leg.initialInvestment)}
-        tone={leg.initialInvestment > 0 ? 'text-slate-200' : 'text-slate-600'}
+        tone={leg.initialInvestment > 0 ? 'text-slate-200' : 'text-slate-500'}
       />
       {!leg.feasible && (
         <Row label="모자란 돈" value={money(leg.shortfall)} tone="text-rose-300" />
@@ -507,7 +508,7 @@ function LegCard({
         label="투자에 추가 적립"
         hint={`(월 ${money(monthlySaving)})`}
         value={money(leg.netContribution)}
-        tone={leg.netContribution > 0 ? 'text-slate-200' : 'text-slate-600'}
+        tone={leg.netContribution > 0 ? 'text-slate-200' : 'text-slate-500'}
         help={
           leg.kind === 'buy'
             ? '갈래 중 가장 많이 쓰는 쪽을 매달 기준예산으로 잡습니다. 매수가 보통 가장 많이 쓰므로 남는 돈이 없어 0원이 됩니다.'
@@ -582,7 +583,7 @@ function LegCard({
       {leg.notes.length > 0 && (
         <ul className="mt-3 space-y-1">
           {leg.notes.map((n) => (
-            <li key={n} className="text-[11px] leading-relaxed text-slate-500">
+            <li key={n} className="text-xs leading-relaxed text-slate-400">
               · {n}
             </li>
           ))}
@@ -675,7 +676,7 @@ export function TenurePage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Card
         title={plan ? '4-way 거주형태 비교' : '3-way 거주형태 비교'}
         subtitle={
@@ -684,7 +685,7 @@ export function TenurePage() {
             : '매수 · 전세 · 월세가 같은 자기자본에서 출발해 같은 기간 뒤 손에 남는 돈을 비교합니다. 임차 쪽은 매수의 원리금 상환과 대칭이 되도록 차액을 적립투자합니다.'
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           <Field label="물건">
             <Select
               value={property?.id ?? ''}
@@ -758,7 +759,7 @@ export function TenurePage() {
           <div className="text-xs font-medium text-amber-200">
             애매 구간 물건입니다 — 이 화면이 그래서 중요합니다
           </div>
-          <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+          <p className="mt-1 text-xs leading-relaxed text-slate-400">
             {propertyThesis(property).reason} {propertyThesis(property).advice}
           </p>
         </div>
@@ -771,336 +772,342 @@ export function TenurePage() {
         </Empty>
       ) : (
         <>
-          {/* ── 결론 ─────────────────────────────────────────── */}
-          <Card
-            title="손익분기 가격상승률"
-            subtitle="“몇 년 뒤 얼마”보다 “몇 % 올라야 매수가 이기나”가 검증 가능한 질문입니다."
-          >
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Stat
-                label="손익분기 가격상승률"
-                value={
-                  result.breakEvenPriceGrowth === null
-                    ? '구간 밖'
-                    : percent(result.breakEvenPriceGrowth, 2)
-                }
-                hint="이보다 낮으면 임차가 앞섭니다"
-              />
-              <Stat
-                label="가정한 가격상승률"
-                value={percent(result.assumptions.priceGrowthRate, 2)}
-                tone={                  result.breakEvenPriceGrowth !== null &&
-                  result.assumptions.priceGrowthRate >= result.breakEvenPriceGrowth
-                    ? 'good'
-                    : 'bad'
-                }
-              />
-              <Stat
-                label="가장 큰 종료자산"
-                value={result.legs.find((l) => l.kind === result.best)?.label ?? '—'}
-                hint={result.legs
-                  .map((l) => `${l.label} ${percent(l.annualizedReturn, 1)}`)
-                  .join(' · ')}
-              />
-            </div>
-            {result.breakEvenPriceGrowth !== null && (
-              <p className="mt-3 text-xs leading-relaxed text-slate-400">
-                가정한 {percent(result.assumptions.priceGrowthRate, 2)}가 손익분기{' '}
-                {percent(result.breakEvenPriceGrowth, 2)}
-                {result.assumptions.priceGrowthRate >= result.breakEvenPriceGrowth
-                  ? '보다 높아 매수가 임차보다 앞섭니다. 가정을 손익분기 아래로 낮추면 결론이 뒤집힙니다.'
-                  : '보다 낮아 임차가 매수보다 앞섭니다. 매수가 이기려면 그만큼은 올라야 합니다.'}
-                {plan && ' 청약은 그쪽도 집을 사므로 이 분기점 밖에 있습니다 — 따로 보세요.'}
-              </p>
-            )}
-            {/*
-              청약이 1등이어도 "청약해라" 가 아닙니다. 당첨을 전제로 했고, 사는 집도
-              다릅니다. 숫자가 이겼다는 사실과 그 숫자의 조건을 같이 놓습니다.
-            */}
-            {plan && result.best === 'subscription' && (
-              <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200">
-                종료자산은 청약이 가장 큽니다 — 다만 <b>당첨을 전제</b>로 했고, 이 갈래만{' '}
-                <b>사는 집이 다릅니다</b>. 입주까지 {plan.waitYears}년은 다른 집에 임차로 살고,
-                {plan.resaleBanMonths > 0 && ` 전매제한 ${plan.resaleBanMonths}개월 동안은 팔 수도 없습니다.`}{' '}
-                "되면 낫다"까지가 이 숫자가 말할 수 있는 전부입니다.
-              </p>
-            )}
-          </Card>
-
-          {/* ── 왜 그렇게 되나 — 현금흐름이 갈리는 지점 ────────── */}
-          {/*
-            매수는 원금상환이 얹혀 현금유출이 큽니다. 그 차액을 임차가 굴린다는 것이
-            이 비교의 전제인데, 화면에는 적립액만 있고 "얼마나 덜 썼는지"가 없었습니다.
-            차액 → 투자 원금 → 수익으로 이어지는 사슬을 한 표에 세웁니다.
-          */}
-          <Card
-            title="매수보다 덜 쓴 돈은 어디로 갔나"
-            subtitle={`매수는 원금상환이 얹혀 현금이 가장 많이 나갑니다. 임차가 덜 쓴 만큼은 그대로 투자로 갑니다 — 이 표의 "덜 쓴 돈"과 "투자 원금 차이"는 정확히 같은 금액입니다.`}
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-left">
-                <thead>
-                  <tr className="border-b border-slate-800 text-[10px] text-slate-500">
-                    <th className="pb-1.5">갈래</th>
-                    <th className="pb-1.5 text-right">통장에서 나간 총액</th>
-                    <th className="pb-1.5 text-right">매수보다 덜 씀</th>
-                    <th className="pb-1.5 text-right">투자 원금</th>
-                    <th className="pb-1.5 text-right">투자 수익</th>
-                    <th className="pb-1.5 text-right">주거 순비용</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.legs.map((l) => {
-                    const buyLeg = result.legs.find((x) => x.kind === 'buy')!;
-                    const saved = buyLeg.totalCashOut - l.totalCashOut;
-                    const items = housingCostBreakdown(l);
-                    const open = openCost === l.kind;
-                    return [
-                      <tr key={l.kind} className="border-b border-slate-800/50">
-                        <td className="py-1.5 text-[11px] text-slate-300">
-                          {l.label}
-                          {/* 자금 부족이면 투자 원금이 음수가 됩니다 — 표에서도 그 사실이 보여야 합니다. */}
-                          {!l.feasible && (
-                            <span
-                              className="ml-1.5 text-[9px] text-rose-300"
-                              title={`초기 자금이 ${money(l.shortfall)} 모자랍니다. 아래 숫자는 그 돈을 어디선가 빌려 왔다고 보고 계산한 값이라, 투자 원금이 음수로 나옵니다.`}
-                            >
-                              자금 부족
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
-                          {money(l.totalCashOut)}
-                        </td>
-                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-200">
-                          {saved > 1 ? money(saved) : '—'}
-                        </td>
-                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
-                          {money(l.investedPrincipal)}
-                        </td>
-                        <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-200">
-                          {money(l.investmentGain)}
-                        </td>
-                        {/* 순비용은 여러 항목의 합이라 눌러서 풀어 볼 수 있어야 합니다 */}
-                        <td className="py-1.5 text-right text-[11px] tabular-nums">
-                          <button
-                            type="button"
-                            onClick={() => setOpenCost(open ? null : l.kind)}
-                            className="text-slate-300 transition hover:text-slate-100 no-print"
-                            title={items
-                              .map((i) => `${i.label} ${money(i.amount)}`)
-                              .join(' · ')}
-                          >
-                            {money(l.netHousingCost)}
-                            <span className="ml-1 text-[9px] text-slate-600">
-                              {open ? '▾' : '▸'}
-                            </span>
-                          </button>
-                          <span className="hidden print:inline">{money(l.netHousingCost)}</span>
-                        </td>
-                      </tr>,
-                      // 인쇄에서는 접힘이 정보 손실이라 항상 펼칩니다.
-                      <tr
-                        key={`${l.kind}-detail`}
-                        className={`border-b border-slate-800/50 ${open ? '' : 'hidden print:table-row'}`}
-                      >
-                        <td colSpan={6} className="bg-slate-950/60 px-3 py-2 print-plain">
-                          <div className="mb-1 text-[10px] text-slate-500">
-                            {l.label} 주거 순비용 {money(l.netHousingCost)} 의 내역
-                          </div>
-                          <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
-                            {items.map((i) => (
-                              <div
-                                key={i.label}
-                                className="flex items-baseline justify-between gap-3"
-                                title={i.help}
-                              >
-                                <span className="text-[10px] text-slate-500">
-                                  {i.label}
-                                  <span className="ml-1 text-slate-600">ⓘ</span>
-                                </span>
-                                <span className="text-[10px] tabular-nums text-slate-300">
-                                  {i.reducesCost ? '−' : ''}
-                                  {money(i.amount)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                          <p className="mt-1.5 text-[10px] leading-relaxed text-slate-600">
-                            {l.kind === 'buy'
-                              ? '원금상환과 집값 변동은 여기 없습니다 — 원금은 돌려받는 자본이고, 집값 상승분은 비용이 아니라 자본이득이라 상계하지 않습니다.'
-                              : '보증금은 여기 없습니다 — 계약 종료 시 돌려받는 자본입니다.'}
-                          </p>
-                        </td>
-                      </tr>,
-                    ];
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-              매수의 현금유출이 큰 것은 낭비가 아닙니다 — 그중{' '}
-              {money(result.legs.find((l) => l.kind === 'buy')?.principalRepaid ?? 0)}는 원금상환이라
-              집에 쌓입니다. 반대로 임차가 덜 쓴 돈은 투자에 쌓입니다.{' '}
-              <span className="text-slate-300">
-                어느 쪽이 이기는지는 집값 상승률과 투자 수익률 중 무엇이 더 높으냐로 갈립니다.
-              </span>
-            </p>
-          </Card>
-
-          {/*
-            "어디에 굴리느냐"가 결론을 바꿉니다. 수익률 하나로 답이 뒤집힌다면
-            그 답은 "매수가 낫다"가 아니라 "굴릴 자신이 있느냐에 달렸다"입니다.
-          */}
-          <Card
-            title="차액을 어디에 굴리느냐 — 대체투자 수익률별 우열"
-            subtitle={`매수와 임차의 차액을 굴리는 수익률을 바꿔 가며 종료자산을 다시 계산합니다. ${legWord} 모두 영향을 받습니다 — 매수도 목돈을 다 쓰지 않고 남긴 만큼은 굴리기 때문입니다.`}
-            action={
-              <Badge tone={measuredCount > 0 ? 'good' : 'warn'}>
-                {measuredCount > 0 ? `${measuredCount}/${scenarios.length} 실측` : '전부 가정값'}
-              </Badge>
-            }
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] text-left">
-                <thead>
-                  <tr className="border-b border-slate-800 text-[10px] text-slate-500">
-                    <th className="pb-1.5">굴리는 곳</th>
-                    <th className="pb-1.5 text-right">수익률</th>
-                    <th className="pb-1.5 text-right">매수</th>
-                    <th className="pb-1.5 text-right">전세</th>
-                    <th className="pb-1.5 text-right">월세</th>
-                    <th className="w-28 border-l border-slate-800 pb-1.5 pl-3 text-right">우위</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {scenarios.map((s) => (
-                    <tr key={s.id} className="border-b border-slate-800/50" title={s.note}>
-                      <td className="py-1.5 text-[11px] text-slate-300">
-                        {s.label}
-                        <span className="ml-1 text-slate-600">ⓘ</span>
-                        <span
-                          className={`ml-1.5 rounded border px-1 text-[9px] ${
-                            provenanceOf(s.id) === 'measured'
-                              ? 'border-slate-500 text-slate-300'
-                              : provenanceOf(s.id) === 'approx'
-                                ? 'border-slate-700 text-slate-500'
-                                : 'border-slate-800 text-slate-600'
-                          }`}
-                        >
-                          {PROVENANCE_LABEL[provenanceOf(s.id)]}
-                        </span>
-                      </td>
-                      <td className="py-1.5 text-right text-[11px] tabular-nums text-slate-400">
-                        {percent(s.rate, 1)}
-                      </td>
-                      {(['buy', 'jeonse', 'wolse'] as const).map((k) => (
-                        <td
-                          key={k}
-                          className={`py-1.5 text-right text-[11px] tabular-nums ${
-                            s.best === k && s.gap >= 1000000
-                              ? 'font-semibold text-slate-100'
-                              : 'text-slate-400'
-                          }`}
-                        >
-                          {money(s.terminal[k])}
-                        </td>
-                      ))}
-                      <td className="w-28 border-l border-slate-800/70 py-1.5 pl-3 text-right text-[11px] tabular-nums text-slate-300">
-                        {LEG_LABEL[s.best]}
-                        <span className="ml-1 text-[10px] text-slate-600">
-                          {s.gap < 1000000 ? '동률' : `+${money(s.gap)}`}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-3 space-y-1">
-              <p className="text-[11px] leading-relaxed text-slate-500">
-                {flipsAcrossReturns ? (
-                  <>
-                    <span className="text-amber-300">수익률 가정 하나로 우위가 뒤집힙니다.</span>{' '}
-                    그렇다면 결론은 “매수가 낫다”가 아니라{' '}
-                    <span className="text-slate-300">
-                      “차액을 어디에 굴릴 자신이 있느냐에 달렸다”
-                    </span>
-                    입니다.
-                  </>
-                ) : (
-                  <>
-                    이 구간에서는 수익률을 바꿔도 우위가 <span className="text-slate-300">{LEG_LABEL[scenarios[0]?.best ?? 'buy']}</span>로
-                    유지됩니다. 결론이 투자 수익률 가정에 덜 민감하다는 뜻입니다.
-                  </>
-                )}
-              </p>
-              <p className="text-[10px] leading-relaxed text-slate-600">
-                코스피·채권은 KRX 실측입니다 ({INDEXES.range.from.slice(0, 4)}~
-                {INDEXES.range.to.slice(0, 4)}년 {INDEXES.range.years}년 구간). KRX 에 코스피{' '}
-                <strong className="text-slate-400">총수익지수가 없어</strong> 가격지수에 배당을
-                더해 근사하는데, 그 배당{' '}
-                {(INDEXES.kospi.dividendYieldMeasured * 100).toFixed(2)}%도{' '}
-                <strong className="text-slate-400">이제 실측</strong>입니다 (ECOS 배당수익률
-                20년 평균). 두 항 모두 실측이지만 재투자 시점이 안 들어가 여전히 근사입니다.
-                채권만 총수익지수 실측이라 근사가 아닙니다.
-                <br />
-                해외지수는 <strong className="text-slate-400">가격지수만 FRED 실측</strong>이고
-                배당은 가정입니다 — FRED 에 이 지수들의 배당수익률도 총수익지수도 없다는 것을
-                확인했습니다. 같은 “실측+가정” 이라도 코스피와 근거 수준이 다릅니다.
-              </p>
-              {measuredInflation() !== null && (
-                <p className="text-[10px] leading-relaxed text-slate-600">
-                  전부 <strong className="text-slate-400">명목</strong> 수익률입니다. 같은 기간
-                  소비자물가가 연 {percent(measuredInflation()!, 2)} 올랐으므로(ECOS 실측),
-                  실질로는 각각 그만큼 낮습니다 — 예: 코스피{' '}
-                  {percent(
-                    toReal(investmentOptions().find((o) => o.id === 'kospi')?.rate ?? 0, measuredInflation()!),
-                    2
-                  )}
-                  . 집값 상승률도 명목이라 비교 자체는 성립합니다.
+          <div className="grid items-start gap-6 xl:grid-cols-2">
+            {/* ── 결론 ─────────────────────────────────────────── */}
+            <Card
+              className="h-full"
+              title="손익분기 가격상승률"
+              subtitle="“몇 년 뒤 얼마”보다 “몇 % 올라야 매수가 이기나”가 검증 가능한 질문입니다."
+            >
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Stat
+                  label="손익분기 가격상승률"
+                  value={
+                    result.breakEvenPriceGrowth === null
+                      ? '구간 밖'
+                      : percent(result.breakEvenPriceGrowth, 2)
+                  }
+                  hint="이보다 낮으면 임차가 앞섭니다"
+                />
+                <Stat
+                  label="가정한 가격상승률"
+                  value={percent(result.assumptions.priceGrowthRate, 2)}
+                  tone={                  result.breakEvenPriceGrowth !== null &&
+                    result.assumptions.priceGrowthRate >= result.breakEvenPriceGrowth
+                      ? 'good'
+                      : 'bad'
+                  }
+                />
+                <Stat
+                  label="가장 큰 종료자산"
+                  value={result.legs.find((l) => l.kind === result.best)?.label ?? '—'}
+                  hint={result.legs
+                    .map((l) => `${l.label} ${percent(l.annualizedReturn, 1)}`)
+                    .join(' · ')}
+                />
+              </div>
+              {result.breakEvenPriceGrowth !== null && (
+                <p className="mt-3 text-xs leading-relaxed text-slate-400">
+                  가정한 {percent(result.assumptions.priceGrowthRate, 2)}가 손익분기{' '}
+                  {percent(result.breakEvenPriceGrowth, 2)}
+                  {result.assumptions.priceGrowthRate >= result.breakEvenPriceGrowth
+                    ? '보다 높아 매수가 임차보다 앞섭니다. 가정을 손익분기 아래로 낮추면 결론이 뒤집힙니다.'
+                    : '보다 낮아 임차가 매수보다 앞섭니다. 매수가 이기려면 그만큼은 올라야 합니다.'}
+                  {plan && ' 청약은 그쪽도 집을 사므로 이 분기점 밖에 있습니다 — 따로 보세요.'}
                 </p>
               )}
-              <p className="text-[10px] leading-relaxed text-slate-600">
-                10년 두 점으로 낸 CAGR 이라 구간을 조금만 옮겨도 크게 달라집니다.
-                “앞으로도 이만큼”이 아니라 “이 구간에는 이랬다”로 읽으세요.
-              </p>
-              <p className="text-[10px] leading-relaxed text-amber-200/70">
-                {RULES.tenure.investmentPresets.currencyWarning}
-              </p>
-            </div>
-          </Card>
-
-          {/* ── 갈래별 상세 ──────────────────────────────────── */}
-          <Card
-            title="자금 흐름 — 같은 목돈을 어디에 두느냐의 차이"
-            subtitle={`${legWord} 모두 자기자본 ${money(
-              result.equity
-            )}에서 출발합니다. 주거에 묶는 만큼 투자에 남길 돈이 줄고, 매달 주거비를 덜 쓰는 만큼 투자에 더 넣습니다. 매수자가 갚는 원금은 소비가 아니라 저축이므로, 임차 쪽에도 그 차액만큼 투자시켜야 비교가 성립합니다.`}
-          >
-            <div
-              className={`grid gap-4 ${
-                result.legs.length > 3 ? 'sm:grid-cols-2 xl:grid-cols-4' : 'lg:grid-cols-3'
-              }`}
+              {/*
+                청약이 1등이어도 "청약해라" 가 아닙니다. 당첨을 전제로 했고, 사는 집도
+                다릅니다. 숫자가 이겼다는 사실과 그 숫자의 조건을 같이 놓습니다.
+              */}
+              {plan && result.best === 'subscription' && (
+                <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200">
+                  종료자산은 청약이 가장 큽니다 — 다만 <b>당첨을 전제</b>로 했고, 이 갈래만{' '}
+                  <b>사는 집이 다릅니다</b>. 입주까지 {plan.waitYears}년은 다른 집에 임차로 살고,
+                  {plan.resaleBanMonths > 0 && ` 전매제한 ${plan.resaleBanMonths}개월 동안은 팔 수도 없습니다.`}{' '}
+                  "되면 낫다"까지가 이 숫자가 말할 수 있는 전부입니다.
+                </p>
+              )}
+            </Card>
+            {/*
+              "어디에 굴리느냐"가 결론을 바꿉니다. 수익률 하나로 답이 뒤집힌다면
+              그 답은 "매수가 낫다"가 아니라 "굴릴 자신이 있느냐에 달렸다"입니다.
+            */}
+            <Card
+              className="h-full"
+              title="차액을 어디에 굴리느냐 — 대체투자 수익률별 우열"
+              subtitle={`매수와 임차의 차액을 굴리는 수익률을 바꿔 가며 종료자산을 다시 계산합니다. ${legWord} 모두 영향을 받습니다 — 매수도 목돈을 다 쓰지 않고 남긴 만큼은 굴리기 때문입니다.`}
+              action={
+                <Badge tone={measuredCount > 0 ? 'good' : 'warn'}>
+                  {measuredCount > 0 ? `${measuredCount}/${scenarios.length} 실측` : '전부 가정값'}
+                </Badge>
+              }
             >
-              {result.legs.map((leg) => (
-                <LegCard
-                  key={leg.kind}
-                  leg={leg}
-                  best={leg.kind === result.best}
-                  max={Math.max(...result.legs.map((l) => l.terminalWealth))}
-                  equity={result.equity}
-                  years={result.years}
-                  returnRate={result.assumptions.investmentReturnRate}
-                />
-              ))}
-            </div>
-            <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
-              ① + ②의 적립액이 투자 원금이 되고, 여기에 수익이 붙어 ③의 투자 잔고가 됩니다.
-              전세처럼 보증금이 목돈을 다 가져가면 ①의 투자액은 0원이지만, ②에서 매달 쌓이기
-              때문에 ③의 잔고는 0이 아닙니다.
-            </p>
-          </Card>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] text-left">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-xs text-slate-400">
+                      <th className="pb-1.5">굴리는 곳</th>
+                      <th className="pb-1.5 text-right">수익률</th>
+                      <th className="pb-1.5 text-right">매수</th>
+                      <th className="pb-1.5 text-right">전세</th>
+                      <th className="pb-1.5 text-right">월세</th>
+                      <th className="w-28 border-l border-slate-800 pb-1.5 pl-3 text-right">우위</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scenarios.map((s) => (
+                      <tr key={s.id} className="border-b border-slate-800/50" title={s.note}>
+                        <td className="py-1.5 text-xs text-slate-300">
+                          {s.label}
+                          <span className="ml-1 text-slate-500">ⓘ</span>
+                          <span
+                            className={`ml-1.5 rounded border px-1 text-2xs ${
+                              provenanceOf(s.id) === 'measured'
+                                ? 'border-slate-500 text-slate-300'
+                                : provenanceOf(s.id) === 'approx'
+                                  ? 'border-slate-700 text-slate-500'
+                                  : 'border-slate-800 text-slate-500'
+                            }`}
+                          >
+                            {PROVENANCE_LABEL[provenanceOf(s.id)]}
+                          </span>
+                        </td>
+                        <td className="py-1.5 text-right text-xs tabular-nums text-slate-400">
+                          {percent(s.rate, 1)}
+                        </td>
+                        {(['buy', 'jeonse', 'wolse'] as const).map((k) => (
+                          <td
+                            key={k}
+                            className={`py-1.5 text-right text-xs tabular-nums ${
+                              s.best === k && s.gap >= 1000000
+                                ? 'font-semibold text-slate-100'
+                                : 'text-slate-400'
+                            }`}
+                          >
+                            {money(s.terminal[k])}
+                          </td>
+                        ))}
+                        <td className="w-28 border-l border-slate-800/70 py-1.5 pl-3 text-right text-xs tabular-nums text-slate-300">
+                          {LEG_LABEL[s.best]}
+                          <span className="ml-1 text-xs text-slate-400">
+                            {s.gap < 1000000 ? '동률' : `+${money(s.gap)}`}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-3 space-y-1">
+                <p className="text-xs leading-relaxed text-slate-400">
+                  {flipsAcrossReturns ? (
+                    <>
+                      <span className="text-amber-300">수익률 가정 하나로 우위가 뒤집힙니다.</span>{' '}
+                      그렇다면 결론은 “매수가 낫다”가 아니라{' '}
+                      <span className="text-slate-300">
+                        “차액을 어디에 굴릴 자신이 있느냐에 달렸다”
+                      </span>
+                      입니다.
+                    </>
+                  ) : (
+                    <>
+                      이 구간에서는 수익률을 바꿔도 우위가 <span className="text-slate-300">{LEG_LABEL[scenarios[0]?.best ?? 'buy']}</span>로
+                      유지됩니다. 결론이 투자 수익률 가정에 덜 민감하다는 뜻입니다.
+                    </>
+                  )}
+                </p>
+                <p className="text-xs leading-relaxed text-slate-400">
+                  코스피·채권은 KRX 실측입니다 ({INDEXES.range.from.slice(0, 4)}~
+                  {INDEXES.range.to.slice(0, 4)}년 {INDEXES.range.years}년 구간). KRX 에 코스피{' '}
+                  <strong className="text-slate-400">총수익지수가 없어</strong> 가격지수에 배당을
+                  더해 근사하는데, 그 배당{' '}
+                  {(INDEXES.kospi.dividendYieldMeasured * 100).toFixed(2)}%도{' '}
+                  <strong className="text-slate-400">이제 실측</strong>입니다 (ECOS 배당수익률
+                  20년 평균). 두 항 모두 실측이지만 재투자 시점이 안 들어가 여전히 근사입니다.
+                  채권만 총수익지수 실측이라 근사가 아닙니다.
+                  <br />
+                  해외지수는 <strong className="text-slate-400">가격지수만 FRED 실측</strong>이고
+                  배당은 가정입니다 — FRED 에 이 지수들의 배당수익률도 총수익지수도 없다는 것을
+                  확인했습니다. 같은 “실측+가정” 이라도 코스피와 근거 수준이 다릅니다.
+                </p>
+                {measuredInflation() !== null && (
+                  <p className="text-xs leading-relaxed text-slate-400">
+                    전부 <strong className="text-slate-400">명목</strong> 수익률입니다. 같은 기간
+                    소비자물가가 연 {percent(measuredInflation()!, 2)} 올랐으므로(ECOS 실측),
+                    실질로는 각각 그만큼 낮습니다 — 예: 코스피{' '}
+                    {percent(
+                      toReal(investmentOptions().find((o) => o.id === 'kospi')?.rate ?? 0, measuredInflation()!),
+                      2
+                    )}
+                    . 집값 상승률도 명목이라 비교 자체는 성립합니다.
+                  </p>
+                )}
+                <p className="text-xs leading-relaxed text-slate-400">
+                  10년 두 점으로 낸 CAGR 이라 구간을 조금만 옮겨도 크게 달라집니다.
+                  “앞으로도 이만큼”이 아니라 “이 구간에는 이랬다”로 읽으세요.
+                </p>
+                <p className="text-xs leading-relaxed text-amber-200/70">
+                  {RULES.tenure.investmentPresets.currencyWarning}
+                </p>
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid items-start gap-6 xl:grid-cols-2">
+            {/* ── 왜 그렇게 되나 — 현금흐름이 갈리는 지점 ────────── */}
+            {/*
+              매수는 원금상환이 얹혀 현금유출이 큽니다. 그 차액을 임차가 굴린다는 것이
+              이 비교의 전제인데, 화면에는 적립액만 있고 "얼마나 덜 썼는지"가 없었습니다.
+              차액 → 투자 원금 → 수익으로 이어지는 사슬을 한 표에 세웁니다.
+            */}
+            <Card
+              className="h-full"
+              title="매수보다 덜 쓴 돈은 어디로 갔나"
+              subtitle={`매수는 원금상환이 얹혀 현금이 가장 많이 나갑니다. 임차가 덜 쓴 만큼은 그대로 투자로 갑니다 — 이 표의 "덜 쓴 돈"과 "투자 원금 차이"는 정확히 같은 금액입니다.`}
+            >
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[560px] text-left">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-xs text-slate-400">
+                      <th className="pb-1.5">갈래</th>
+                      <th className="pb-1.5 text-right">통장에서 나간 총액</th>
+                      <th className="pb-1.5 text-right">매수보다 덜 씀</th>
+                      <th className="pb-1.5 text-right">투자 원금</th>
+                      <th className="pb-1.5 text-right">투자 수익</th>
+                      <th className="pb-1.5 text-right">주거 순비용</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.legs.map((l) => {
+                      const buyLeg = result.legs.find((x) => x.kind === 'buy')!;
+                      const saved = buyLeg.totalCashOut - l.totalCashOut;
+                      const items = housingCostBreakdown(l);
+                      const open = openCost === l.kind;
+                      return [
+                        <tr key={l.kind} className="border-b border-slate-800/50">
+                          <td className="py-1.5 text-xs text-slate-300">
+                            {l.label}
+                            {/* 자금 부족이면 투자 원금이 음수가 됩니다 — 표에서도 그 사실이 보여야 합니다. */}
+                            {!l.feasible && (
+                              <span
+                                className="ml-1.5 text-2xs text-rose-300"
+                                title={`초기 자금이 ${money(l.shortfall)} 모자랍니다. 아래 숫자는 그 돈을 어디선가 빌려 왔다고 보고 계산한 값이라, 투자 원금이 음수로 나옵니다.`}
+                              >
+                                자금 부족
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-1.5 text-right text-xs tabular-nums text-slate-400">
+                            {money(l.totalCashOut)}
+                          </td>
+                          <td className="py-1.5 text-right text-xs tabular-nums text-slate-200">
+                            {saved > 1 ? money(saved) : '—'}
+                          </td>
+                          <td className="py-1.5 text-right text-xs tabular-nums text-slate-400">
+                            {money(l.investedPrincipal)}
+                          </td>
+                          <td className="py-1.5 text-right text-xs tabular-nums text-slate-200">
+                            {money(l.investmentGain)}
+                          </td>
+                          {/* 순비용은 여러 항목의 합이라 눌러서 풀어 볼 수 있어야 합니다 */}
+                          <td className="py-1.5 text-right text-xs tabular-nums">
+                            <button
+                              type="button"
+                              onClick={() => setOpenCost(open ? null : l.kind)}
+                              className="text-slate-300 transition hover:text-slate-100 no-print"
+                              title={items
+                                .map((i) => `${i.label} ${money(i.amount)}`)
+                                .join(' · ')}
+                            >
+                              {money(l.netHousingCost)}
+                              <span className="ml-1 text-xs text-slate-400">
+                                {open ? '▾' : '▸'}
+                              </span>
+                            </button>
+                            <span className="hidden print:inline">{money(l.netHousingCost)}</span>
+                          </td>
+                        </tr>,
+                        // 인쇄에서는 접힘이 정보 손실이라 항상 펼칩니다.
+                        <tr
+                          key={`${l.kind}-detail`}
+                          className={`border-b border-slate-800/50 ${open ? '' : 'hidden print:table-row'}`}
+                        >
+                          <td colSpan={6} className="bg-slate-950/60 px-3 py-2 print-plain">
+                            <div className="mb-1 text-xs text-slate-400">
+                              {l.label} 주거 순비용 {money(l.netHousingCost)} 의 내역
+                            </div>
+                            <div className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                              {items.map((i) => (
+                                <div
+                                  key={i.label}
+                                  className="flex items-baseline justify-between gap-3"
+                                  title={i.help}
+                                >
+                                  <span className="text-xs text-slate-400">
+                                    {i.label}
+                                    <span className="ml-1 text-slate-500">ⓘ</span>
+                                  </span>
+                                  <span className="text-xs tabular-nums text-slate-300">
+                                    {i.reducesCost ? '−' : ''}
+                                    {money(i.amount)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
+                              {l.kind === 'buy'
+                                ? '원금상환과 집값 변동은 여기 없습니다 — 원금은 돌려받는 자본이고, 집값 상승분은 비용이 아니라 자본이득이라 상계하지 않습니다.'
+                                : '보증금은 여기 없습니다 — 계약 종료 시 돌려받는 자본입니다.'}
+                            </p>
+                          </td>
+                        </tr>,
+                      ];
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-3 text-xs leading-relaxed text-slate-400">
+                매수의 현금유출이 큰 것은 낭비가 아닙니다 — 그중{' '}
+                {money(result.legs.find((l) => l.kind === 'buy')?.principalRepaid ?? 0)}는 원금상환이라
+                집에 쌓입니다. 반대로 임차가 덜 쓴 돈은 투자에 쌓입니다.{' '}
+                <span className="text-slate-300">
+                  어느 쪽이 이기는지는 집값 상승률과 투자 수익률 중 무엇이 더 높으냐로 갈립니다.
+                </span>
+              </p>
+            </Card>
+            {/* ── 갈래별 상세 ──────────────────────────────────── */}
+            <Card
+              className="h-full"
+              title="자금 흐름 — 같은 목돈을 어디에 두느냐의 차이"
+              subtitle={`${legWord} 모두 자기자본 ${money(
+                result.equity
+              )}에서 출발합니다. 주거에 묶는 만큼 투자에 남길 돈이 줄고, 매달 주거비를 덜 쓰는 만큼 투자에 더 넣습니다. 매수자가 갚는 원금은 소비가 아니라 저축이므로, 임차 쪽에도 그 차액만큼 투자시켜야 비교가 성립합니다.`}
+            >
+              <div
+                className={`grid gap-4 ${
+                  result.legs.length > 3 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
+                }`}
+              >
+                {result.legs.map((leg) => (
+                  <LegCard
+                    key={leg.kind}
+                    leg={leg}
+                    best={leg.kind === result.best}
+                    max={Math.max(...result.legs.map((l) => l.terminalWealth))}
+                    equity={result.equity}
+                    years={result.years}
+                    returnRate={result.assumptions.investmentReturnRate}
+                  />
+                ))}
+              </div>
+              <p className="mt-4 text-xs leading-relaxed text-slate-400">
+                ① + ②의 적립액이 투자 원금이 되고, 여기에 수익이 붙어 ③의 투자 잔고가 됩니다.
+                전세처럼 보증금이 목돈을 다 가져가면 ①의 투자액은 0원이지만, ②에서 매달 쌓이기
+                때문에 ③의 잔고는 0이 아닙니다.
+              </p>
+            </Card>
+          </div>
 
           {/* ── 조건 ─────────────────────────────────────────── */}
           <Card
@@ -1114,7 +1121,7 @@ export function TenurePage() {
               <div className="flex items-center gap-2">
                 {/* 전세 쪽 규정은 여기서 바로 펴 봅니다 — 한도·갱신 상한을
                     모르면 이 화면의 보증금 흐름이 왜 그런지 알 수 없습니다. */}
-                <span className="text-[11px] text-slate-500">
+                <span className="text-xs text-slate-400">
                   <HandbookLink id="jeonse-loan">전세 규정 설명서 ◂</HandbookLink>
                 </span>
                 {measured ? <Badge tone="good">일부 실측</Badge> : <Badge tone="warn">실측 아님</Badge>}
@@ -1212,29 +1219,30 @@ export function TenurePage() {
                 source={`${loan.productName} · ${percent(loan.rate)} · 월 ${money(loan.monthlyPayment)} · 룰셋 ${RULES.version}`}
               />
             </div>
-            <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
+            <p className="mt-4 text-xs leading-relaxed text-slate-400">
               점선 밑줄이 그어진 숫자는 <span className="text-slate-300">우리가 정한 값</span>입니다.
               근거가 있는 값과 섞어서 인용하면 도구 전체가 거짓말이 됩니다. 실측으로 바뀐 것은
               전세가율·전월세전환율뿐입니다.
             </p>
           </Card>
 
-          <Card title="이 계산이 아닌 것">
-            <ul className="space-y-1.5">
-              {result.caveats.map((c) => (
-                <li key={c} className="text-xs leading-relaxed text-slate-400">
+          {/* 숫자에 붙는 경고(청약 갈래 단서)는 그대로 보이고, 방법론 단서만 접습니다 */}
+          {plan && (
+            <ul className="space-y-1 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+              {SUBSCRIPTION_CAVEATS.map((c) => (
+                <li key={c} className="text-sm leading-relaxed text-amber-200/90">
                   · {c}
                 </li>
               ))}
-              {/* 청약을 세웠을 때만 붙는 단서 — 이 갈래만 사는 집이 다릅니다. */}
-              {plan &&
-                SUBSCRIPTION_CAVEATS.map((c) => (
-                  <li key={c} className="text-xs leading-relaxed text-amber-300/80">
-                    · {c}
-                  </li>
-                ))}
             </ul>
-          </Card>
+          )}
+          <Foldable summary="이 계산이 아닌 것" count={result.caveats.length}>
+            <ul className="space-y-1">
+              {result.caveats.map((c) => (
+                <li key={c}>· {c}</li>
+              ))}
+            </ul>
+          </Foldable>
         </>
       )}
     </div>

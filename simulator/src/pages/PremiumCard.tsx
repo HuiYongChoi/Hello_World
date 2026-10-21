@@ -65,7 +65,7 @@ export function PremiumCard() {
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[560px] text-left">
           <thead>
-            <tr className="border-b border-slate-800 text-[10px] text-slate-500">
+            <tr className="border-b border-slate-800 text-xs text-slate-400">
               <th className="pb-1.5">단지 · 법정동</th>
               <th className="pb-1.5 text-right">전용</th>
               <th className="pb-1.5 text-right">분양권 → 매매</th>
@@ -77,25 +77,25 @@ export function PremiumCard() {
             {[...rows.slice(0, 8), ...rows.slice(-3)].map((r) => (
               <tr key={r.key} className="border-b border-slate-800/50">
                 <td className="py-1.5">
-                  <div className="text-[11px] font-medium text-slate-200">{r.name}</div>
-                  <div className="text-[10px] text-slate-500">
+                  <div className="text-xs font-medium text-slate-200">{r.name}</div>
+                  <div className="text-xs text-slate-400">
                     {r.umd} · {r.districtLabel}
                   </div>
                 </td>
-                <td className="py-1.5 text-right text-[10px] tabular-nums text-slate-500">
+                <td className="py-1.5 text-right text-xs tabular-nums text-slate-400">
                   {r.area}㎡
                 </td>
-                <td className="py-1.5 text-right text-[10px] tabular-nums text-slate-400">
+                <td className="py-1.5 text-right text-xs tabular-nums text-slate-400">
                   {money(r.presalePrice)} → {money(r.salePrice)}
                 </td>
                 <td
-                  className={`py-1.5 text-right text-[11px] font-semibold tabular-nums ${
+                  className={`py-1.5 text-right text-xs font-semibold tabular-nums ${
                     r.premiumRatio >= 0 ? 'text-slate-100' : 'text-rose-300'
                   }`}
                 >
                   {percent(r.premiumRatio, 1)}
                 </td>
-                <td className="py-1.5 text-right text-[10px] tabular-nums text-slate-600">
+                <td className="py-1.5 text-right text-xs tabular-nums text-slate-400">
                   {premiumPeriod(r)}
                 </td>
               </tr>
@@ -105,18 +105,18 @@ export function PremiumCard() {
       </div>
 
       <div className="mt-4 space-y-1.5">
-        <p className="text-[11px] leading-relaxed text-slate-400">
+        <p className="text-xs leading-relaxed text-slate-400">
           중위 {percent(summary.median, 1)}는 “분양권이 그만큼 싸다”가 아닙니다. 분양권 거래와
           매매 사이에 <span className="text-slate-300">중위 {summary.medianQuarterGap}분기</span>가
           벌어져 있어, 그 기간 시장 전체가 오른 몫이 섞여 있습니다.
         </p>
-        <p className="text-[10px] leading-relaxed text-slate-600">
+        <p className="text-xs leading-relaxed text-slate-400">
           {summary.lossRatio > 0
             ? `그래도 ${percent(summary.lossRatio, 0)}는 준공 후가 더 쌌습니다 — 분양권 프리미엄을 주고 들어갔다가 손해 본 구간이 실제로 있습니다.`
             : '이 표본에서는 준공 후가 더 싼 경우가 없었습니다.'}{' '}
           소형 평형(20㎡ 안팎)에 마이너스가 몰려 있어, 평형대를 함께 보셔야 합니다.
         </p>
-        <p className="text-[10px] leading-relaxed text-slate-600">
+        <p className="text-xs leading-relaxed text-slate-400">
           출처 {PRESALE.source.name} · 기준일 {PRESALE.asOf} · 거래{' '}
           {PRESALE.stats.deals.toLocaleString('ko-KR')}건
         </p>

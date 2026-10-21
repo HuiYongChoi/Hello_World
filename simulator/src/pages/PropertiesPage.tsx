@@ -49,7 +49,7 @@ export function PropertiesPage() {
   const [openId, setOpenId] = useState<string | null>(properties[0]?.id ?? null);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <Card
         title="물건 등록 및 입지 평가"
         subtitle="입지 점수는 객관적 시세 예측이 아니라, 당신이 입력한 주관적 평가의 가중합입니다. 물건 간 상대 비교용으로만 쓰세요."
@@ -110,7 +110,7 @@ function PropertyCard({
       <div className="flex flex-wrap items-center gap-3 px-4 py-3">
         <button type="button" onClick={onToggle} className="flex flex-1 items-center gap-3 text-left">
           <span
-            className={`text-xs text-slate-500 transition ${open ? 'rotate-90' : ''}`}
+            className={`text-xs text-slate-400 transition ${open ? 'rotate-90' : ''}`}
             aria-hidden
           >
             ▶
@@ -119,7 +119,7 @@ function PropertyCard({
           <Badge tone={region.isCapitalArea ? 'bad' : 'good'}>{region.label}</Badge>
           {regulated && <Badge tone="bad">규제지역</Badge>}
           <span className="text-xs tabular-nums text-slate-400">{money(property.price)}</span>
-          <span className="text-xs text-slate-500">전용 {property.areaSqm}㎡</span>
+          <span className="text-xs text-slate-400">전용 {property.areaSqm}㎡</span>
         </button>
         <div className="flex items-center gap-2">
           <Badge tone={GRADE_TONE[score.grade]}>
@@ -231,7 +231,7 @@ function ScorePanel({
       </div>
 
       {showWeights && (
-        <p className="mb-3 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-[11px] leading-relaxed text-slate-400">
+        <p className="mb-3 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs leading-relaxed text-slate-400">
           지역 프리셋은 출발점이지 정답이 아닙니다. 가중치 0인 지표는 해당 지역에서 의미가 없다는
           뜻입니다 (예: 창원의 지하철). 본인 상황에 맞게 조절하세요.
         </p>
@@ -246,7 +246,7 @@ function ScorePanel({
             <div key={cat.id}>
               <div className="mb-2 flex items-center gap-2">
                 <span className="text-xs font-semibold text-slate-300">{cat.label}</span>
-                <span className="text-[11px] text-slate-600">가중치 {catWeight}</span>
+                <span className="text-xs text-slate-400">가중치 {catWeight}</span>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {items.map((ind) => {
@@ -268,7 +268,7 @@ function ScorePanel({
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-medium text-slate-300">{ind.label}</span>
+                        <span className="text-xs font-medium text-slate-300">{ind.label}</span>
                         {showWeights ? (
                           <input
                             type="number"
@@ -276,14 +276,14 @@ function ScorePanel({
                             min={0}
                             max={40}
                             onChange={(e) => setWeight(ind.id, Number(e.target.value))}
-                            className="w-14 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-right text-[11px] tabular-nums text-slate-200"
+                            className="w-14 rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-right text-xs tabular-nums text-slate-200"
                           />
                         ) : (
-                          <span className="text-[10px] tabular-nums text-slate-600">w{w}</span>
+                          <span className="text-2xs tabular-nums text-slate-400">w{w}</span>
                         )}
                       </div>
                       {auto ? (
-                        <div className="mt-1 text-[11px] text-slate-500">
+                        <div className="mt-1 text-xs text-slate-400">
                           기본정보에서 자동 반영 ({raw})
                         </div>
                       ) : (
@@ -295,7 +295,7 @@ function ScorePanel({
                             onChange={(e) => setScore(ind.id, Number(e.target.value))}
                             className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs tabular-nums text-slate-100 outline-none focus:border-sky-500"
                           />
-                          <div className="mt-0.5 text-[10px] text-slate-600">{ind.hint}</div>
+                          <div className="mt-0.5 text-xs text-slate-400">{ind.hint}</div>
                           {/*
                             주관 입력 옆에 실측 신호를 놓습니다 — 대체하지 않습니다.
                             내 판단이 실측 방향과 어긋나는지만 보이면 됩니다.
@@ -309,7 +309,7 @@ function ScorePanel({
                         </>
                       )}
                       {showWeights && presets[ind.id] !== w && (
-                        <div className="mt-0.5 text-[10px] text-amber-400/80">
+                        <div className="mt-0.5 text-xs text-amber-400/80">
                           프리셋 {presets[ind.id]} → {w}
                         </div>
                       )}
@@ -334,7 +334,7 @@ function CategoryRadar({ property }: { property: Property }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 print-plain">
       <h3 className="mb-1 text-sm font-semibold text-slate-200">카테고리 프로필</h3>
-      <p className="mb-2 text-[11px] text-slate-500">
+      <p className="mb-2 text-xs text-slate-400">
         총점 {score.total.toFixed(1)}점 (기본 {score.base.toFixed(1)} − 감점 {score.penalty})
       </p>
       <div className="h-64">
@@ -388,7 +388,7 @@ function PenaltyPanel({
               key={p.id}
               type="button"
               onClick={() => toggle(p.id)}
-              className={`rounded-md border px-2 py-1 text-[11px] transition ${
+              className={`rounded-md border px-2 py-1 text-xs transition ${
                 on
                   ? 'border-rose-500/40 bg-rose-500/15 text-rose-300'
                   : 'border-slate-700 bg-slate-900/50 text-slate-500 hover:text-slate-300'
@@ -438,7 +438,7 @@ function MetricFeedback({
     return (
       <div className="mt-1 rounded border border-slate-800 bg-slate-900/40 px-1.5 py-1">
         <div
-          className="text-[9px] leading-relaxed text-slate-500"
+          className="text-xs leading-relaxed text-slate-400"
           title={
             `${pf.stat.label} — 최근 10년 인구 ${pct(pf.stat.cagr10)}/년\n` +
             `전국 ${pct(pf.nationalCagr10)}/년 대비 ${pct(pf.stat.excess10)}p\n` +
@@ -447,14 +447,14 @@ function MetricFeedback({
           }
         >
           실측 <span className="text-slate-300">{pf.suggested}단계</span>
-          <span className="ml-1 text-slate-600">
+          <span className="ml-1 text-slate-400">
             ({pf.stat.label} 최근 10년 {pct(pf.stat.cagr10)}/년 · 전국 대비{' '}
             {pct(pf.stat.excess10)}p)
           </span>
         </div>
         <div
-          className={`mt-0.5 text-[9px] leading-relaxed ${
-            differs ? 'text-amber-500/80' : 'text-slate-600'
+          className={`mt-0.5 text-xs leading-relaxed ${
+            differs ? 'text-amber-500/80' : 'text-slate-500'
           }`}
         >
           내 입력 {value}단계
@@ -463,7 +463,7 @@ function MetricFeedback({
             : ' — 실측과 같은 방향입니다.'}
         </div>
         {/* 이 한계가 결정적입니다 — 같은 권역이면 물건이 달라도 값이 안 바뀝니다. */}
-        <div className="mt-0.5 text-[9px] leading-relaxed text-slate-600">
+        <div className="mt-0.5 text-xs leading-relaxed text-slate-400">
           시도 단위라 같은 권역 시군구는 전부 같은 값입니다 ({POPULATION.granularity} · 행안부
           통계연보).
         </div>
@@ -486,7 +486,7 @@ function MetricFeedback({
   return (
     <div className="mt-1 rounded border border-slate-800 bg-slate-900/40 px-1.5 py-1">
       <div
-        className="text-[9px] leading-relaxed text-slate-500"
+        className="text-xs leading-relaxed text-slate-400"
         title={
           `${fb.outlook.districtLabel} — 분양권 거래는 있는데 매매가 없는 단지 ${fb.outlook.pending}개.\n` +
           `기존 재고 ${fb.outlook.marketComplexes}개 대비 ${(fb.outlook.pendingRatio * 100).toFixed(1)}%.\n` +
@@ -495,17 +495,17 @@ function MetricFeedback({
           SUPPLY_CAVEATS.map((c) => `· ${c}`).join('\n')
         }
       >
-        실측 대리지표 <span className="text-slate-600">상대점수</span>{' '}
+        실측 대리지표 <span className="text-slate-500">상대점수</span>{' '}
         <span className="text-slate-300 tabular-nums">{fb.suggestedScore}</span>
-        <span className="ml-1 text-slate-600">
+        <span className="ml-1 text-slate-400">
           (미준공 {fb.outlook.pending}개 · 재고 대비 {(fb.outlook.pendingRatio * 100).toFixed(0)}% ·{' '}
           {fb.peers}개 중 {fb.rankBySupply}번째로 많음)
         </span>
       </div>
       {userScore !== null && (
         <div
-          className={`mt-0.5 text-[9px] leading-relaxed ${
-            differs ? 'text-amber-500/80' : 'text-slate-600'
+          className={`mt-0.5 text-xs leading-relaxed ${
+            differs ? 'text-amber-500/80' : 'text-slate-500'
           }`}
         >
           내 입력 {value.toLocaleString('ko-KR')}세대 = {Math.round(userScore)}점
@@ -516,12 +516,12 @@ function MetricFeedback({
             : ' — 실측과 같은 방향입니다.'}
         </div>
       )}
-      <div className="mt-0.5 text-[9px] leading-relaxed text-slate-600">
+      <div className="mt-0.5 text-xs leading-relaxed text-slate-400">
         세대수가 아니라 단지 수이고, 전매제한 단지는 안 잡혀 하한입니다 — 값을 대신 넣지
         않습니다.
       </div>
       {fb.thin && (
-        <div className="mt-0.5 text-[9px] text-slate-600">
+        <div className="mt-0.5 text-xs text-slate-400">
           재고 단지가 {fb.outlook.marketComplexes}개뿐이라 비율이 흔들립니다
         </div>
       )}
