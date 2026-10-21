@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Badge,
   Button,
@@ -20,6 +20,7 @@ import {
 } from '../engine/loan';
 import { leverageView } from '../engine/leverage';
 import { cellKey } from '../engine/matrix';
+import { GROUNDED_MIN, coverageLabel, gradeLabel, scoreProperty } from '../engine/scoring';
 import { propertyThesis } from '../engine/thesis';
 import { useStore } from '../state/store';
 import type {
@@ -32,12 +33,36 @@ import type {
 } from '../engine/types';
 import { AffordabilityCard } from './AffordabilityCard';
 import { HandbookLink } from './HandbookDrawer';
+import { FOCUS_GO_EVENT, goFocus, linkedComplex, takePendingFocus } from './focusLink';
 
 export function ComparePage() {
-  const { properties, matrix, objective, setObjective } = useStore();
-  const [detail, setDetail] = useState<{ property: Property; scenario: DerivedScenario } | null>(
-    null
-  );
+  const { properties, matrix, objective, setObjective, focusProperty, setFocusProperty } = useStore();
+  /*
+   * [대출] 로 넘어오면 그 물건 × 첫 시나리오의 셀 상세를 바로 엽니다 — 상품명이 설명서로,
+   * 필요소득이 그 자리에 있어 "그래서 무엇이 막았나" 까지 클릭 한 번입니다.
+   */
+  const [detail, setDetail] = useState<{ property: Property; scenario: DerivedScenario } | null>(() => {
+    const jump = takePendingFocus(['loan']);
+    if (!jump) return null;
+    const property = properties.find((p) => p.id === jump.propertyId) ?? focusProperty;
+    const scenario = matrix.scenarios[0];
+    return property && scenario ? { property, scenario } : null;
+  });
+
+  /* 이미 매트릭스에 있을 때 넘어온 [대출] — 리스너는 한 번만, 최신 값은 ref 로 */
+  const latest = useRef({ properties, focusProperty, scenarios: matrix.scenarios });
+  latest.current = { properties, focusProperty, scenarios: matrix.scenarios };
+  useEffect(() => {
+    const on = () => {
+      const jump = takePendingFocus(['loan']);
+      if (!jump) return;
+      const { properties: ps, focusProperty: f, scenarios } = latest.current;
+      const property = ps.find((p) => p.id === jump.propertyId) ?? f;
+      if (property && scenarios[0]) setDetail({ property, scenario: scenarios[0] });
+    };
+    window.addEventListener(FOCUS_GO_EVENT, on);
+    return () => window.removeEventListener(FOCUS_GO_EVENT, on);
+  }, []);
 
   if (properties.length === 0) {
     return (
@@ -114,26 +139,32 @@ export function ComparePage() {
             <tbody>
               {properties.map((p) => (
                 <tr key={p.id}>
-                  <th className="rounded-lg bg-slate-900/50 px-3 py-2 text-left align-top print-plain">
-                    <div className="text-sm font-semibold text-slate-100">{p.name}</div>
+                  <th
+                    className={`rounded-lg px-3 py-2 text-left align-top print-plain ${
+                      focusProperty?.id === p.id
+                        ? 'bg-sky-500/10 ring-2 ring-sky-500/40'
+                        : 'bg-slate-900/50'
+                    }`}
+                  >
+                    {/* 물건명을 누르면 초점 물건 — 3-way·실거래가 이 물건으로 열립니다 */}
+                    <button
+                      type="button"
+                      onClick={() => setFocusProperty(p.id)}
+                      title={
+                        focusProperty?.id === p.id
+                          ? '초점 물건입니다 — 위 요약 줄의 버튼으로 차트·3-way 로 건너갑니다'
+                          : '이 물건을 초점으로 — 3-way·실거래 탭이 이 물건으로 열립니다'
+                      }
+                      className="text-left text-sm font-semibold text-slate-100 hover:text-sky-200"
+                    >
+                      {focusProperty?.id === p.id && <span className="mr-1 text-sky-300">▣</span>}
+                      {p.name}
+                    </button>
                     <div className="mt-1 text-xs tabular-nums text-slate-400">
                       {money(p.price)} · 전용 {p.areaSqm}㎡
                     </div>
                     <div className="mt-1.5 flex flex-wrap gap-1">
-                      <Badge
-                        tone={
-                          matrix.cells[cellKey(p.id, matrix.scenarios[0]?.id ?? '')]?.grade === 'D'
-                            ? 'bad'
-                            : 'info'
-                        }
-                      >
-                        입지{' '}
-                        {(
-                          matrix.cells[cellKey(p.id, matrix.scenarios[0]?.id ?? '')]?.localeScore ??
-                          0
-                        ).toFixed(0)}
-                        점
-                      </Badge>
+                      <LocaleBadge property={p} />
                       <ThesisBadge property={p} />
                     </div>
                   </th>
@@ -478,6 +509,27 @@ function HiddenProductBadges({ summary }: { summary: CellSummary }) {
  * 물건 성격 배지. 입지 점수와 **합치지 않고** 나란히 둡니다 —
  * 좋은 동네의 어중간한 구축이 가장 사기 쉬운 실수라, 두 축이 엇갈리는 걸 보여야 합니다.
  */
+/**
+ * 입지 점수 옆에 근거 비중을 늘 붙입니다 — "68점" 만 보이면 그게 직접 넣은 값인지
+ * 미입력 중간값의 가중합인지 알 수 없습니다. 근거가 절반 미만이면 등급에 물음표.
+ */
+function LocaleBadge({ property }: { property: Property }) {
+  const score = scoreProperty(property);
+  const thin = score.coverage.groundedShare < GROUNDED_MIN;
+  return (
+    <Badge
+      tone={score.grade === 'D' ? 'bad' : 'info'}
+      title={
+        thin
+          ? '가중치의 절반 이상이 미입력 중간값입니다 — 물건 화면 점수표에서 채울 수 있습니다'
+          : '근거 = 직접 입력·실측·대리지표로 채운 가중치 비중'
+      }
+    >
+      입지 {score.total.toFixed(0)} · {gradeLabel(score)} · {coverageLabel(score)}
+    </Badge>
+  );
+}
+
 function ThesisBadge({ property }: { property: Property }) {
   const t = propertyThesis(property);
   const tone = t.kind === 'ambiguous' ? 'warn' : t.kind === 'stable' ? 'neutral' : 'good';
@@ -564,6 +616,18 @@ function DetailDrawer({
               {money(property.price)} · 전용 {property.areaSqm}㎡ · 판정소득{' '}
               {money(scenario.assessedIncome)} · 가용현금 {money(scenario.availableCash)}
             </p>
+            {/* 이 셀의 물건으로 건너가기 — 상품명은 아래에서 설명서로 열립니다 */}
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {linkedComplex(property) ? (
+                <DrawerJump onClick={() => goFocus('chart', property.id)}>이 물건 차트</DrawerJump>
+              ) : (
+                <DrawerJump onClick={() => goFocus('edit', property.id)} dashed>
+                  실거래 단지와 잇기 ▸
+                </DrawerJump>
+              )}
+              <DrawerJump onClick={() => goFocus('why', property.id)}>왜 이 가격</DrawerJump>
+              <DrawerJump onClick={() => goFocus('tenure', property.id)}>매수 · 전세 · 월세</DrawerJump>
+            </div>
           </div>
           <Button variant="ghost" onClick={onClose}>
             닫기
@@ -577,6 +641,30 @@ function DetailDrawer({
         </div>
       </div>
     </div>
+  );
+}
+
+function DrawerJump({
+  children,
+  onClick,
+  dashed = false,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  dashed?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg border px-2.5 py-1 text-sm transition ${
+        dashed
+          ? 'border-dashed border-slate-600 text-slate-400 hover:text-slate-200'
+          : 'border-slate-700 bg-slate-800/60 text-slate-200 hover:bg-slate-700 hover:text-slate-100'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

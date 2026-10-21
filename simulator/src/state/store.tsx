@@ -11,25 +11,27 @@ import { ALL_SCENARIO_AXES } from '../engine/scenario';
 import { buildMatrix, type MatrixResult } from '../engine/matrix';
 import { emptyPlan, type SubscriptionPlan } from '../engine/subscription';
 import type { Objective, Profile, Property } from '../engine/types';
-import { DEFAULT_PROFILE, SAMPLE_PROPERTIES, emptyProperty } from './defaults';
-
-const STORAGE_KEY = 'house-simulator-state-v1';
-
-interface PersistedState {
-  profile: Profile;
-  properties: Property[];
-  /** 청약 단지 — 선택 입력. 없으면 청약 축이 화면에 안 나옵니다. */
-  plans: SubscriptionPlan[];
-  enabledScenarioIds: string[];
-  objective: Objective;
-}
+import { SAMPLE_PROPERTIES } from './defaults';
+import {
+  STORAGE_KEY,
+  defaultState,
+  focusAfterRemove,
+  newProperty,
+  resolveFocusId,
+  restoreState,
+  type PersistedState,
+} from './persist';
 
 interface Store extends PersistedState {
   matrix: MatrixResult;
+  /** 초점 물건 — `focusPropertyId` 를 풀어 낸 값 (가리키는 물건이 없으면 첫 물건) */
+  focusProperty: Property | null;
   setProfile: (patch: Partial<Profile>) => void;
-  addProperty: () => string;
+  /** 초안 없이 부르면 빈 물건. 초안이 있으면 그 위에 덮고, 새 id 를 돌려줍니다 (초점은 안 바꿈) */
+  addProperty: (draft?: Partial<Property>) => string;
   updateProperty: (id: string, patch: Partial<Property>) => void;
   removeProperty: (id: string) => void;
+  setFocusProperty: (id: string | null) => void;
   addPlan: () => string;
   updatePlan: (id: string, patch: Partial<SubscriptionPlan>) => void;
   removePlan: (id: string) => void;
@@ -42,34 +44,13 @@ interface Store extends PersistedState {
 const StoreContext = createContext<Store | null>(null);
 
 function initialState(): PersistedState {
-  if (typeof window !== 'undefined') {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<PersistedState>;
-        if (parsed.profile && parsed.properties) {
-          return {
-            profile: { ...DEFAULT_PROFILE, ...parsed.profile },
-            properties: parsed.properties,
-            plans: parsed.plans ?? [],
-            enabledScenarioIds: parsed.enabledScenarioIds?.length
-              ? parsed.enabledScenarioIds
-              : ALL_SCENARIO_AXES.map((a) => a.id),
-            objective: parsed.objective ?? 'monthly',
-          };
-        }
-      }
-    } catch {
-      // 손상된 저장값은 무시하고 기본값으로 시작합니다.
-    }
+  if (typeof window === 'undefined') return defaultState();
+  try {
+    return restoreState(window.localStorage.getItem(STORAGE_KEY));
+  } catch {
+    // 저장소 접근이 막힌 환경(프라이빗 모드 등)은 기본값으로 시작합니다.
+    return defaultState();
   }
-  return {
-    profile: DEFAULT_PROFILE,
-    properties: SAMPLE_PROPERTIES,
-    plans: [],
-    enabledScenarioIds: ALL_SCENARIO_AXES.map((a) => a.id),
-    objective: 'monthly',
-  };
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -87,9 +68,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, profile: { ...s.profile, ...patch } }));
   }, []);
 
-  const addProperty = useCallback(() => {
+  const addProperty = useCallback((draft?: Partial<Property>) => {
     const id = `p-${Date.now().toString(36)}`;
-    setState((s) => ({ ...s, properties: [...s.properties, emptyProperty(id)] }));
+    setState((s) => ({ ...s, properties: [...s.properties, newProperty(id, draft)] }));
     return id;
   }, []);
 
@@ -101,7 +82,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const removeProperty = useCallback((id: string) => {
-    setState((s) => ({ ...s, properties: s.properties.filter((p) => p.id !== id) }));
+    setState((s) => ({
+      ...s,
+      properties: s.properties.filter((p) => p.id !== id),
+      focusPropertyId: focusAfterRemove(s.properties, id, s.focusPropertyId),
+    }));
+  }, []);
+
+  const setFocusProperty = useCallback((id: string | null) => {
+    setState((s) => (s.focusPropertyId === id ? s : { ...s, focusPropertyId: id }));
   }, []);
 
   const addPlan = useCallback(() => {
@@ -142,17 +131,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadSamples = useCallback(() => {
-    setState((s) => ({ ...s, properties: SAMPLE_PROPERTIES }));
+    setState((s) => ({
+      ...s,
+      properties: SAMPLE_PROPERTIES,
+      focusPropertyId: resolveFocusId(SAMPLE_PROPERTIES, s.focusPropertyId),
+    }));
   }, []);
 
   const reset = useCallback(() => {
-    setState({
-      profile: DEFAULT_PROFILE,
-      properties: SAMPLE_PROPERTIES,
-      plans: [],
-      enabledScenarioIds: ALL_SCENARIO_AXES.map((a) => a.id),
-      objective: 'monthly',
-    });
+    setState(defaultState());
   }, []);
 
   const matrix = useMemo(() => {
@@ -160,13 +147,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return buildMatrix(state.profile, axes, state.properties, state.objective);
   }, [state.profile, state.enabledScenarioIds, state.properties, state.objective]);
 
+  const focusPropertyId = resolveFocusId(state.properties, state.focusPropertyId);
+  const focusProperty = state.properties.find((p) => p.id === focusPropertyId) ?? null;
+
   const value: Store = {
     ...state,
+    focusPropertyId,
+    focusProperty,
     matrix,
     setProfile,
     addProperty,
     updateProperty,
     removeProperty,
+    setFocusProperty,
     addPlan,
     updatePlan,
     removePlan,

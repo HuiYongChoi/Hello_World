@@ -1,5 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { INDICATORS, defaultWeights, gradeOf, normalizeMinutes, scoreProperty } from '../scoring';
+import { SAMPLE_PROPERTIES } from '../../state/defaults';
+import { autoIndicators } from '../autoScore';
+import { draftToProperty, pickFromMarket } from '../pick';
+import {
+  INDICATORS,
+  PENALTIES,
+  categoryCoverage,
+  coverageLabel,
+  defaultRaw,
+  defaultWeights,
+  gradeLabel,
+  gradeOf,
+  normalize,
+  normalizeMinutes,
+  scoreProperty,
+} from '../scoring';
+import type { Property } from '../types';
 import { makeProperty } from './fixtures';
 
 describe('정규화', () => {
@@ -78,5 +94,107 @@ describe('점수 산출', () => {
     expect(gradeOf(89.9)).toBe('A');
     expect(gradeOf(70)).toBe('B');
     expect(gradeOf(59.9)).toBe('D');
+  });
+});
+
+/** 자동 점수가 들어오기 전의 산술 그대로 — 회귀 기준 */
+function legacyTotal(p: Property): number {
+  const w: Record<string, number> = { ...defaultWeights(p.region), ...(p.weightOverrides ?? {}) };
+  let sum = 0;
+  let wsum = 0;
+  for (const ind of INDICATORS) {
+    const raw =
+      ind.id === 'householdCount' ? p.householdCount : ind.id === 'builtYear' ? p.builtYear : (p.scores[ind.id] ?? defaultRaw(ind));
+    sum += normalize(ind, raw) * (w[ind.id] ?? 0);
+    wsum += w[ind.id] ?? 0;
+  }
+  const penalty = p.penalties.reduce((s, id) => s + (PENALTIES.find((x) => x.id === id)?.points ?? 0), 0);
+  return Math.min(100, Math.max(0, (wsum > 0 ? sum / wsum : 0) - penalty));
+}
+
+const picked = (cx: string, area: number, over: Partial<Property> = {}): Property => ({
+  ...makeProperty(),
+  ...draftToProperty(pickFromMarket(cx, area)!),
+  ...over,
+});
+
+describe('자동 점수 주입', () => {
+  it('autoFill 없는 물건의 총점은 예전 산술과 같습니다', () => {
+    const cases = [
+      ...SAMPLE_PROPERTIES,
+      makeProperty(),
+      makeProperty({ penalties: ['noise'], weightOverrides: { subwayWalk: 30 } }),
+      makeProperty({ link: { complexId: '48125-555', area: 84 } }), // 고리만 있고 autoFill 없음
+    ];
+    for (const p of cases) {
+      const r = scoreProperty(p);
+      expect(r.total).toBeCloseTo(legacyTotal(p), 10);
+      expect(r.byIndicator.every((i) => i.source === 'user' || i.source === 'default')).toBe(true);
+    }
+  });
+
+  it('autoFill + link 물건은 준공연도·인구 추이가 measured', () => {
+    const r = scoreProperty(picked('48123-171', 85, { householdCount: 900 }));
+    const by = new Map(r.byIndicator.map((i) => [i.id, i]));
+    expect(by.get('builtYear')!.source).toBe('measured');
+    expect(by.get('populationTrend')!.source).toBe('measured');
+    expect(by.get('futureSupply')!.source).toBe('proxy');
+  });
+
+  it('준공연도를 고치면 user 로 바뀝니다', () => {
+    const p = picked('48123-171', 85);
+    const r = scoreProperty({ ...p, builtYear: p.builtYear - 3 });
+    expect(r.byIndicator.find((i) => i.id === 'builtYear')!.source).toBe('user');
+  });
+
+  it('사용자값이 자동값보다 우선, 지우면 자동값으로 돌아옵니다', () => {
+    const p = picked('48125-555', 84);
+    const auto = autoIndicators(p).find((a) => a.id === 'park')!;
+    const withUser = scoreProperty({ ...p, scores: { park: 1 } }).byIndicator.find((i) => i.id === 'park')!;
+    expect(withUser.source).toBe('user');
+    expect(withUser.normalized).toBe(0);
+    const back = scoreProperty({ ...p, scores: {} }).byIndicator.find((i) => i.id === 'park')!;
+    expect(back.source).toBe('proxy');
+    expect(back.normalized).toBe(auto.score);
+    expect(back.raw).toBeNull();
+  });
+
+  it('none 항목은 자동 점수를 받지 않고 default 로 남습니다', () => {
+    const p = picked('48125-555', 84);
+    const r = scoreProperty(p);
+    const none = new Set(autoIndicators(p).filter((a) => a.status === 'none').map((a) => a.id));
+    none.delete('householdCount'); // 기본정보에서 읽습니다
+    for (const i of r.byIndicator) if (none.has(i.id)) expect(i.source).toBe('default');
+  });
+
+  it('coverage.groundedShare = (user+measured+proxy) ÷ 전체 가중치', () => {
+    const r = scoreProperty(picked('48125-555', 84, { scores: { elemInComplex: 3 } }));
+    const { bySource, weightTotal, groundedShare } = r.coverage;
+    expect(weightTotal).toBe(r.byIndicator.reduce((s, i) => s + i.weight, 0));
+    expect(bySource.user + bySource.measured + bySource.proxy + bySource.default).toBe(weightTotal);
+    expect(groundedShare).toBeCloseTo((bySource.user + bySource.measured + bySource.proxy) / weightTotal, 10);
+    expect(bySource.user).toBeGreaterThan(0);
+    expect(coverageLabel(r)).toBe(`근거 ${Math.round(groundedShare * 100)}%`);
+  });
+
+  it('세대수 0 → 그 지표 가중치 0 (모름은 100세대 미만이 아닙니다)', () => {
+    const r = scoreProperty(makeProperty({ householdCount: 0 }));
+    expect(r.byIndicator.find((i) => i.id === 'householdCount')!.weight).toBe(0);
+    expect(scoreProperty(makeProperty({ householdCount: 500 })).byIndicator.find((i) => i.id === 'householdCount')!.weight).toBe(5);
+  });
+
+  it('근거 50% 미만이면 등급에 물음표', () => {
+    const thin = scoreProperty(makeProperty({ householdCount: 0, builtYear: 2018 }));
+    expect(thin.coverage.groundedShare).toBeLessThan(0.5);
+    expect(gradeLabel(thin)).toBe(`${thin.grade}?`);
+    const full = scoreProperty(SAMPLE_PROPERTIES[0]);
+    expect(full.coverage.groundedShare).toBeGreaterThanOrEqual(0.5);
+    expect(gradeLabel(full)).toBe(full.grade);
+  });
+
+  it('카테고리별 근거 가중치는 카테고리 가중치를 넘지 않습니다', () => {
+    const r = scoreProperty(picked('48125-555', 84));
+    for (const c of categoryCoverage(r)) expect(c.grounded).toBeLessThanOrEqual(c.weight);
+    expect(categoryCoverage(r).reduce((s, c) => s + c.weight, 0)).toBe(r.coverage.weightTotal);
   });
 });

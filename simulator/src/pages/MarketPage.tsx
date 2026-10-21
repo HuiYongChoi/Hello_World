@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Badge,
   Card,
@@ -24,9 +24,20 @@ import {
   safetyMargin,
   searchComplexes,
   THIN_DEAL_COUNT,
+  type MarketComplex,
   type MarketPoint,
 } from '../engine/market';
+import { draftToProperty, pickFromMarket } from '../engine/pick';
 import { useStore } from '../state/store';
+import {
+  FOCUS_GO_EVENT,
+  MARKET_SHOW_COMPLEX_EVENT,
+  linkedComplex,
+  marketComplexById,
+  takePendingComplex,
+  takePendingFocus,
+  type ComplexPick,
+} from './focusLink';
 import {
   rollingBacktest,
   splitValidate,
@@ -399,20 +410,55 @@ function SpreadBars({ rows }: { rows: EntryQuarterStat[] }) {
  * 진입분기에서 굴려, "언제 들어갔느냐" 가 결과를 얼마나 가르는지와
  * **그때 찾은 공통점이 다음 시기에도 남는지**를 봅니다.
  */
-function BacktestCard() {
+function BacktestCard({
+  district,
+  districtOnly,
+  onDistrictOnly,
+}: {
+  /** 초점 물건의 구 — 실거래 단지와 이어진 물건일 때만 */
+  district: { code: string; label: string } | null;
+  districtOnly: boolean;
+  onDistrictOnly: (on: boolean) => void;
+}) {
   const [holdYears, setHoldYears] = useState<'3' | '5' | '10'>('5');
   const [benchmark, setBenchmark] = useState<BenchmarkMode>('cohort');
+  const code = districtOnly ? district?.code ?? null : null;
 
   const bt = useMemo(
-    () => rollingBacktest({ holdYears: Number(holdYears), benchmark }),
-    [holdYears, benchmark]
+    () =>
+      rollingBacktest({
+        holdYears: Number(holdYears),
+        benchmark,
+        districtCodes: code ? [code] : undefined,
+      }),
+    [holdYears, benchmark, code]
   );
   const sv = useMemo(() => (bt ? splitValidate(bt) : null), [bt]);
 
+  /* 초점 물건의 구만 — 같은 표본을 그 구로 좁혀, 이 물건이 속한 동네에서 시기·선택이 어떻게 갈렸나 */
+  const districtChip = district && (
+    <button
+      type="button"
+      onClick={() => onDistrictOnly(!districtOnly)}
+      title={`표본을 ${district.label} 단지·평형으로만 좁힙니다. 기준선(같은 시기)도 그 안에서 다시 잽니다`}
+      className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
+        districtOnly
+          ? 'border-sky-500/50 bg-sky-500/15 text-sky-300'
+          : 'border-slate-700 text-slate-400 hover:text-slate-200'
+      }`}
+    >
+      {districtOnly ? '✓ ' : ''}이 물건의 구만 · {district.label}
+    </button>
+  );
+
   if (!bt) {
     return (
-      <Card title="롤링 백테스트 — 진입시점 축">
-        <Empty>이 보유기간으로 만들 수 있는 표본이 없습니다.</Empty>
+      <Card title="롤링 백테스트 — 진입시점 축" action={districtChip}>
+        <Empty>
+          {code
+            ? `${district?.label} 안에서는 이 보유기간으로 만들 수 있는 표본이 없습니다. 구 필터를 풀어 보세요.`
+            : '이 보유기간으로 만들 수 있는 표본이 없습니다.'}
+        </Empty>
       </Card>
     );
   }
@@ -423,17 +469,24 @@ function BacktestCard() {
   return (
     <Card
       title="롤링 백테스트 — 진입시점 축"
-      subtitle="지역은 3개뿐이라 특징 추출 표본이 못 됩니다. 대신 모든 단지·평형을 모든 진입분기에서 굴려, 시점 축에서 봅니다."
+      subtitle={
+        code
+          ? `${district?.label} 단지·평형만 모든 진입분기에서 굴렸습니다. 구 하나라 표본이 얇아지고, 시점 분할 검증은 더 흔들립니다.`
+          : '지역은 3개뿐이라 특징 추출 표본이 못 됩니다. 대신 모든 단지·평형을 모든 진입분기에서 굴려, 시점 축에서 봅니다.'
+      }
       action={
-        <SegmentedControl<'3' | '5' | '10'>
-          value={holdYears}
-          onChange={setHoldYears}
-          options={[
-            { value: '3', label: '3년' },
-            { value: '5', label: '5년' },
-            { value: '10', label: '10년' },
-          ]}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          {districtChip}
+          <SegmentedControl<'3' | '5' | '10'>
+            value={holdYears}
+            onChange={setHoldYears}
+            options={[
+              { value: '3', label: '3년' },
+              { value: '5', label: '5년' },
+              { value: '10', label: '10년' },
+            ]}
+          />
+        </div>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -591,17 +644,44 @@ function BacktestCard() {
   );
 }
 
+/** 화면에 처음 띄울 단지 — 넘겨받은 단지 → 넘겨받은 이동의 물건 → 초점 물건 순 */
+function initialPick(
+  properties: ReturnType<typeof useStore>['properties'],
+  focus: ReturnType<typeof useStore>['focusProperty']
+): { pick: ComplexPick | null; districtOnly: boolean } {
+  const c = takePendingComplex();
+  if (c) return { pick: c, districtOnly: false };
+  const jump = takePendingFocus(['chart', 'returns']);
+  const property = (jump && properties.find((p) => p.id === jump.propertyId)) || focus;
+  const cx = linkedComplex(property);
+  if (!cx || !property?.link) return { pick: null, districtOnly: false };
+  return { pick: { complexId: cx.id, area: property.link.area }, districtOnly: jump?.target === 'returns' };
+}
+
 export function MarketPage() {
-  const { properties } = useStore();
-  const [query, setQuery] = useState('');
-  const [complexId, setComplexId] = useState('');
-  const [areaKey, setAreaKey] = useState('');
+  const { properties, focusProperty, setFocusProperty, addProperty } = useStore();
+  const [init] = useState(() => initialPick(properties, focusProperty));
+  const initCx = init.pick ? marketComplexById(init.pick.complexId) : undefined;
+  const [query, setQuery] = useState(initCx?.name ?? '');
+  const [complexId, setComplexId] = useState(initCx?.id ?? '');
+  const [areaKey, setAreaKey] = useState(initCx && init.pick ? String(init.pick.area) : '');
+  /** 백테스트를 초점 물건의 구로 좁힐지 — [수익률] 로 넘어오면 켜진 채로 엽니다 */
+  const [districtOnly, setDistrictOnly] = useState(init.districtOnly);
   const [fromQ, setFromQ] = useState<number | null>(null);
   const [toQ, setToQ] = useState<number | null>(null);
   // 기준선 기본값은 은행 주담대 금리 수준 — "빌려서 사도 남는가"가 됩니다.
   const [reference, setReference] = useState(0.045);
 
-  const results = useMemo(() => searchComplexes(query), [query]);
+  const searched = useMemo(() => searchComplexes(query), [query]);
+  /*
+   * 물건에서 넘어온 단지는 id 로 직접 고릅니다. 이름 검색은 같은 이름 단지가 30개를 넘으면
+   * 결과에서 빠질 수 있어, 그때는 맨 앞에 끼워 넣습니다.
+   */
+  const picked = complexId ? marketComplexById(complexId) : undefined;
+  const results = useMemo(
+    () => (picked && !searched.some((c) => c.id === picked.id) ? [picked, ...searched] : searched),
+    [picked, searched]
+  );
   const complex = results.find((c) => c.id === complexId) ?? results[0];
   const size =
     complex?.sizes.find((s) => String(s.area) === areaKey) ??
@@ -614,6 +694,69 @@ export function MarketPage() {
   const end = toQ !== null && points.some((p) => p.q === toQ) ? toQ : last;
 
   const result = useMemo(() => cagrBetween(points, start, end), [points, start, end]);
+
+  /** 단지·평형을 직접 고릅니다 — 검색어는 그 단지 이름으로 맞춰 둡니다 */
+  const selectComplex = (cx: MarketComplex, area: number) => {
+    setQuery(cx.name);
+    setComplexId(cx.id);
+    setAreaKey(String(area));
+    setFromQ(null);
+    setToQ(null);
+  };
+
+  /* 이미 이 화면에 있을 때 넘어온 이동 — 리스너는 한 번만, 최신 물건 목록은 ref 로 */
+  const propsRef = useRef({ properties, focusProperty });
+  propsRef.current = { properties, focusProperty };
+  useEffect(() => {
+    const onFocus = () => {
+      const jump = takePendingFocus(['chart', 'returns']);
+      if (!jump) return;
+      const { properties: ps, focusProperty: f } = propsRef.current;
+      const property = ps.find((p) => p.id === jump.propertyId) ?? f;
+      const cx = linkedComplex(property);
+      if (cx && property?.link) selectComplex(cx, property.link.area);
+      if (jump.target === 'returns' && cx) setDistrictOnly(true);
+    };
+    const onComplex = () => {
+      const c = takePendingComplex();
+      const cx = c ? marketComplexById(c.complexId) : undefined;
+      if (c && cx) selectComplex(cx, c.area);
+    };
+    window.addEventListener(FOCUS_GO_EVENT, onFocus);
+    window.addEventListener(MARKET_SHOW_COMPLEX_EVENT, onComplex);
+    return () => {
+      window.removeEventListener(FOCUS_GO_EVENT, onFocus);
+      window.removeEventListener(MARKET_SHOW_COMPLEX_EVENT, onComplex);
+    };
+    // selectComplex 는 setState 만 부르므로 처음 것을 그대로 써도 됩니다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const focusCx = linkedComplex(focusProperty);
+  const focusDistrict = focusCx
+    ? {
+        code: focusCx.regionCode,
+        label: MARKET.regions.find((r) => r.code === focusCx.regionCode)?.label ?? focusCx.regionCode,
+      }
+    : null;
+
+  /** 지금 보고 있는 단지·평형을 이미 물건으로 담았나 */
+  const owned =
+    complex && size
+      ? properties.find((p) => p.link?.complexId === complex.id && p.link.area === size.area)
+      : undefined;
+
+  /*
+   * 둘러보다 바로 담는 길 — 물건 화면의 "시중 단지에서 고르기" 와 같은 계산(pickFromMarket)을 씁니다.
+   * 가격은 최근 4분기 거래 가중 중위, 세대수는 국토부 자료에 없어 0(모름)으로 두고
+   * 물건 화면이 "직접 입력" 을 요구합니다.
+   */
+  const addFromMarket = () => {
+    if (!complex || !size) return;
+    const draft = pickFromMarket(complex.id, size.area);
+    if (!draft) return;
+    setFocusProperty(addProperty(draftToProperty(draft)));
+  };
 
   if (MARKET.complexes.length === 0) {
     return <Empty>실거래 스냅샷이 비어 있습니다. scripts/fetch-market.mjs 를 먼저 실행하세요.</Empty>;
@@ -646,29 +789,57 @@ export function MarketPage() {
             {properties.length > 0 && (
               <div className="mb-4 flex flex-wrap items-center gap-1.5">
                 <span className="w-full text-xs text-slate-400">등록한 물건에서</span>
-                {properties.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      setQuery(p.name);
-                      setComplexId('');
-                      setAreaKey('');
-                      resetPick();
-                    }}
-                    className="rounded-lg bg-slate-800/70 px-2.5 py-1.5 text-sm text-slate-200 transition hover:bg-slate-700 hover:text-slate-100"
-                    title={`${p.sigungu} · ${p.name} 으로 검색어를 채웁니다`}
-                  >
-                    {p.name}
-                    <span className="ml-1 text-xs text-slate-400">{p.sigungu}</span>
-                  </button>
-                ))}
+                {properties.map((p) => {
+                  const cx = linkedComplex(p);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setFocusProperty(p.id);
+                        // 실거래 단지와 이어진 물건은 그 단지·평형을 바로 고르고, 손 입력 물건은 이름으로 검색어만 채웁니다
+                        if (cx && p.link) {
+                          selectComplex(cx, p.link.area);
+                          return;
+                        }
+                        setQuery(p.name);
+                        setComplexId('');
+                        setAreaKey('');
+                        resetPick();
+                      }}
+                      className={`rounded-lg px-2.5 py-1.5 text-sm transition ${
+                        focusProperty?.id === p.id
+                          ? 'bg-sky-500/15 text-sky-200 ring-1 ring-sky-500/40'
+                          : 'bg-slate-800/70 text-slate-200 hover:bg-slate-700 hover:text-slate-100'
+                      }`}
+                      title={
+                        cx
+                          ? `${cx.name} · ${p.link?.area}㎡ 를 바로 고릅니다`
+                          : `${p.sigungu} · ${p.name} 으로 검색어를 채웁니다 — 실거래 단지와 이어지지 않은 물건입니다`
+                      }
+                    >
+                      {p.name}
+                      <span className="ml-1 text-xs text-slate-400">{cx ? `${p.link?.area}㎡` : p.sigungu}</span>
+                      {!cx && <span className="ml-1 text-xs text-slate-400">· 검색만</span>}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
               <Field label="단지 검색" hint="단지명 또는 법정동">
-                <TextInput value={query} onChange={setQuery} placeholder="예: 토월성원, 가음동" />
+                <TextInput
+                  value={query}
+                  onChange={(v) => {
+                    // 손으로 검색하면 물건에서 넘겨받은 단지를 놓고 검색 결과 첫 단지로 갑니다
+                    setQuery(v);
+                    setComplexId('');
+                    setAreaKey('');
+                    resetPick();
+                  }}
+                  placeholder="예: 토월성원, 가음동"
+                />
               </Field>
               <Field label="단지" hint={`검색 결과 ${results.length}개`}>
                 <Select
@@ -743,9 +914,37 @@ export function MarketPage() {
         </Rail>
 
         <div className="min-w-0 space-y-6">
+          <div id="complex-returns">
           <Card
             title={complex && size ? `${complex.name} · ${size.area}㎡` : '단지를 고르세요'}
             subtitle={complex ? `${complex.umd}${complex.buildYear ? ` · ${complex.buildYear}년 준공` : ''}` : undefined}
+            action={
+              complex && size ? (
+                owned ? (
+                  owned.id === focusProperty?.id ? (
+                    <Badge tone="info">초점 물건</Badge>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setFocusProperty(owned.id)}
+                      className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-slate-100"
+                      title="이미 담은 물건입니다. 매트릭스·3-way 가 이 물건을 축으로 열리게 합니다"
+                    >
+                      담은 물건 · {owned.name} 으로 보기
+                    </button>
+                  )
+                ) : (
+                  <button
+                    type="button"
+                    onClick={addFromMarket}
+                    className="rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-1.5 text-sm font-medium text-sky-300 transition hover:bg-sky-500/20"
+                    title="이름·구·전용·준공과 실거래 고리를 채운 물건을 만듭니다. 세대수는 자료에 없어 직접 넣어야 합니다"
+                  >
+                    ＋ 이 단지를 물건으로 추가
+                  </button>
+                )
+              ) : undefined
+            }
           >
             {complex && size && points.length > 0 ? (
               <>
@@ -816,6 +1015,7 @@ export function MarketPage() {
               <Empty>왼쪽에서 단지를 검색하세요.</Empty>
             )}
           </Card>
+          </div>
 
           {complex && size && (
             <Card
@@ -867,7 +1067,11 @@ export function MarketPage() {
         방법론 세 줄은 위 카드의 접이식으로 옮겼습니다 (가이드 05 — 지우지 않고 위치만 이동).
         여기는 "이 수치로 무엇을 하면 안 되는가"만 남깁니다.
       */}
-      <BacktestCard />
+      <BacktestCard
+        district={focusDistrict}
+        districtOnly={districtOnly && focusDistrict !== null}
+        onDistrictOnly={setDistrictOnly}
+      />
 
       <Foldable summary="이 숫자가 아닌 것 · 출처" count={3}>
         <ul className="space-y-1">

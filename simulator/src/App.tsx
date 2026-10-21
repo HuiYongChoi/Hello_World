@@ -13,7 +13,15 @@ import { RentFinderApp } from './rentfinder/RentFinderApp';
 import type { RentTarget } from './rentfinder/loans';
 import { BoardFrame } from './rentfinder/BoardFrame';
 import { MarketPage } from './pages/MarketPage';
-import { DISTRICT_CHART_EVENT } from './pages/districtChartLink';
+import { DISTRICT_CHART_EVENT, openDistrictChart } from './pages/districtChartLink';
+import {
+  FOCUS_ANCHORS,
+  FOCUS_GO_EVENT,
+  MARKET_SHOW_COMPLEX_EVENT,
+  linkedComplex,
+  type FocusJump,
+} from './pages/focusLink';
+import { FocusBar } from './components/FocusBar';
 import { HandbookDrawer } from './pages/HandbookDrawer';
 import { ComplexDetailDrawer, openComplexDetail } from './rentfinder/ComplexDetailDrawer';
 import { TenurePage } from './pages/TenurePage';
@@ -95,6 +103,30 @@ function readLast<T extends string>(key: string, allowed: readonly T[], fallback
   }
 }
 
+/**
+ * 그 id 의 자리로 내려갑니다. 탭을 막 바꾼 직후라 자리가 아직 없을 수 있어 잠깐 기다리고,
+ * 끝내 없으면(그 물건엔 그 칸이 없음) 맨 위로 — 엉뚱한 자리에 멈추는 것보다 낫습니다.
+ * 머리줄이 sticky 라 그 높이(--header-h)만큼 덜 내려갑니다.
+ */
+function scrollToAnchor(id: string | null) {
+  if (!id) {
+    window.scrollTo({ top: 0 });
+    return;
+  }
+  let tries = 0;
+  const step = () => {
+    const el = document.getElementById(id);
+    if (!el) {
+      if (++tries < 20) window.setTimeout(step, 50);
+      else window.scrollTo({ top: 0 });
+      return;
+    }
+    const header = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 0;
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - header - 12, behavior: 'smooth' });
+  };
+  window.setTimeout(step, 60);
+}
+
 function writeLast(key: string, value: string) {
   try {
     localStorage.setItem(key, value);
@@ -152,7 +184,59 @@ export function App() {
     }
     window.scrollTo({ top: 0 });
   };
-  const { reset, matrix } = useStore();
+  const { reset, matrix, properties, focusPropertyId, setFocusProperty } = useStore();
+
+  /*
+   * 초점 물건 하나를 축으로 — [차트][대출][왜 이 가격][수익률][3-way][수정].
+   * App 은 탭·단계를 옮기고 스크롤만 맡습니다. 그 자리에서 무엇을 고를지(단지·셀 상세)는
+   * 받는 화면이 takePendingFocus() 로 꺼내 정합니다. 리스너는 한 번만 달고 최신 스토어는 ref 로 읽습니다.
+   */
+  const focusRef = useRef({ properties, focusPropertyId, setFocusProperty });
+  focusRef.current = { properties, focusPropertyId, setFocusProperty };
+  useEffect(() => {
+    const on = (e: Event) => {
+      const { target, propertyId } = (e as CustomEvent<FocusJump>).detail;
+      const s = focusRef.current;
+      const id = propertyId ?? s.focusPropertyId;
+      if (id && id !== s.focusPropertyId) s.setFocusProperty(id);
+      const property = s.properties.find((p) => p.id === id);
+      switch (target) {
+        case 'chart': {
+          setTab('market');
+          // 구별 차트 카드가 그 구를 골라 두고 스스로 내려갑니다
+          const cx = linkedComplex(property);
+          if (cx) openDistrictChart(cx.regionCode);
+          else scrollToAnchor(FOCUS_ANCHORS.returns);
+          break;
+        }
+        case 'returns':
+          setTab('market');
+          scrollToAnchor(FOCUS_ANCHORS.returns);
+          break;
+        case 'loan':
+          setTab('compare');
+          scrollToAnchor(null);
+          break;
+        case 'tenure':
+          setTab('tenure');
+          scrollToAnchor(null);
+          break;
+        case 'why':
+        case 'edit':
+          setTab('input');
+          setInputStep('properties');
+          scrollToAnchor(FOCUS_ANCHORS[target]);
+          break;
+      }
+    };
+    const onComplex = () => setTab('market');
+    window.addEventListener(FOCUS_GO_EVENT, on);
+    window.addEventListener(MARKET_SHOW_COMPLEX_EVENT, onComplex);
+    return () => {
+      window.removeEventListener(FOCUS_GO_EVENT, on);
+      window.removeEventListener(MARKET_SHOW_COMPLEX_EVENT, onComplex);
+    };
+  }, []);
 
   const openLoanDetail = (deposit: number, areaSqm: number) => {
     setLoanJump((j) => ({ n: (j?.n ?? 0) + 1, target: { deposit, rent: 0, areaSqm } }));
@@ -245,6 +329,8 @@ export function App() {
       </header>
 
       <main className={fullBleed ? 'max-w-none px-3 py-4' : 'mx-auto max-w-[1800px] px-6 py-6 2xl:px-10'}>
+        {/* 판정·근거 탭은 초점 물건 한 줄로 시작합니다 — 입력 탭은 물건 화면 자체가 있어 안 띄웁니다 */}
+        {(tab === 'compare' || tab === 'tenure' || tab === 'market') && <FocusBar tab={tab} />}
         <TodayCard onGo={go} />
         {tab === 'input' && (
           <div className="space-y-6">

@@ -594,9 +594,7 @@ function LegCard({
 }
 
 export function TenurePage() {
-  const { properties, matrix, profile, plans } = useStore();
-
-  const [propertyId, setPropertyId] = useState('');
+  const { properties, matrix, profile, plans, focusProperty, setFocusProperty } = useStore();
   /** 청약 갈래로 세울 단지. 빈 문자열이면 3갈래 그대로입니다. */
   const [planId, setPlanId] = useState('');
   const [scenarioId, setScenarioId] = useState('');
@@ -604,7 +602,11 @@ export function TenurePage() {
   /** 순비용 내역을 펼친 갈래 */
   const [openCost, setOpenCost] = useState<TenureKind | null>(null);
 
-  const property = properties.find((p) => p.id === propertyId) ?? properties[0];
+  /*
+   * 물건은 초점 물건 그대로입니다 — 로컬로 따로 고르면 매트릭스에서 본 물건과 여기 물건이 어긋납니다.
+   * 셀렉트로 바꾸면 초점이 같이 바뀌어 매트릭스·실거래도 그 물건으로 열립니다.
+   */
+  const property = focusProperty ?? properties[0];
   const scenario = matrix.scenarios.find((s) => s.id === scenarioId) ?? matrix.scenarios[0];
   const cell = property && scenario ? matrix.cells[cellKey(property.id, scenario.id)] : undefined;
   const loan = cell?.best ?? null;
@@ -689,7 +691,7 @@ export function TenurePage() {
           <Field label="물건">
             <Select
               value={property?.id ?? ''}
-              onChange={setPropertyId}
+              onChange={setFocusProperty}
               options={properties.map((p) => ({
                 value: p.id,
                 label: `${p.name || '이름 없음'} · ${money(p.price)}`,

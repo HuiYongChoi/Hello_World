@@ -70,6 +70,37 @@ export interface Property {
   penalties: string[];
   /** 지역 프리셋 대비 사용자 가중치 오버라이드 */
   weightOverrides?: Record<string, number>;
+  /**
+   * 실거래 스냅샷의 단지·평형. 있으면 "시중 물건", 손 입력 물건은 undefined.
+   * 고리만 담습니다 — 값(가격·면적·준공)은 위 필드가 그대로 진실입니다.
+   */
+  link?: PropertyLink;
+  /**
+   * 자동 점수 적용 여부. 고르기로 만든 물건은 true, 손 입력은 "자동 채우기" 를 눌러야 true.
+   * 없으면 지금과 완전히 같은 점수가 나옵니다 — `scores` 는 여전히 **사용자가 넣은 값만** 담고,
+   * 자동값은 저장하지 않고 매번 스냅샷에서 다시 냅니다.
+   */
+  autoFill?: boolean;
+  /** 매매가를 어디서 가져왔나. 사용자가 price 를 고쳐도 지우지 않고, 화면이 어긋남을 "직접 수정" 으로 표시 */
+  priceBasis?: PriceBasis;
+}
+
+/** 물건 ↔ 실거래 스냅샷 고리. `area` 는 스냅샷의 정수 ㎡ (반올림된 값) */
+export interface PropertyLink {
+  complexId: string;
+  area: number;
+}
+
+/** 시중 물건 가격의 출처 — 최근 묶음 구간의 거래 가중 중위 */
+export interface PriceBasis {
+  /** 가져올 때의 가격 (원). 지금 `price` 와 다르면 사용자가 고친 것 */
+  price: number;
+  /** 묶음 구간 라벨 (예: "2025Q3~2026Q2") */
+  window: string;
+  /** 구간 안 거래 건수 */
+  n: number;
+  /** 표본이 얇음 (n<3) */
+  thin: boolean;
 }
 
 export type BindingConstraint = 'LTV' | 'CAP' | 'DSR' | 'DTI' | 'PRICE';

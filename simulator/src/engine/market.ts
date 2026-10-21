@@ -383,3 +383,44 @@ export function mainSize(complex: MarketComplex): MarketSize | null {
     return nb > na ? b : a;
   });
 }
+
+/**
+ * 최근 몇 분기를 **거래건수로 가중한 중위**로 묶습니다 — `(lastQ − quarters, lastQ]`.
+ *
+ * 분기 중위를 그냥 평균하면 1건짜리 분기와 10건짜리 분기가 같은 무게가 됩니다.
+ * 분기 중위를 가격순으로 놓고 거래건수를 쌓아 절반을 넘는 칸을 고릅니다.
+ * 단지 상세(`rentfinder/complex.ts`)의 평형별 매매 묶음과 같은 규칙이고,
+ * 테스트가 두 값을 대조합니다.
+ *
+ * `lastQ` 는 보통 마지막 **완결** 분기입니다 (수집이 분기 도중에 끝나면 그 분기는 덜 잡힘).
+ * 구간 안에 거래가 없으면 `null`.
+ */
+export function pooledMedian(
+  points: MarketPoint[],
+  lastQ: number,
+  quarters: number
+): { price: number; n: number } | null {
+  const sorted = points
+    .filter((p) => p.q > lastQ - quarters && p.q <= lastQ && p.price > 0 && p.n > 0)
+    .sort((a, b) => a.price - b.price);
+  const total = sorted.reduce((s, p) => s + p.n, 0);
+  if (total === 0) return null;
+  let acc = 0;
+  for (const p of sorted) {
+    acc += p.n;
+    if (acc * 2 >= total) return { price: p.price, n: total };
+  }
+  return null;
+}
+
+/** 묶음 구간 라벨 — `2025Q3~2026Q2` */
+export function pooledWindowLabel(lastQ: number, quarters: number): string {
+  return `${quarterLabel(lastQ - quarters + 1)}~${quarterLabel(lastQ)}`;
+}
+
+const COMPLEX_BY_ID = new Map<string, MarketComplex>(MARKET.complexes.map((c) => [c.id, c]));
+
+/** 단지 id → 단지. 스냅샷에 없으면 null */
+export function findComplex(id: string): MarketComplex | null {
+  return COMPLEX_BY_ID.get(id) ?? null;
+}
