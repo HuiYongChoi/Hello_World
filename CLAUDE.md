@@ -232,7 +232,7 @@ r_equity ≈ r_asset + (L/E) × (r_asset − i)
 ```bash
 cd simulator
 npm run dev              # 개발 서버 localhost:5173
-npm test                 # 엔진 단위 테스트 (현재 530건)
+npm test                 # 엔진 단위 테스트 (현재 569건)
 npm run scorecard        # 채점표 — 구조·연결·검증·산출물 100점 만점
 npm run typecheck
 npm run deploy:realty    # 빌드 → 루트 realty/index.html (GitHub Pages /realty/)
@@ -822,6 +822,27 @@ claude.ai 아티팩트로도 쓰기 때문입니다(아티팩트는 공유 DB, �
   (600) 에만 있습니다. 저장소에는 `.env.watch.example` 뿐입니다.
 - 동·호수가 없어 층까지만 압니다. 같은 층·같은 만기가 두 줄이면 두 세대인지 중복
   신고인지 가릴 수 없고, 메일·화면에 그렇게 적습니다.
+
+### prototype2 에서 들어온 것 — 오늘 볼 것 · 단지 상세 · 동네 시세판 · 시장 온도
+
+참고 사이트(호갱노노·플래닛·R114·한국부동산원)의 **기능만** 우리 자료로 만들었습니다.
+크롤링·새 API 없음. 설계는 `docs/prototype2/DESIGN.md`, 검토 안내는 `REVIEW.md`.
+
+| 기능 | 자리 | 계산 |
+|---|---|---|
+| 오늘 볼 것 | 모든 탭 맨 위 카드 (`pages/TodayCard.tsx`) | `rentfinder/today.ts` — 전세 신호·남은 후보·청약 새 공고·시장 온도 한 줄 |
+| 단지 상세 (호갱노노식) | 후보판 "상세" · 찾기 ③ 단지 이름 → 오른쪽 패널 (`ComplexDetailDrawer.tsx`) | `rentfinder/complex.ts` — 같은 단지·평형 분기 추이, 머리 숫자는 후보판과 같은 함수 |
+| 동네 시세판 (R114·플래닛식) | ＋ 청약·전월세 하위 단계 (`TownBoardPage.tsx`) | `rentfinder/town.ts` — 동별 ㎡당 중위·전세가율·거래량 1년 변화·신축 비중 |
+| 시장 온도 (부동산원 대체) | 실거래 수익률 탭 맨 위 (`pages/TemperatureCard.tsx`) | `engine/temperature.ts` — 지표를 나란히, **합산 점수 없음** |
+
+- 스냅샷이 분기 중위라 "최근 거래" 는 **최근 분기** 단위입니다. 매매(Q2)·전세(Q3)의
+  마지막 완결 분기가 달라 `lastCompleteQ` 로 1년 창을 따로 잡고 라벨에 적습니다.
+- 후보판 "상세" 버튼은 부모 창에 postMessage 를 보냅니다. 받을 부모가 없거나
+  `PROFILE.detail` 이 없으면(아티팩트판) 버튼을 그리지 않습니다.
+- `VITE_PROTOTYPE=2` 로 빌드하면(`npm run deploy:realty-p2`) 상단에 "바뀐 것" 배너가
+  붙습니다 — 운영 빌드엔 없습니다. 검토판은 `/hyrealty-p2/` 에 직접 올리고, 이 빌드를
+  master 에 커밋하면 GitHub Pages 에 배너가 올라가니 커밋 전에 `deploy:realty` 로 다시
+  빌드합니다. `deploy-aws.sh` 는 `DEPLOY_SITE_PATH` 를 명령줄에서 덮어쓸 수 있습니다.
 
 ### 함안·의령에는 살 집이 거의 없습니다
 
